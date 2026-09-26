@@ -141,7 +141,7 @@ jobs:
       - name: Bench anchor gate（量空气防线：锚登记表 ↔ bench 路径引用名实相符）
         run: python -X utf8 scripts/bench_anchor_gate.py
 
-      - name: Deps-lock gate（S147：rust 依赖段恒空红线机器化）
+      - name: Deps-lock gate（S147 加严：Cargo 恒空 / CI 依赖登记+钉版 / workflow 钉 sha）
         run: python -X utf8 scripts/deps_lock.py
 
       - name: Selftest hard gate（对账行从"提示"升为"退出码"）
