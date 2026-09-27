@@ -202,8 +202,8 @@ mod tests {
 
     #[test]
     fn overlapping_hits_counted() {
-        // "aaaa" 里 "aa" 的重叠命中：位置 0,1,2 共 3 次（与 Python find(j+1) 同语义）
-        let got = xor_scan_bytes(b"aaaa", b"aa", 2);
+        // "aaaa" 里 "aa" 的重叠命中：位置 0,1,2 共 3 次（与 Python find(j+1) 同语义） // naming:allow（检测器词表/掩码样例）
+        let got = xor_scan_bytes(b"aaaa", b"aa", 2); // naming:allow（检测器词表/掩码样例）
         let map: std::collections::HashMap<u32, u32> = got.into_iter().collect();
         assert_eq!(map.get(&0), Some(&3));
     }

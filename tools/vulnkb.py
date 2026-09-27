@@ -55,7 +55,7 @@ KB = [
      "fix": "跑一次静态检查或 pytest 收集；改名避免遮蔽内建",
      "precedent": "本仓 bug_scan 的 defined 收集按 3.14 AST 口径（S83 对照实验）",
      "tags": ["逻辑"]},
-    {"id": "kb-placeholder", "rules": ["placeholder", "magic_number"],
+    {"id": "kb-placeholder", "rules": ["placeholder", "magic_number"],  # naming:allow（规则 id 词表）
      "langs": ["any"], "title": "占位/假数据与魔法数字",
      "cause": "TODO 占位、测试假数据残留、无解释的数字常量——交付前漏清",
      "fix": "占位词清零或转 TODO 工单；魔法数字提取为具名常量",

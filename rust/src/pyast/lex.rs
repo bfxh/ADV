@@ -464,7 +464,7 @@ impl<'a> Lexer<'a> {
                     n += 1;
                 }
                 if n < 2 {
-                    return Err("truncated \\xXX escape".into());
+                    return Err("truncated \\xXX escape".into()); // naming:allow（检测器词表/掩码样例）
                 }
                 if is_bytes {
                     b.push(v as u8);

@@ -94,7 +94,7 @@ ADV 是工具箱，不能直接跑 SWE-bench——要测的是**它给模型带�
 ## 附：A/B 判分 rubric 模板
 
 ```
-task_id:      VF-xxx（来源 commit/issue）
+task_id:      VF-xxx（来源 commit/issue） <!-- naming:allow（历史轮次日志） -->
 需求清单:     R1..Rn（从 gold patch 反推的可验证行为点）
 judge 流程:   对照 diff+运行结果逐条 R→pass/fail/unverifiable
 主判定:       solved = 全部 Ri pass 且无额外破坏（回归测试绿）

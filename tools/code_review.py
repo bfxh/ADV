@@ -30,7 +30,7 @@ _RE_DANGER = [
     (re.compile(r"\.innerHTML\s*="), "innerHTML 直接赋值（XSS 面）"),
     (re.compile(r"execute\s*\([^)]*[%+]"), "SQL 拼接执行"),
 ]
-_RE_TODO = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b")
+_RE_TODO = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b")  # naming:allow（检测器规则词表）
 _FUNC_LONG = 80
 # 24 空格（6 层）对 try/except 密集的基建代码是常规密度；28（7 层）才是真离群
 _NEST_SPACES = 28

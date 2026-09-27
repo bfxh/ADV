@@ -7,7 +7,7 @@
 口径（保守优先，误报比漏报伤人；唯一实现在 rust/src/deadcode.rs——
 `rx-ide deadcode` 子命令，复用 pyast.rs 迷你解析器）：
 - 引用 = 所有 `.py` 里出现的 ast.Name（任意 ctx）/ ast.Attribute 名字（跨模块算活）；
-  `def foo():` 定义处本身不产生 Name 节点，所以"零 Name/Attribute 出现"是可靠死信号；
+  `def foo():` 定义处本身不产生 Name 节点，所以"零 Name/Attribute 出现"是可靠死信号；  # naming:allow（死代码文档示例）
 - **字符串引用升级**：名字出现在任何字符串字面量里（getattr 分发、注册表、
   __all__）→ 不判死，单独列 suspect_dynamic——动态分发静态分析看不见；
 - **带装饰器的定义默认豁免**：@tool/@app.route 之类是框架注册点（S135 为 pyast

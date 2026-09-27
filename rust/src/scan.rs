@@ -7,7 +7,7 @@
 //!   名额只计代码文件（非代码文件不烧额度），满额即整体停走。
 //! - 无沙盒门：与 Python 版一致（纯读分析，S75 审计定性=本职）。
 //! - 正则全部手写移植（红线：无 regex crate）：备选顺序/贪婪回溯/懒惰扩张
-//!   逐条复刻，含已知怪癖——文件名兜底把 foo.tsx 捕获成 foo.ts（备选里
+//!   逐条复刻，含已知怪癖——文件名兜底把 foo.tsx 捕获成 foo.ts（备选里 // naming:allow（检测器词表/掩码样例）
 //!   ts 先于 tsx 且命中即止）。
 //! - 输出键序与 Python dict 一致；不做任何排序（顺序即遍历序）。
 
@@ -212,8 +212,8 @@ fn is_word_char_at(s: &str, i: usize) -> bool {
 // ---------- std_check ----------
 
 const PLACEHOLDER_WORDS: [&str; 12] = [
-    "TODO", "FIXME", "placeholder", "占位", "待实现", "未实现",
-    "lorem", "example.com", "your_name", "xxx", "foo", "bar",
+    "TODO", "FIXME", "placeholder", "占位", "待实现", "未实现", // naming:allow（检测器词表/掩码样例）
+    "lorem", "example.com", "your_name", "xxx", "foo", "bar", // naming:allow（检测器词表/掩码样例）
 ];
 
 const MAGIC_LANGS: [&str; 6] = ["rust", "python", "go", "typescript", "javascript", "gdscript"];
@@ -287,7 +287,7 @@ fn std_check_file(src: &str, fp: &str, lang: &str, out: &mut Vec<Value>) {
                 out.push(Value::Obj(vec![
                     ("file".into(), Value::Str(fp.into())),
                     ("line".into(), Value::Int(idx)),
-                    ("rule".into(), Value::Str("placeholder".into())),
+                    ("rule".into(), Value::Str("placeholder".into())), // naming:allow（检测器词表/掩码样例）
                     ("msg".into(), Value::Str(format!("占位/假数据文字: {}", w))),
                     ("text".into(), Value::Str(strip80(line))),
                 ]));
@@ -466,7 +466,7 @@ fn find_ident_brace(src: &str, ident: &str) -> Vec<i128> {
     out
 }
 
-/// `Button\b[^:]*:\s*$`（re.MULTILINE）手写移植：无左边界（MyButton foo: 也
+/// `Button\b[^:]*:\s*$`（re.MULTILINE）手写移植：无左边界（MyButton foo: 也 // naming:allow（检测器词表/掩码样例）
 /// 命中）；[^:]* 跨行吞到首个 ':'；`$` 语义 = ':' 后的空白串里含 '\n'
 /// （$ 落在换行前）或空白串直达文尾。
 fn find_godot_button(src: &str) -> Vec<i128> {
@@ -645,7 +645,7 @@ fn marker_interaction_ref(src: &str, marker: &str) -> bool {
 // ---------- bug_locate ----------
 
 /// 文件名/traceback 两处共用的扩展名备选，顺序即 Python 正则备选顺序
-/// （ts 先于 tsx、js 先于 jsx——命中即止，foo.tsx 捕获成 foo.ts 的怪癖源头）。
+/// （ts 先于 tsx、js 先于 jsx——命中即止，foo.tsx 捕获成 foo.ts 的怪癖源头）。 // naming:allow（检测器词表/掩码样例）
 const FILE_EXTS: [&str; 13] = [
     "py", "rs", "go", "ts", "js", "tsx", "jsx", "gd", "cs", "java", "kt", "rb", "php",
 ];
@@ -869,7 +869,7 @@ fn extract_traceback(text: &str) -> Vec<(String, i64)> {
 
 /// `([A-Za-z_][A-Za-z0-9_.]*\.(?:py|rs|...))` 手写移植：贪婪回溯从右往左找 '.'
 /// 拆分点；拆分点确定后扩展名备选按原序首个前缀命中即收（ts 先于 tsx →
-/// foo.tsx 捕获成 foo.ts，怪癖保真）。运行段内所有拆分点都试败时，段内
+/// foo.tsx 捕获成 foo.ts，怪癖保真）。运行段内所有拆分点都试败时，段内 // naming:allow（检测器词表/掩码样例）
 /// 更晚起点只是同批拆分点的子集，不可能命中 → 整段跳过。
 fn extract_filenames(text: &str) -> Vec<String> {
     let b = text.as_bytes();

@@ -1,6 +1,6 @@
 """scripts/quality_pact_gate.py —— 质量-速度契约门（S173，CD-PLATFORM §三.2）。
 
-**判据**：范围内主题以 `perf` 开头的提交（`perf:` / `perf(xxx):`），正文必须含一行
+**判据**：范围内主题以 `perf` 开头的提交（`perf:` / `perf(xxx):`），正文必须含一行  # naming:allow（检测器词表/样例）
 `EVIDENCE:`——三选一（对应 CD-PLATFORM §3.1）：
   · `EVIDENCE: 对拍一致`（+哈希/口径）——行为不变的性能改动；
   · `EVIDENCE: 行为变更+理由`——性能改动同时是产品口径变化（须走金样更新/理由登记）；

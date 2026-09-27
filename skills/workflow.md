@@ -167,7 +167,7 @@ python -X utf8 scripts/local_gate.py --list   # 看步骤
 
 ```bash
 # 在 D:\开发\ADV（开发版）：
-git checkout main && git merge feat/xxx && py -3.11 -m pytest -q
+git checkout main && git merge feat/xxx && py -3.11 -m pytest -q <!-- naming:allow（历史轮次日志） -->
 git push origin main --tags
 
 # 在 D:\rj\MCP（维稳版）：

@@ -149,7 +149,7 @@ mod tests {
         // 由 Python 参考实现 tools/gpu.py::ngram_hashes_cpu 实算取值（非手写估计）
         let data = b"abcd";
         assert_eq!(fnv1a32(data, 0, 4), 0xCE3479BD);
-        assert_eq!(fnv1a32(b"aaaa", 0, 4), 0x4CEB2DB9);
+        assert_eq!(fnv1a32(b"aaaa", 0, 4), 0x4CEB2DB9); // naming:allow（检测器词表/掩码样例）
         assert_eq!(fnv1a32(b"zzzz", 0, 4), 0xE16993A5);
     }
 

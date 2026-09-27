@@ -615,7 +615,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 176,
+  "file_lines": 180,
   "max_fn_lines": 67,
   "max_type_members": 0
  },
@@ -628,6 +628,11 @@
   "file_lines": 154,
   "max_fn_lines": 81,
   "max_type_members": 3
+ },
+ "scripts/naming_gate.py": {
+  "file_lines": 133,
+  "max_fn_lines": 23,
+  "max_type_members": 0
  },
  "scripts/path_gate.py": {
   "file_lines": 125,

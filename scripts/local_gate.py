@@ -39,6 +39,10 @@ CARGO = shutil.which("cargo") or "cargo"
 # tests/test_s145_gates.py 锁：core.yml 里出现的门脚本必须都在这里）。
 STEPS = [
     ("secrets",     [PY, "-X", "utf8", "scripts/ci_secrets_gate.py"], "fast", "明文红线（key 门）"),
+    ("naming-gate", [PY, "-X", "utf8", "scripts/naming_gate.py",
+                     "--forbid", "PhysArena", "--forbid", "RUST WL", "--forbid", "unified-rx",  # naming:allow（退役旧名作为门参数传入）
+                     "--allow-name", "unified-rx-rs", "--allow-name", "unified-rx-pytest"],
+     "fast", "命名纪律门（占位词/杂物/退役旧名；主名 ADV 白名单外全专业）"),
     ("path-gate",   [PY, "-X", "utf8", "scripts/path_gate.py"], "fast", "路径门（符号链接/文件名卫生/越界写）"),
     ("self-attack", [PY, "-X", "utf8", "scripts/attack_gate.py"], "fast", "自攻门（巡航 clean）"),
     ("data-flow",   [PY, "-X", "utf8", "scripts/taint_gate.py"], "fast", "数据流门（taint 基线）"),

@@ -28,7 +28,7 @@
     验证（`With<Marker>` 或 `&Marker…Interaction` 同现即救回）；godot `$`
     ≡ 冒号后空白串含换行或直达文尾；unity 无边界 `new Button(`（renew 也中）
   - bug_locate：报错文本 → file:line；三层提取（traceback File "x.py", line N
-    → 文件名 → 符号 'xxx'）；已知怪癖：文件名兜底把 foo.tsx 捕获成 foo.ts
+    → 文件名 → 符号 'xxx'）；已知怪癖：文件名兜底把 foo.tsx 捕获成 foo.ts <!-- naming:allow（历史轮次日志） -->
 - **S83 bug_scan 全量原生化**：rx-scan bugscan 子命令（rust/src/bug.rs 规则层 +
   rust/src/pyast.rs 手写 Python 迷你解析器——3.14 语义：缩进驱动、括号续行、
   f-string PEP 701 区域模型、match 软关键字回退、模式匹配全套，零第三方

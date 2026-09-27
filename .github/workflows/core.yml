@@ -6,7 +6,7 @@ on:
   pull_request:
   workflow_dispatch:
 
-# 最小权限：CI 只读仓库内容（本仓没有需要写权限的步骤）——与 RUST WL 仓同款纪律。
+# 最小权限：CI 只读仓库内容（本仓没有需要写权限的步骤）——与 RUST WL 仓同款纪律。  # naming:allow
 permissions:
   contents: read
 

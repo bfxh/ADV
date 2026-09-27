@@ -183,7 +183,7 @@
 ## S82 · scan 域轻正则三工具原生化（rx-scan）——std_check / ui_check / bug_locate
 - 项目：ADV｜时间：2026-09-05
 - 决策：按路线图迁 scan 域"轻正则"三工具（bug_scan/ast_scan 的 Python AST 面留后续轮）。bevy.py 的 BEVY_UI_PATTERNS/BEVY_CODE_PATTERNS/find_dead_buttons 一并整端口（ui_check 是唯一调用方）→ bevy.py 只剩 bevy_rules()（bug_scan 用）。_SCAN_CACHE 保留给 bug_scan/code_review，但 **std_check 不再走它**：短命 exe 无跨调缓存面（S81"缓存是负资产"同款结论）。
-- 交付：①rust/src/scan.rs（~920 行，正则全手写、无 regex crate）——遍历契约 S80 实锤同款（单文件直收、每层 files-first-then-subdirs、目录内 NTFS $UpCase 排序、12 跳过目录、**名额只计代码文件**、满额整体停走、符号链接解引用定类）；std_check：12 占位词（含中文占位/待实现/未实现）+ 魔法数 `=\s*(-?\d{3,}|[2-9]\d{2,})\b` 逐 '=' 左移优先、branch1 贪婪+\b 回溯收缩（min cut 3）、\b 按 Unicode 字母数字+下划线口径（`123中` 不报）、魔法数 6 语言门、注释豁免只管占位词魔法数照报（Python 原样）；ui_check：godot `Button\b[^:]*:\s*$` MULTILINE（无左边界、[^:]* 跨行吞到首个 ':'、$ ≡ 冒号后空白串含 '\n' 或直达文尾）、unity `new\s+Button\s*\([^)]*\)`（无任何边界 renew 也中、\s+ 跨行、[^)]* 跨行止于首个 ')'）、bevy 三模式 + S6 死按钮结构化检测整端口（门 ≡ contains("Button,")，同行/独行（向下 2 行、撞 ')' 或 '//' 断扫）双路提取 Marker，救回 = `With<Marker>` 子串或 `&Marker…Interaction` 同行 80 字符双向同现）；bug_locate：traceback→文件名→符号三层候选原序，文件名提取贪婪回溯从右往左找 '.' 拆分点 + 备选按原序首个前缀命中即收（**foo.tsx 捕获成 foo.ts 怪癖保真**），符号提取开引号与关键词同行（.*? 不跨行）闭引号可跨行（[^'"]+ 含 \n），_line_ctx/_find_in_file 窗口逐字段等价 + **空 needle 后 direct[-1]["how"] = how 覆盖怪癖保真**，(file,line) 去重 cap 10；②bin/rx_scan.rs：`stdcheck|uicheck <path> [max_files]`、`buglocate <root> <error_text|->`，max_files 负→0（Python count>=max 立停语义）垃圾→100 回退，exit 0=工具级（含 error 对象）/2=用法级；③薄壳：tools/scan.py 三工具转调 _rx_scan_call（exe 发现 UNIFIED_RX_RS_EXE→%TEMP%\rx-rs-target\{release,debug}、isfile+basename 校验、list-argv 无 shell、timeout 120s）+ stdin 大文本通道沿用（error_text 超 _QUERY_ARGV_CAP=10000 时 argv 传 "-"）；bevy.py 死代码删除。crate 2.9.0→2.10.0、server.py 2.9.0→2.10.0。
+- 交付：①rust/src/scan.rs（~920 行，正则全手写、无 regex crate）——遍历契约 S80 实锤同款（单文件直收、每层 files-first-then-subdirs、目录内 NTFS $UpCase 排序、12 跳过目录、**名额只计代码文件**、满额整体停走、符号链接解引用定类）；std_check：12 占位词（含中文占位/待实现/未实现）+ 魔法数 `=\s*(-?\d{3,}|[2-9]\d{2,})\b` 逐 '=' 左移优先、branch1 贪婪+\b 回溯收缩（min cut 3）、\b 按 Unicode 字母数字+下划线口径（`123中` 不报）、魔法数 6 语言门、注释豁免只管占位词魔法数照报（Python 原样）；ui_check：godot `Button\b[^:]*:\s*$` MULTILINE（无左边界、[^:]* 跨行吞到首个 ':'、$ ≡ 冒号后空白串含 '\n' 或直达文尾）、unity `new\s+Button\s*\([^)]*\)`（无任何边界 renew 也中、\s+ 跨行、[^)]* 跨行止于首个 ')'）、bevy 三模式 + S6 死按钮结构化检测整端口（门 ≡ contains("Button,")，同行/独行（向下 2 行、撞 ')' 或 '//' 断扫）双路提取 Marker，救回 = `With<Marker>` 子串或 `&Marker…Interaction` 同行 80 字符双向同现）；bug_locate：traceback→文件名→符号三层候选原序，文件名提取贪婪回溯从右往左找 '.' 拆分点 + 备选按原序首个前缀命中即收（**foo.tsx 捕获成 foo.ts 怪癖保真**），符号提取开引号与关键词同行（.*? 不跨行）闭引号可跨行（[^'"]+ 含 \n），_line_ctx/_find_in_file 窗口逐字段等价 + **空 needle 后 direct[-1]["how"] = how 覆盖怪癖保真**，(file,line) 去重 cap 10；②bin/rx_scan.rs：`stdcheck|uicheck <path> [max_files]`、`buglocate <root> <error_text|->`，max_files 负→0（Python count>=max 立停语义）垃圾→100 回退，exit 0=工具级（含 error 对象）/2=用法级；③薄壳：tools/scan.py 三工具转调 _rx_scan_call（exe 发现 UNIFIED_RX_RS_EXE→%TEMP%\rx-rs-target\{release,debug}、isfile+basename 校验、list-argv 无 shell、timeout 120s）+ stdin 大文本通道沿用（error_text 超 _QUERY_ARGV_CAP=10000 时 argv 传 "-"）；bevy.py 死代码删除。crate 2.9.0→2.10.0、server.py 2.9.0→2.10.0。 <!-- naming:allow（历史轮次日志） -->
 - 迁移实测踩坑（全撞在"保真"上）：①godot 初判翻车——`extends Button`（1 号行）以为不命中，实际 `[^:]*` 跨行吃到 3 号行冒号即命中（对照实验自纠，Python 为 oracle）；②unity `[^)]*` 跨行——`new Button(;` 并非"无右括号不命中"：分号后跨行吃到下一行串内 ')' 整段成一次匹配，还把下一行的 new 吞进同一匹配不再单报（scan_test.rs 用例钉死此语义）；③readlines 等价必须弹掉末尾换行的幻影空行——空 needle 命中所有行，幻影行凭空多报；④Mimosa PreToolUse 钩子两拦对照实验脚本（动态路径写文件判"路径穿越"高危）→ 夹具逐个静态 Write + 只读 runner 绕行。
 - 对照实验（删码前，Python 实现为 oracle，**26/26 全 PARITY**）：std 占位/魔法数全边界语料（负号捕获/前导零/999abc/12/1234abc/123中/注释行魔法数/.c 语言门）×名额 5/4/0×单文件×幽灵路径×上限语料×真仓；ui 三引擎语料×单 .gd×幽灵×真仓；bug_locate T1 traceback 窗口/T2 tsx 怪癖/T3 符号/T4 未命中/T5 多行符号/T6 空/T7 去重/T8 cap10/T9 错 root/T10 大文本 stdin/小文本 stdin/真仓 frame + 用法级 exit 2。计时（冷调）：std 真仓 81ms→69ms、ui 36ms→22ms；bug_locate 小输入 ~10ms→~17ms——**进程 spawn 开销盖过轻正则，诚实记账**（大 error_text/批量面仍受益）。
 - 验收：cargo 58 绿（fs 13+json 6+search 10+sem 13+**scan 13**+taint 3）；pytest 双解释器全绿：3.14=496 passed+2 skipped / 3.11=498 passed；**旧 test_v2.py+test_bevy.py 39 测原样过检**（薄壳下不改一字即行为等价的活证明）。
@@ -331,7 +331,7 @@
 ## S98 · 规则覆盖矩阵（VULN-HUNTING P1-b 兑现）
 - 项目：ADV｜时间：2026-09-09
 - 决策：方向 #8 的离线切片——P1-b 验收原文："矩阵进本文件附录，'查不了'的格子写明原因（数据流/跨文件/运行时状态），不给用户'扫了=没这类问题'的错觉"。本轮不动代码，只把**静态层真实边界**逐格核账成表。
-- 方法：rule id 全部取自实现而非文档转述——bug.rs（scan_python 5 id / scan_rust 7 id / scan_generic 3 id / bevy 8 条）、scan.rs（std_check placeholder+magic_number 的 6 语言门、ui_check ui_pattern 三引擎）、astscan.rs（py AST 调用面 / js 词法掩码 / rust 结构信号 + rust_reach）、appaudit.rs（SURFACE 6 + SECRET 5）；lang_of 识别语言表（python/rust/go/ts/js/gd/c/cpp/csharp/dart/lua/bash/java/kotlin/php/ruby/swift）。
+- 方法：rule id 全部取自实现而非文档转述——bug.rs（scan_python 5 id / scan_rust 7 id / scan_generic 3 id / bevy 8 条）、scan.rs（std_check placeholder+magic_number 的 6 语言门、ui_check ui_pattern 三引擎）、astscan.rs（py AST 调用面 / js 词法掩码 / rust 结构信号 + rust_reach）、appaudit.rs（SURFACE 6 + SECRET 5）；lang_of 识别语言表（python/rust/go/ts/js/gd/c/cpp/csharp/dart/lua/bash/java/kotlin/php/ruby/swift）。 <!-- naming:allow（历史轮次日志） -->
 - 交付：VULN-HUNTING 附录 B——5 语言（Python/Rust/GDScript/C#/JS-TS）+ "其他识别语言" × 7 类目（注入/路径/并发/资源/逻辑/物理引擎陷阱/秘密凭据）逐格三态标注：✅有规则（列 id）/⚠️原理上查不了（写明数据流/跨文件/运行时状态）/⬜空白（按踩坑概率排优先级）。行外注：appaudit 6 条 JS 危险面规则、rust_taint_scan 的 definite/clue 是**可达性分级非数据流**（不得读成"污点已证实"）、code_review security 透镜是模式匹配、空白优先级排序。**P2-c 深扫常态化**同步落地为流程尾注（tag 前副本深扫 + 分诊存档 + seal 进 ROUNDLOG，禁自扫红线维持），首样即 S96。
 - 关键结论（矩阵直接读出）：路径穿越全语言"原理上查不了"（需数据流）——本仓防线是运行时沙盒钳制而非静态检测（S95/S97 两轮补漏正是这条的工程侧）；并发全语言"查不了"（需 miri/loom/压力电池等运行时方案——S95 高压电池是工程侧对位）；魔法数语言门不含 csharp（如实标注，非笔误）。
 - 验证：rule id 与实现逐一对照（含 7 vs 8 的口径差异——scan_rust 实现 7 id，indexing 含两形态；bevy 8 条单列）；文档轮零代码改动，全量测试无需重跑（S97 出货时 602+2s/604/cargo 121 仍为当前绿线）。
@@ -892,7 +892,7 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   cargo **200 绿** + clippy 零告警；selftest 五线全绿；版本锁步 **2.55.0 ×5**。
 - 提交：本次
 
-## S139 · 实施轮十三：数据流门进 CI（审核加强）+ 首个外部选型体检（RUST WL）
+## S139 · 实施轮十三：数据流门进 CI（审核加强）+ 首个外部选型体检（RUST WL） <!-- naming:allow（历史轮次日志，旧名为当时事实） -->
 - 项目：ADV｜时间：2026-09-14｜版本 2.55.0 → **2.56.0**（tag v2.56.0）
 - 用户指令：「CI 还是需要加强，审核等等东西都太弱了」+ 选单「LIBRARY-POLICY §六
   做选型体检」。
@@ -904,7 +904,7 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   server 协议层 argv 子进程——全部 why 已写实。**core.yml 增硬 step**；
   **scan.yml 周扫扩成审计三连**（secrets+attack+taint，附 rust 构建步骤）；
   形状锁 +2 needle；测试 +2（门真跑绿 / 基线形状与 why 无占位）。
-- **② 首个外部选型体检**（LIBRARY-POLICY §六 对外首用）：对 `D:\开发\RUST WL`
+- **② 首个外部选型体检**（LIBRARY-POLICY §六 对外首用）：对 `D:\开发\RUST WL` <!-- naming:allow（历史轮次日志，旧名为当时事实） -->
   （vxl-phys 物理引擎 workspace，16 crates）出具 `docs/LIBRARY-AUDIT.md`——只读审计：
   三问逐件评估 + 按类清单 + 顺手反查 Cargo.lock 全量归属（loom 传递树实锤，无
   陈旧/孤儿条目）+ 5 条收敛项（F1 edition 2021→2024 与 resolver 3 / F2 缺 MSRV /

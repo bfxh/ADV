@@ -8,7 +8,7 @@
 
 用法：
   python bench/replay_ab.py --dry-run
-  python bench/replay_ab.py --record results/A_task01.json --arm A --task VF-xxx
+  python bench/replay_ab.py --record results/A_task01.json --arm A --task VF-xxx  # naming:allow（检测器词表/样例）
   python bench/replay_ab.py --score results/
 """
 import argparse

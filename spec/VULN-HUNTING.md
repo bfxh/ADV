@@ -208,7 +208,7 @@
   （rx-scan.exe + Python 薄壳；bug_scan/ast_scan 的 AST 面留后续轮）。轻正则
   全手写移植（无 regex crate），怪癖逐条保真：godot `$` ≡ 冒号后空白串含换行
   或直达文尾（`[^:]*` 跨行）、unity 无左边界且 `[^)]*` 跨行吞下一行 new、
-  文件名兜底把 foo.tsx 捕获成 foo.ts（备选 ts 先于 tsx）、空 needle 命中后
+  文件名兜底把 foo.tsx 捕获成 foo.ts（备选 ts 先于 tsx）、空 needle 命中后 <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
   `direct[-1]["how"]` 覆盖怪癖、\b 按中文也算词字符的 Unicode 口径（123中
   不报）、bevy 死按钮 Marker-Query 跨 system 验证整端口。遍历名额只计代码
   文件；_SCAN_CACHE 对 std_check 退役（短命 exe 无跨调缓存面）。26 案双实现
@@ -422,11 +422,11 @@ appaudit.rs，S98 逐一核账）。
 
 | 语言 | 注入 | 路径 | 并发 | 资源 | 逻辑 | 物理引擎陷阱 | 秘密/凭据 |
 |---|---|---|---|---|---|---|---|
-| Python | ✅ `eval_exec`（裸 Call eval/exec/compile；ast_scan 调用面）；✅ 真污点 source→sink **跨函数/跨文件**（S128：全扫描集唯一名连边 + nameres 调用图名解析[别名/模块属性]，链证据 origin；同名多义跳过计数——浅数据流非字段敏感，见行外注）；✅ **S131 八规则**（`py_shell_true` `pickle_loads` `yaml_unsafe_load` `weak_hash_password` `sql_concat` `mktemp_race` `zip_extractall` `except_pass`——模式层，配 KB 条目）；⚠️ getattr/importlib 动态面 | ⚠️ 需数据流（输入→join→open）；本仓以运行时沙盒钳制为防线 | ⚠️ 运行时状态（GIL 掩盖、asyncio 竞态） | ⚠️ 未关句柄/无界增长需数据流 | ✅ `bare_except` `undefined_name` `redefined_import`（含导入遮蔽内建）`syntax_error`；generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number`；code_review complexity/TODO | —（不承载） | ⬜ 低 |
-| Rust | ⚠️ 无动态执行面；命令拼接（process::Command）需数据流 | ⚠️ 同左 | ⚠️ Send/Sync 编译器管；数据竞争需 miri/loom 等运行时 | ⬜ 低（无泄漏检测；unsafe 面 ast_scan 有信号） | ✅ `unwrap` `expect` `panic` `unreachable` `todo_unimplemented` `as_cast` `indexing`（indexing 含 `[x as usize]` 形态；clue 全量上报是设计）；ast_scan rust 结构信号 + rust_reach（prod/test_only/unreferenced 分级） | ✅ `bevy_phys_manual_support_force` `bevy_phys_static_with_velocity` `bevy_phys_locked_axes_bits`（+5 条 bevy API 规则：old_system/old_startup/event_iter/text_old/query_single） | ⬜ 低 |
-| GDScript | ⬜ 中（`Expression.parse`/`load()` 动态面） | ⚠️ 需数据流 | ⚠️ 运行时状态 | ⬜ 低 | ✅ std_check `placeholder`/`magic_number`（magic 语言门含 gdscript）；ui_check godot 死按钮（`ui_pattern`） | ⬜ 低（未踩坑） | ⬜ 低 |
-| C# | ⬜ 中（`Process.Start`/`Activator`） | ⚠️ 需数据流 | ⚠️ 运行时状态（async 竞态） | ⬜ 低 | ✅ std_check `placeholder`（**magic_number 语言门不含 csharp**）；ui_check unity 死按钮（`ui_pattern`） | ⬜ 低 | ⬜ 低 |
-| JS/TS | ✅ generic `eval_exec`（eval/exec/execSync；ast_scan 词法掩码 `new Function`，成员 `.exec(` 排除）；code_review security 透镜（innerHTML/SQL 拼接等模式） | ⚠️ 需数据流 | ⚠️ 事件循环竞态（运行时） | ⬜ 低 | ✅ generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number` | —（不承载） | ✅ appaudit `private_key_block`(definite) `api_key_sk` `github_pat` `aws_access_key` `secret_by_key`(clue)——面向 app 快照审计，非通用仓扫 |
+| Python | ✅ `eval_exec`（裸 Call eval/exec/compile；ast_scan 调用面）；✅ 真污点 source→sink **跨函数/跨文件**（S128：全扫描集唯一名连边 + nameres 调用图名解析[别名/模块属性]，链证据 origin；同名多义跳过计数——浅数据流非字段敏感，见行外注）；✅ **S131 八规则**（`py_shell_true` `pickle_loads` `yaml_unsafe_load` `weak_hash_password` `sql_concat` `mktemp_race` `zip_extractall` `except_pass`——模式层，配 KB 条目）；⚠️ getattr/importlib 动态面 | ⚠️ 需数据流（输入→join→open）；本仓以运行时沙盒钳制为防线 | ⚠️ 运行时状态（GIL 掩盖、asyncio 竞态） | ⚠️ 未关句柄/无界增长需数据流 | ✅ `bare_except` `undefined_name` `redefined_import`（含导入遮蔽内建）`syntax_error`；generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number`；code_review complexity/TODO | —（不承载） | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
+| Rust | ⚠️ 无动态执行面；命令拼接（process::Command）需数据流 | ⚠️ 同左 | ⚠️ Send/Sync 编译器管；数据竞争需 miri/loom 等运行时 | ⬜ 低（无泄漏检测；unsafe 面 ast_scan 有信号） | ✅ `unwrap` `expect` `panic` `unreachable` `todo_unimplemented` `as_cast` `indexing`（indexing 含 `[x as usize]` 形态；clue 全量上报是设计）；ast_scan rust 结构信号 + rust_reach（prod/test_only/unreferenced 分级） | ✅ `bevy_phys_manual_support_force` `bevy_phys_static_with_velocity` `bevy_phys_locked_axes_bits`（+5 条 bevy API 规则：old_system/old_startup/event_iter/text_old/query_single） | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
+| GDScript | ⬜ 中（`Expression.parse`/`load()` 动态面） | ⚠️ 需数据流 | ⚠️ 运行时状态 | ⬜ 低 | ✅ std_check `placeholder`/`magic_number`（magic 语言门含 gdscript）；ui_check godot 死按钮（`ui_pattern`） | ⬜ 低（未踩坑） | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
+| C# | ⬜ 中（`Process.Start`/`Activator`） | ⚠️ 需数据流 | ⚠️ 运行时状态（async 竞态） | ⬜ 低 | ✅ std_check `placeholder`（**magic_number 语言门不含 csharp**）；ui_check unity 死按钮（`ui_pattern`） | ⬜ 低 | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
+| JS/TS | ✅ generic `eval_exec`（eval/exec/execSync；ast_scan 词法掩码 `new Function`，成员 `.exec(` 排除）；code_review security 透镜（innerHTML/SQL 拼接等模式） | ⚠️ 需数据流 | ⚠️ 事件循环竞态（运行时） | ⬜ 低 | ✅ generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number` | —（不承载） | ✅ appaudit `private_key_block`(definite) `api_key_sk` `github_pat` `aws_access_key` `secret_by_key`(clue)——面向 app 快照审计，非通用仓扫 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
 | 其他识别语言（Go/Dart/Lua/Java/Kotlin/PHP/Ruby/Swift/C/C++） | ⬜ 低 | ⚠️ 需数据流 | ⚠️ 运行时状态 | ⬜ 低 | ✅ generic `assert_always_true`/`equal_float`（Go 另有 magic_number 语言门）；其余 ⬜ | ⬜ 低 | ⬜ 低 |
 
 **行外注**：

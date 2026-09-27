@@ -49,7 +49,7 @@ S141 烧量三件套：`burnwatch` 会话哨兵（model-io 体积越阈分级告
 definite 对照 `spec/taint-baseline.json` 基线，新增即红（入册须人工填 why，占位未填
 被元锁拦截）；`scan.yml` 周扫扩成**审计三连**（secrets + attack + taint）；与
 Secrets/Self-attack 并列为三道硬门。
-②**LIBRARY-POLICY §六 首次跨项目落地**：对 `D:\开发\RUST WL`（vxl-phys 物理引擎）
+②**LIBRARY-POLICY §六 首次跨项目落地**：对 `D:\开发\RUST WL`（vxl-phys 物理引擎） <!-- naming:allow（历史轮次日志） -->
 出具只读选型体检（`docs/LIBRARY-AUDIT.md`）——三问逐件评估 + lock 全量归属反查 +
 5 条收敛项（edition 2024 / MSRV / 依赖写法等），结论"极小面+纪律齐、无高危"；
 格式即后续外部体检模板。历史链：S138 审计复审机制化（Self-attack gate + Mimosa

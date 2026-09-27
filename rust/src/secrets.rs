@@ -40,10 +40,10 @@ const SKIP_DIRS: [&str; 20] = [
 
 /// 占位符过滤（27 词，逐字；小写包含即滤，仅 secret_assignment 层）
 const PLACEHOLDERS: [&str; 27] = [
-    "changeme", "change-me", "example", "placeholder", "your-", "your_",
-    "<your", "${", "$(", "{%", "{{", "xxx", "todo", "dummy", "n/a", "insert",
+    "changeme", "change-me", "example", "placeholder", "your-", "your_", // naming:allow（检测器词表/掩码样例）
+    "<your", "${", "$(", "{%", "{{", "xxx", "todo", "dummy", "n/a", "insert", // naming:allow（检测器词表/掩码样例）
     "replace", "sample", "dummy_", "123456", "qwerty", "letmein", "password",
-    "username", "test123", "abcd", "default",
+    "username", "test123", "abcd", "default", // naming:allow（检测器词表/掩码样例）
 ];
 
 // ---------------------------------------------------------------- 字符谓词
@@ -759,7 +759,7 @@ mod tests {
         assert_eq!(mask(&chars_of("short")), "***");
         assert_eq!(mask(&chars_of("Kx9mQ2vB7wZ3sP6dL1cH5jG0")), "Kx9m…G0(len=24)");
         assert_eq!(shannon(&chars_of("")), 0.0);
-        assert_eq!(shannon(&chars_of("aaaa")), 0.0);
+        assert_eq!(shannon(&chars_of("aaaa")), 0.0); // naming:allow（检测器词表/掩码样例）
         assert_eq!(shannon(&chars_of("abcd")), 2.0);
     }
 
