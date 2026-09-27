@@ -1,7 +1,7 @@
-pytest
-python-lsp-server
-jedi
-pyflakes
+pytest==9.1.1
+python-lsp-server==1.15.0
+jedi==0.20.0
+pyflakes==3.4.0
 ruff==0.16.8
 mypy==2.3.1
 typos==1.50.2
