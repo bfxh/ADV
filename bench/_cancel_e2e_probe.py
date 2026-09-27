@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path(r"D:\开发\unified-rx-mcp")
+REPO = Path(r"D:\开发\ADV")
 PY = r"C:\Users\lbx13\AppData\Local\Programs\Python\Python311\python.exe"
 # 兜底脚本放 %TEMP%（ASCII 路径）——绝不往仓库根写临时文件（A2 教训）
 sleep_py = Path(sys.argv[1]) if len(sys.argv) > 1 else \

@@ -4,7 +4,7 @@
 registry.call → 打点 src=mcp；call_with_context（测试/嵌入式宿主）→ src=embedded；
 脚本不经上下文直接 registry.call → 线程本地无标记 → src=embedded。
 改造前的旧记录无 src 字段 → usage_stats 归为 unmarked。
-打点落点已被根 conftest 重定向到 tmp（不污染真实 ~/.unified-rx/stats.jsonl）。
+打点落点已被根 conftest 重定向到 tmp（不污染真实 ~/.ADV/stats.jsonl）。
 """
 import json
 

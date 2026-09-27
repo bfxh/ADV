@@ -20,7 +20,7 @@ ZCode 每轮请求固定携带**所有已启用 MCP 服务器**的工具 schema�
 |---|---|---|---|---|
 | ZCode 内置 | 150.9KB | 33 | 229 | **不可关**（Agent / Bash / Read / Workflow 等） |
 | desktop-commander | 58.7KB | 26 | 8 | 🔴 **已关**（读写/进程与内置工具大量重复；收益最大） |
-| unified-rx | 34.8KB | 80 | — | 常驻；首屏可收窄：`UNIFIED_RX_PROFILE=core`（80→54） |
+| ADV | 34.8KB | 80 | — | 常驻；首屏可收窄：`UNIFIED_RX_PROFILE=core`（80→54） |
 | apollo-skills | 20.6KB | 14 | 0 | 🔴 **已关**（GraphQL/GraphOS） |
 | playwright | 18.6KB | 25 | 0 | 🔴 **已关**（做 Web UI 自动化时再开） |
 | context7 | 4.6KB | 2 | 0 | 保留（便宜且查库文档真有用） |
@@ -31,7 +31,7 @@ ZCode 每轮请求固定携带**所有已启用 MCP 服务器**的工具 schema�
 
 **已落地（2026-09-22）**：上表 5 个 🔴 置 `false`；备份 `~/.zcode/cli/config.json.pre-diet-20260922`；
 回滚 `python D:\...\workspace\default\plugin_diet.py --revert <备份>` 或把该行改回 `true`。
-**预期**：工具面 299KB → ≈200KB（再加 unified-rx 收窄 ≈188KB ≈ 53K token/轮），省 ≈34K token/轮
+**预期**：工具面 299KB → ≈200KB（再加 ADV 收窄 ≈188KB ≈ 53K token/轮），省 ≈34K token/轮
 ⇒ 100 轮会话省 ≈3.4M token。**生效要重启**；重启后跑 `scripts/plugin_cost.py` 对账这一行。
 
 ## 怎么开关（要重启）
@@ -41,18 +41,18 @@ ZCode 每轮请求固定携带**所有已启用 MCP 服务器**的工具 schema�
 3. 恢复同理（true / 加回）→ 重启。
 
 ## 怎么查现状（三招）
-1. **每轮工具税 + 使用证据**：`python D:\开发\unified-rx-mcp\scripts\plugin_cost.py`
+1. **每轮工具税 + 使用证据**：`python D:\开发\ADV\scripts\plugin_cost.py`
    （按提供方给体积/工具数/累计调用 + 「0 次 → 建议关」的可省总量；只读、不碰配置）。
 2. **会话级花销**：`python <workspace>\token_audit.py`（零 LLM）——会话排行、放大倍数、
-   固定成本占比、体积档；报告写 `~/.unified-rx/token-audit.md`，告警进 `alarms.jsonl`。
-   另有 unified-rx 工具 `session_burn`（单看各会话 model-io 体积）。
+   固定成本占比、体积档；报告写 `~/.ADV/token-audit.md`，告警进 `alarms.jsonl`。
+   另有 ADV 工具 `session_burn`（单看各会话 model-io 体积）。
 3. **大输出别整段进上下文**：`bash <workspace>\cap.sh <名字> -- <命令…>`——输出落
    `~/.zcode/captures/`，只带首尾各 12 行；实测 35KB → 3KB。
 
 ## 给智能体的用法
 - 做事前先想"这件事需要哪个插件"；若所需插件属于"按需"且当前被关 → 明确告诉用户
   开哪个、改哪一行、需重启，不要猜"没有这个能力"。
-- "没有工具" ≠ "没有能力"：先查本表 + unified-rx 的 `capability_manifest`；unified-rx 侧
+- "没有工具" ≠ "没有能力"：先查本表 + ADV 的 `capability_manifest`；ADV 侧
   非 core 域用 `profile_enable` 运行时开启。
 - 会话卫生配套：长任务拆会话（每项目/每阶段新开或 /clear）；单会话 model-io 超
   15MB 就该收尾——session-guard 钩子会在 15/30/50/80MB 各提醒一次。

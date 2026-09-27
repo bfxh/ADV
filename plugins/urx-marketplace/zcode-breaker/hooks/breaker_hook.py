@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""zcode-breaker 钩子（ZCode）—— 工具熔断，与 unified-rx-mcp tools/breaker.py 同规则。
+"""zcode-breaker 钩子（ZCode）—— 工具熔断，与 ADV tools/breaker.py 同规则。
 
 用法（由 hooks/hooks.json 传入）：
     breaker_hook.py <pre|post|postfail|prompt> <limit> <window_s> <cooldown_s>

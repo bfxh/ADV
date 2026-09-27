@@ -36,7 +36,9 @@ DEFAULT_CFG = {
     "max_type_members": 24,          # 类/Rust impl 的方法+字段数
     "include": ["**/*.py", "**/*.rs", "**/*.js", "**/*.ts", "**/*.tsx", "**/*.mjs", "**/*.cjs"],
     "exclude": ["**/.git/**", "**/node_modules/**", "**/target/**", "**/__pycache__/**",
-                "**/dist/**", "**/build/**", "**/.venv/**", "**/venv/**", "**/*.min.*"],
+                "**/dist/**", "**/build/**", "**/.venv/**", "**/venv/**", "**/*.min.*",
+                "**/.urx-hist-*/**",
+                "**/.urx-hist-*/**"],
     "baseline": "god-baseline.json",
 }
 PY = {".py"}

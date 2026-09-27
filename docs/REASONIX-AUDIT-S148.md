@@ -44,12 +44,12 @@ secrets/history 命中清单**逐条核验**后按"记账动作"豁免（豁免=
 夹具**（jwt/github/openai 形状是 sanitize 的反例输入）与**脱敏器自身的
 PRIVATE KEY 清理代码**——与 S147 §3 结论一致，零真实明文。
 
-## 4. 与 unified-rx 体系的关系
+## 4. 与 ADV 体系的关系
 
-- 扫描能力由 unified-rx 工具箱实跑支撑：`secrets_hunt`（233 命中全量复核）、
+- 扫描能力由 ADV 工具箱实跑支撑：`secrets_hunt`（233 命中全量复核）、
   `near_dupes`（internal/ 3 簇测试骨架重复）、`ast_scan`（对 Go 无覆盖，如实
   记录——Go 侧质量面由 golangci/gosec/govulncheck 各司其职，本报告不越界）；
-- 门哲学照搬 unified-rx S145/S147 实践：**可判红、有账本、阈值=记账动作、
+- 门哲学照搬 ADV S145/S147 实践：**可判红、有账本、阈值=记账动作、
   纯 stdlib 零依赖、不依赖特定 OS**；
 - CI（audit.yml）是本地门的**镜像备份**，不是唯一把关人。
 

@@ -47,7 +47,7 @@ os.makedirs(_STATS_TMP, exist_ok=True)
 os.environ.setdefault("UNIFIED_RX_SVC", "off")
 
 # S146：握手留痕同样隔离——tests/test_v2 直接 _handle(initialize) 会把空 params
-# 裸写进真实 ~/.unified-rx/clients.jsonl（首轮留痕 4 条 null 全来自测试，实锤
+# 裸写进真实 ~/.ADV/clients.jsonl（首轮留痕 4 条 null 全来自测试，实锤
 # 归因困难）。审计账本只许装真实宿主握手，测试一律写 tmp。
 _CLIENTS_TMP = os.path.join(_STATS_TMP, "clients.jsonl")
 os.environ["UNIFIED_RX_CLIENTS_LOG"] = _CLIENTS_TMP
@@ -56,7 +56,7 @@ os.environ["UNIFIED_RX_CLIENTS_LOG"] = _CLIENTS_TMP
 @pytest.fixture(autouse=True)
 def _isolate_stats(monkeypatch):
     """S140：测试打点一律落 tmp 隔离区——套件/bench 的 registry.call 不再写进
-    真实 ~/.unified-rx/stats.jsonl（9/8 统计污染的教训之一）。
+    真实 ~/.ADV/stats.jsonl（9/8 统计污染的教训之一）。
     S141：日计数落点同样隔离（熔断开启的测试不碰真实 daily_state.jsonl）。"""
     import registry
     target = os.path.join(_STATS_TMP, "stats.jsonl")

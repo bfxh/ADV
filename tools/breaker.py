@@ -26,7 +26,7 @@ S140 全局护栏（与 per-key 熔断互补）：per-key 只拦"重复"，拦�
 S141 标定与持久化（9/14 复盘）：
 - QPM 默认从 600 上调到 3000——实测正常重度工作日峰值 ~1600 次/分钟（并行批量
   扫描），600 会误伤正常工作；而失控洪峰是 ~10000 次/分钟量级，3000 仍能拦。
-- 日计数落盘 `~/.unified-rx/daily_state.json`（节流写，原子替换）：server 一天
+- 日计数落盘 `~/.ADV/daily_state.json`（节流写，原子替换）：server 一天
   重启多次，纯内存计数会被反复清零、日告警形同虚设。
 
 诚实边界：这是**循环刹车，不是安全边界**——只拦"重复"与"总量洪峰"，拦不住
@@ -103,7 +103,7 @@ def _daily_alert_at():
 
 
 def _alarm_file():
-    return os.path.join(os.path.expanduser("~"), ".unified-rx", "alarms.jsonl")
+    return os.path.join(os.path.expanduser("~"), ".ADV", "alarms.jsonl")
 
 
 def _alarm(rule, msg, level="WARN"):
@@ -117,9 +117,9 @@ def _alarm(rule, msg, level="WARN"):
 
 
 def _daily_path():
-    """S141 日计数落点：~/.unified-rx/daily_state.jsonl（追加式，与 alarms/stats 同 idiom）。
+    """S141 日计数落点：~/.ADV/daily_state.jsonl（追加式，与 alarms/stats 同 idiom）。
     目录=固定常量段；文件名=常量字面量，整条路径无外部输入。"""
-    home_dir = os.path.join(os.path.expanduser("~"), ".unified-rx")
+    home_dir = os.path.join(os.path.expanduser("~"), ".ADV")
     return os.path.join(home_dir, "daily_state.jsonl")
 
 

@@ -1,4 +1,4 @@
-# unified-rx-v2
+# ADV
 
 **本地工具代替智能体体力活的平台** — 凡是 AI 要做的确定性体力活，全部下沉为本地工具；AI 只保留决策层。
 > 定位：**工具箱，不是智能体，不是内核**。MCP 只是通道，价值在"工具 + 工作流"的完整链路。
@@ -30,7 +30,7 @@ cargo test + clippy）；`.githooks/` 版本化钩子（pre-commit 快门、pre-
 镜像/备份**；本地门与 CI 不漂移（core.yml 出现的门脚本必须都在 local_gate 步骤里）
 由测试锁死，`UNIFIED_RX_GATE_FORCE_FAIL` 注入必红做真门验证；②**协议协商 + 握手
 留痕（B1 部分兑现）**：initialize 按规范协商版本（命中白名单回显、否则回我方最高
-支持），并落 `~/.unified-rx/clients.jsonl`（客户端名/版本/请求版本/协商结果）——
+支持），并落 `~/.ADV/clients.jsonl`（客户端名/版本/请求版本/协商结果）——
 **下个 ZCode 会话重启即取得宿主实际请求版本**（证据驱动，不猜）；③**审核流程两处
 实锤修复**：`taint_gate.py --update-baseline` 曾把既有 why 全清成占位（改为按
 (file,sink) 继承旧 why，只新条目落占位）、`audit_copy.py` 增加脏树护栏（副本必须
@@ -61,9 +61,9 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 [spec/PANORAMA.md](spec/PANORAMA.md)，逐轮决策与证据见 [spec/ROUNDLOG.md](spec/ROUNDLOG.md)，
 加固红线与 CI 门禁见 [spec/HARDENING.md](spec/HARDENING.md)。
 
-## 与旧版 unified-rx-mcp 的关系
+## 与旧版 ADV 的关系
 
-| | 旧 unified-rx-mcp | unified-rx-v2（本仓） |
+| | 旧 ADV | ADV（本仓） |
 |---|---|---|
 | 工具面 | 183（注入面 200+） | **80 个组合工具 / 14 域**（core 档 54 件） |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |

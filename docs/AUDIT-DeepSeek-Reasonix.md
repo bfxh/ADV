@@ -98,9 +98,9 @@
 **接入顺序建议**：1+2 先合并（当天可用）→ 一周观察噪音 → 3+4 上 ratchet
 （先冻结）→ 5+6 随发布节奏接入。
 
-## 6. 与 unified-rx 现行体系的关系
+## 6. 与 ADV 现行体系的关系
 
-本报告与套件是把 unified-rx 的 S145/S147 实践（本地一条命令、门可判红、
-阈值=记账动作、审计封印+时效）**移植到 Go 语境**的产物；unified-rx 自身的
+本报告与套件是把 ADV 的 S145/S147 实践（本地一条命令、门可判红、
+阈值=记账动作、审计封印+时效）**移植到 Go 语境**的产物；ADV 自身的
 对应实现在 `scripts/local_gate.py`、`scripts/audit_ledger.py`、
 `scripts/secrets_history.py`（S147 三条新门同名同构）。

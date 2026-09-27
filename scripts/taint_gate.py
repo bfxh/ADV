@@ -42,7 +42,7 @@ def current_counts():
         if f.get("kind") != "definite":
             continue
         fp = norm(f["file"])
-        if fp.startswith(EXCLUDE_PREFIX):
+        if fp.startswith(EXCLUDE_PREFIX) or "/.urx-hist-" in fp.replace(chr(92), "/"):
             continue
         total_def += 1
         key = f"{fp}\t{f['sink']}"

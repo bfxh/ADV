@@ -226,7 +226,7 @@ engine_query 34-52→25ms（预算 15s，余量 300 倍）；内存基线 27.8MB
 Δ+0.1MB 无泄漏信号（bench/s94_perf.py 留档滚动历史）；架构健康复核无上帝对象
 （tools 最大 lsp.py 705 行，rust 最大 pyast.rs 2989=解析器合理单体）。
 
-**部署拓扑**：开发仓 `D:\开发\unified-rx-mcp`（GitHub bfxh/unified-rx-mcp）→
+**部署拓扑**：开发仓 `D:\开发\ADV`（GitHub bfxh/ADV）→
 稳定克隆 `D:\rj\MCP`（origin 指开发仓，git ff 同步）→ 宿主 config.json mcpServers
 unified_rx 条目（`python -X utf8 D:\rj\MCP\server.py`，沙盒 `D:\开发;D:\rj\MCP`，
 PYTHONUTF8=1）→ Yan Agent GUI 实测 57 工具连接成功。

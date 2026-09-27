@@ -1,4 +1,4 @@
-//! rxrs —— unified-rx 的 Rust 化（S78 地基，S79 起逐域原生实现；
+//! rxrs —— ADV 的 Rust 化（S78 地基，S79 起逐域原生实现；
 //! 路线图见 spec/VULN-HUNTING.md 五·Rust 迁移路线图）。
 //!
 //! 纪律：零第三方 crate（Cargo [dependencies] 恒空），与 Python 侧"纯 stdlib"同等级。

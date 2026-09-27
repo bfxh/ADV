@@ -1,8 +1,8 @@
 import os
 import sys
 
-sys.path.insert(0, r'D:\\开发\\unified-rx-mcp\\bench')
-sys.path.insert(0, r'D:\\开发\\unified-rx-mcp')
+sys.path.insert(0, r'D:\\开发\\ADV\\bench')
+sys.path.insert(0, r'D:\\开发\\ADV')
 import pathlib
 import tempfile
 

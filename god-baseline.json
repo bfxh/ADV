@@ -575,7 +575,7 @@
   "max_type_members": 0
  },
  "scripts/ci_secrets_gate.py": {
-  "file_lines": 48,
+  "file_lines": 55,
   "max_fn_lines": 0,
   "max_type_members": 0
  },
@@ -590,7 +590,7 @@
   "max_type_members": 0
  },
  "scripts/dupe_gate.py": {
-  "file_lines": 159,
+  "file_lines": 160,
   "max_fn_lines": 55,
   "max_type_members": 0
  },
@@ -605,7 +605,7 @@
   "max_type_members": 0
  },
  "scripts/god_gate.py": {
-  "file_lines": 390,
+  "file_lines": 392,
   "max_fn_lines": 68,
   "max_type_members": 0
  },
@@ -650,8 +650,8 @@
   "max_type_members": 0
  },
  "scripts/secrets_history.py": {
-  "file_lines": 188,
-  "max_fn_lines": 53,
+  "file_lines": 190,
+  "max_fn_lines": 55,
   "max_type_members": 0
  },
  "scripts/taint_gate.py": {
@@ -1370,8 +1370,8 @@
   "max_type_members": 0
  },
  "tools/filewalk.py": {
-  "file_lines": 82,
-  "max_fn_lines": 29,
+  "file_lines": 85,
+  "max_fn_lines": 32,
   "max_type_members": 0
  },
  "tools/fs.py": {

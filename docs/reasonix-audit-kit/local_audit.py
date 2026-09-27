@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """local_audit.py —— DeepSeek-Reasonix 本地审核门（提案版，zero-dependency）。
 
-设计参照 unified-rx-mcp 的本地门实践（S145/S147）：**审核一条命令跑完、本地
+设计参照 ADV 的本地门实践（S145/S147）：**审核一条命令跑完、本地
 优先、不依赖远端 CI 与特定 OS**。CI 是镜像/备份；合入前的"最小完整审核"必须在
 本机可执行、可复现、可判红。
 
@@ -25,7 +25,7 @@
 
 退出码：任一步 FAIL → 1（钩子据此拦截）。
 读取纪律：文件 IO 一律经 `_safe()`（resolve 后必须在仓库根内）后 **pathlib
-直读直写**（不裸 open）——与 unified-rx-mcp 沙盒纪律同款。
+直读直写**（不裸 open）——与 ADV 沙盒纪律同款。
 """
 import json
 import os

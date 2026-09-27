@@ -3,9 +3,9 @@
 ## 原则（用户要求）
 
 1. **D:\rj\MCP = 维稳版**：其他 AI 对话从这里调工具，只放已测试的 main 分支
-2. **D:\开发\unified-rx-mcp = 开发版**：新功能/新实验在 feat/* 分支开发
+2. **D:\开发\ADV = 开发版**：新功能/新实验在 feat/* 分支开发
 3. **稳定版优先**：出问题时从稳定版入手操控新版本，而不是反过来；
-   涉及 unified-rx-mcp 本身的检查一律以稳定版 D:\rj\MCP 为准
+   涉及 ADV 本身的检查一律以稳定版 D:\rj\MCP 为准
 4. **大部分东西本地可跑**：不依赖网络服务（沙盒/构建/测试全本地）
 5. **VS Code = 最后的后手（S68）**：工具链（build/lint/LSP/doctor）查不出或
    需要人工/AI 深查时，`ide_vscode` 把项目/文件/path:line:col 直接打开
@@ -103,7 +103,7 @@ feat/* 分支开发
 ```json
 {
   "mcpServers": {
-    "unified-rx": {
+    "ADV": {
       "command": "py",
       "args": ["-3.11", "D:\\rj\\MCP\\server.py"],
       "env": {
@@ -166,7 +166,7 @@ python -X utf8 scripts/local_gate.py --list   # 看步骤
 ## 维稳版更新操作
 
 ```bash
-# 在 D:\开发\unified-rx-mcp（开发版）：
+# 在 D:\开发\ADV（开发版）：
 git checkout main && git merge feat/xxx && py -3.11 -m pytest -q
 git push origin main --tags
 

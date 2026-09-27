@@ -11,7 +11,7 @@
    配置、commit message、issue 里。真凭据只放环境变量或本机 config，且该 config
    不得位于任何 git 仓库内。
 2. **现状实锤（2026-09-14 盘点）**：
-   - 本仓（unified-rx-mcp）当前树 + 全部 git 历史（`git log --all -S` 对
+   - 本仓（ADV）当前树 + 全部 git 历史（`git log --all -S` 对
      config 值前缀实查）：**零真实凭据**；
    - Yan Agent 配置（`AppData/Roaming/yan-agent/YanData/config.json`）10 个
      secret 形字段**全在本机 AppData，向上无任何 .git——物理上进不了 GitHub**；

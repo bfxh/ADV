@@ -55,7 +55,7 @@ jobs:
           TAGVER: ${{ github.event.inputs.version || github.ref_name }}
         run: |
           $ver = $env:TAGVER.TrimStart('v')
-          $dir = "dist/unified-rx-$ver-windows-x64"
+          $dir = "dist/ADV-$ver-windows-x64"
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
           Copy-Item rust/target/release/*.exe $dir
           Get-ChildItem $dir | ForEach-Object {
@@ -65,7 +65,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-x64
-          path: dist/unified-rx-*-windows-x64
+          path: dist/ADV-*-windows-x64
           if-no-files-found: error
           include-hidden-files: false   # zizmor artipacked：凭据不进 artifact
 
@@ -84,7 +84,7 @@ jobs:
       - name: Collect + SHA256
         run: |
           VER="${TAGVER#v}"
-          DIR="dist/unified-rx-$VER-linux-x64"
+          DIR="dist/ADV-$VER-linux-x64"
           mkdir -p "$DIR"
           find "$CARGO_TARGET_DIR/release" -maxdepth 1 -type f -executable -exec cp {} "$DIR/" \;
           (cd "$DIR" && sha256sum * > SHA256SUMS.txt)
@@ -94,7 +94,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-x64
-          path: dist/unified-rx-*-linux-x64
+          path: dist/ADV-*-linux-x64
           if-no-files-found: error
           include-hidden-files: false   # zizmor artipacked
 
@@ -114,7 +114,7 @@ jobs:
         run: |
           VER=${TAGVER#v}
           gh release create "v$VER" dist/*/SHA256SUMS.txt \
-            --title "unified-rx v$VER" \
+            --title "ADV v$VER" \
             --notes "自动发布（S173 CD 流水线）。产物带 SHA256SUMS；先当 pre-release 冒烟，转正由人工确认。" \
             --prerelease
           # 各平台目录整体打包成单个 artifact 附加（exe/binary 直取不便时）

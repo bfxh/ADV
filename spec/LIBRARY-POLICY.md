@@ -40,7 +40,7 @@
 **例外**：安全工具/离线算法这类"不再变即已完备"的场景可登记例外，但要在改动说明里
 写清"为什么停滞可接受 + 回滚路径"。
 
-## 二、本仓（unified-rx-mcp）红线下的合法形态
+## 二、本仓（ADV）红线下的合法形态
 
 本仓 red line：Python 纯 stdlib、Rust `[dependencies]` 恒空（审计面/供应链，
 见 HARDENING §一/VULN-HUNTING §五）。因此"用库"在**本仓**的合法形态 =

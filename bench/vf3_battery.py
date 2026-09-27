@@ -1,4 +1,4 @@
-"""VF3 battery: run full unified-rx tool surface over VoxelForge-V3, emit baseline JSON."""
+"""VF3 battery: run full ADV tool surface over VoxelForge-V3, emit baseline JSON."""
 import collections
 import json
 import os

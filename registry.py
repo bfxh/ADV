@@ -322,7 +322,7 @@ def groups():
 
 def _stats_path():
     """stats.jsonl 落点（测试经 monkeypatch 重定向到 tmp——套件打点不再污染真实统计）。"""
-    return os.path.join(os.path.expanduser("~"), ".unified-rx", "stats.jsonl")
+    return os.path.join(os.path.expanduser("~"), ".ADV", "stats.jsonl")
 
 
 # S163：统计日志轮转。此前**无上限**（实测本机 40.8MB 且每次调用追加 ~60B）⇒ 迟早变成
@@ -397,7 +397,7 @@ def set_agent(name) -> None:
 
 
 # ── S173：智能体边界门控（按身份的 deny 档）────────────────────
-# 配置 = env UNIFIED_RX_AGENT_BOUNDARIES 或 ~/.unified-rx/agent-boundaries.json：
+# 配置 = env UNIFIED_RX_AGENT_BOUNDARIES 或 ~/.ADV/agent-boundaries.json：
 # {"agents": {"<agent 名>": {"deny": ["工具名"...], "reason": "..."}, "*": {...}}}
 # 匹配：精确名优先，"*" 兜底。**边界是身份层**：在授权门之前生效——
 # 授权确认（__authorized: true）不能越过边界（身份说什么可以做，授权只是现场确认）。
@@ -407,7 +407,7 @@ _BOUNDARY_CACHE: dict = {"mtime": None, "agents": None}
 
 def _boundary_path() -> str:
     return (os.environ.get("UNIFIED_RX_AGENT_BOUNDARIES")
-            or os.path.join(os.path.expanduser("~"), ".unified-rx",
+            or os.path.join(os.path.expanduser("~"), ".ADV",
                             "agent-boundaries.json"))
 
 

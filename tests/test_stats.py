@@ -44,7 +44,7 @@ def test_usage_stats():
 
 def _redirect_stats(monkeypatch, tmp_path):
     """把打点落点重定向到 tmp（与套件既有纪律一致：不污染真实统计）。"""
-    d = tmp_path / ".unified-rx"
+    d = tmp_path / ".ADV"
     d.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(registry, "_stats_path", lambda: str(d / "stats.jsonl"))
     return d

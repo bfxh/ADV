@@ -62,7 +62,7 @@
 
 见 `plugins/urx-marketplace/zcode-breaker/README.md`：
 Settings → Plugin Management → Discover → `+` 添加本地市场
-`D:\开发\unified-rx-mcp\plugins\urx-marketplace` → 安装 **zcode-breaker** →
+`D:\开发\ADV\plugins\urx-marketplace` → 安装 **zcode-breaker** →
 Installed 页确认 4 个 Hook 可运行。
 
 旁路 `ZCODE_BREAKER=off`；复位删除 `%TEMP%\zcode-breaker\state.json`。

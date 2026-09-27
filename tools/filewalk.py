@@ -63,7 +63,10 @@ def iter_files(path, max_files, match, skip_dirs, file_ok=False, sort_files=Fals
     skip = set(skip_dirs)
     count = 0
     for r, dirs, files in os.walk(path):
-        dirs[:] = [d for d in dirs if d not in skip]
+        # .urx-hist-*：secrets-history 门的历史 dump（finally 必删，但被 kill 的运行会残留）。
+        # 扫描器不追杀自己产的临时物——否则一次被杀的运行就让 god/secrets 等门连环假红。
+        dirs[:] = [d for d in dirs
+                   if d not in skip and not d.startswith(".urx-hist-")]
         if sort_files:
             files = sorted(files)
         for fn in files:

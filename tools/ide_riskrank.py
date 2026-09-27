@@ -7,7 +7,7 @@
 - **扇入**：Rust 调用图（nameres 同一作用域引擎，tools/ide_callgraph 的薄壳）；
 - **测试存在性**：静态文件约定代理（与 code_review 覆盖透镜共用
   `test_candidates` 口径；rust 认内联 `#[cfg(test)]`）；
-- 记账：每轮结果存 JSONL（默认 ~/.unified-rx/risk_history.jsonl），
+- 记账：每轮结果存 JSONL（默认 ~/.ADV/risk_history.jsonl），
   `mode=history` 出趋势（总扇入/无测试数 的首末对比）——还 HARDENING
   「覆盖率趋势」欠账的静态版。
 
@@ -135,7 +135,7 @@ def _rank_rows(root, max_files, top, include_tests):
            "include_tests": {"type": "boolean",
                              "description": "榜单是否含测试文件（默认 false）"},
            "history_dir": {"type": "string",
-                           "description": "历史目录（默认 ~/.unified-rx）"},
+                           "description": "历史目录（默认 ~/.ADV）"},
            "max_files": {"type": "integer", "description": "调用图文件上限（默认 500）"},
        },
        "required": ["root"]})
@@ -147,7 +147,7 @@ def ide_risk_rank(root, top=20, mode="rank", record=True, include_tests=False,
         return {"error": str(e)}
     if not os.path.isdir(root):
         return {"error": f"不是目录: {root}"}
-    hdir = history_dir or os.path.join(os.path.expanduser("~"), ".unified-rx")
+    hdir = history_dir or os.path.join(os.path.expanduser("~"), ".ADV")
     hfile = os.path.join(hdir, "risk_history.jsonl")
     top = max(1, min(int(top), 100))
 

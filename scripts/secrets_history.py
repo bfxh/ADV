@@ -136,7 +136,9 @@ def main(argv):
     diff, blocks, commits = keep_blocks(history_diff(n))
     # dump 落**仓内**临时目录：沙盒(ROOT)语义不放宽（首版落 %TEMP% 被沙盒正确拒绝），
     # 路径仍经 _dump_path 写前校验；finally 必删，不留痕。
-    tmp = Path(tempfile.mkdtemp(prefix=".urx-hist-", dir=str(ROOT))).resolve()
+    # 落 .git/ 下：.git 被所有扫描器天然排除——并发轮里其他步扫 ROOT 不会撞上 dump
+    # （曾致 secrets 步 0.4s 假红）；沙盒(ROOT)语义不变，路径仍过 _dump_path 写前校验。
+    tmp = Path(tempfile.mkdtemp(prefix=".urx-hist-", dir=str(ROOT / ".git"))).resolve()
     try:
         dump = _dump_path(tmp)
         dump.write_text(diff, encoding="utf-8")      # 后缀进 include 面

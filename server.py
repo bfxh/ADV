@@ -36,7 +36,7 @@ registry.set_profile_change_hook(
 
 PROTOCOL_VERSION = "2025-06-18"          # 我方最高支持：未知版本请求的回包
 _SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26")   # 白名单：命中即回显客户端版本
-SERVER_NAME = "unified-rx-v2"
+SERVER_NAME = "ADV"
 SERVER_VERSION = "2.76.0"
 
 # 所有 stdout 写入统一加锁：后台线程完成工具调用时与主线程并发 _send，防止一行 JSON 被拆散
@@ -53,7 +53,7 @@ def _notify(method, params):
     _send({"jsonrpc": "2.0", "method": method, "params": params})
 
 
-def log_msg(level, message, logger="unified-rx"):
+def log_msg(level, message, logger="ADV"):
     """S3-B2 MCP logging 能力：协议内通知而非 stderr（宿主日志面板可见）。"""
     if level not in ("debug", "info", "warning", "error"):
         level = "info"
@@ -165,7 +165,7 @@ def tool_reply(msg_id, name, result):
 
 
 def _clients_path():
-    """握手留痕落点：env 覆盖 > 测试上下文不写 > 缺省 ~/.unified-rx/clients.jsonl。
+    """握手留痕落点：env 覆盖 > 测试上下文不写 > 缺省 ~/.ADV/clients.jsonl。
 
     S146 加固：真实账本**只许装真实宿主握手**——测试期间（PYTEST_CURRENT_TEST）
     且无显式 env 时返回 None（不写）。背景：全量套件里出现"隔离变量在子进程丢失"
@@ -178,7 +178,7 @@ def _clients_path():
         return explicit
     if os.environ.get("PYTEST_CURRENT_TEST"):
         return None
-    return os.path.join(os.path.expanduser("~"), ".unified-rx", "clients.jsonl")
+    return os.path.join(os.path.expanduser("~"), ".ADV", "clients.jsonl")
 
 
 def _record_hello(params, negotiated):

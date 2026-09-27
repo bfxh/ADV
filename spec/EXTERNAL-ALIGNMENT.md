@@ -111,7 +111,7 @@
   **留痕证据（S145 上线，S146 增归因字段）**：首轮 4 条 null 条目实锤为**自家
   测试噪声**（tests/test_v2 直接 `_handle(initialize)` 未隔离——已修 conftest +
   留痕增 `params_keys/pid/server`）；**宿主 ZCode 的真实握手待其重启后入册**
-  （账本 `~/.unified-rx/clients.jsonl`）——入册若见 2025-11-25 / 2026-07-28，
+  （账本 `~/.ADV/clients.jsonl`）——入册若见 2025-11-25 / 2026-07-28，
   再评估新子集（resultType/MRTR 等），升级触发条件不变。
   升级候选（未做、有需求再动）：outputSchema 试点（让宿主直读结构化结果）。
 - ~~**B2 任务级评测（evals）**~~（**S144 已兑**）：`bench/tool_evals.py`——13 个

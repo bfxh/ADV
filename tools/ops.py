@@ -24,7 +24,7 @@ import zipfile
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
 
-_HOME = os.path.join(os.path.expanduser("~"), ".unified-rx")
+_HOME = os.path.join(os.path.expanduser("~"), ".ADV")
 _STATS_FILE = os.path.join(_HOME, "stats.jsonl")
 _SCANLOG_FILE = os.path.join(_HOME, "scan-log.jsonl")
 _LESSONS_FILE = os.path.join(_HOME, "lessons.jsonl")
@@ -206,7 +206,7 @@ def _rollup_path():
 def stats_maintenance(retention_days=None, rollup_path=None, now=None):
     """S172：原始调用账本的**自动量化 + 保留期清理**（usage_audit 脚本与 server 启动共用）。
 
-    - 量化：把**超出保留期**的记录合并进持久 rollup（默认 ~/.unified-rx/stats-rollup.json），
+    - 量化：把**超出保留期**的记录合并进持久 rollup（默认 ~/.ADV/stats-rollup.json），
       键 = "ISO周|agent|tool"，值 = {calls, ms}——同键**累加**（后续任何一次量化都并进同一本账，
       可持续合并）；原始日志删了，总账一直在。
     - 清理：改写 stats.jsonl 与各分片（临时文件 + os.replace 原子替换），只留保留期内的记录；
@@ -362,7 +362,7 @@ def session_burn():
         "threshold_mb": _bw._threshold_mb(),
         "sessions": ses[:10],
         "note": ("体积≈累计 prompt 字节，MB×~28万≈token 量级（混合中英粗估）；"
-                 "会话越长每轮重发越多（二次增长）。告警写 ~/.unified-rx/alarms.jsonl；"
+                 "会话越长每轮重发越多（二次增长）。告警写 ~/.ADV/alarms.jsonl；"
                  "UNIFIED_RX_BURN_MB=0 关闭监测"),
     }
 

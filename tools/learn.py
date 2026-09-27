@@ -12,7 +12,7 @@ import time
 from registry import tool
 from tools.fs import _resolve as _fs_resolve
 
-_DEFAULT_LESSONS = os.path.join(os.path.expanduser("~"), ".unified-rx", "lessons.jsonl")
+_DEFAULT_LESSONS = os.path.join(os.path.expanduser("~"), ".ADV", "lessons.jsonl")
 
 
 def _load_lessons(path):
@@ -67,7 +67,7 @@ def _kw_hits(query, text):
            "action": {"type": "string", "description": "recall/add/feedback"},
            "task_description": {"type": "string", "description": "recall 用：任务描述"},
            "text": {"type": "string", "description": "add 用：教训内容"},
-           "lessons_dir": {"type": "string", "description": "教训库路径（默认 ~/.unified-rx/lessons.jsonl）"},
+           "lessons_dir": {"type": "string", "description": "教训库路径（默认 ~/.ADV/lessons.jsonl）"},
        },
        "required": ["action"]})
 def lesson(action, task_description=None, text=None, lessons_dir=None):

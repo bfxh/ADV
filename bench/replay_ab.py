@@ -1,6 +1,6 @@
 """replay_ab.py —— L3 任务增益评测骨架（UPGRADE-S6 / EVAL-L3）
 
-双臂回放：A=裸模型基线记录, B=模型+unified-rx 工具面。
+双臂回放：A=裸模型基线记录, B=模型+ADV 工具面。
 本骨架不调任何模型 API——只做三件事：
   1. dry-run：校验语料格式 + 打印双臂配置（合并进 CI 的门禁）
   2. record：把一次真实会话的轨迹落盘（turns/tokens/cost/tools 序列）
@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CORPUS = os.path.join(HERE, "labeled_bugs.jsonl")
 
 ARM_A = {"name": "bare_model", "tools": []}
-ARM_B = {"name": "model_plus_rx", "server": "unified-rx-mcp v2.1", "tools": 39}
+ARM_B = {"name": "model_plus_rx", "server": "ADV v2.1", "tools": 39}
 
 REQUIRED_FIELDS = ("id", "commit", "file", "symptom")
 

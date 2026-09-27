@@ -1,4 +1,4 @@
-# unified-rx-v2 ROADMAP
+# ADV ROADMAP
 
 > **状态注记（S136）**：本文档为**早期路线图**（2026-08-24 批次，34 工具纪元）——
 > 历史保留、不再逐轮维护。现行路线看：[spec/PANORAMA.md](spec/PANORAMA.md)（现状坐标）、
@@ -14,14 +14,14 @@
 
 | 项 | 状态 |
 |---|---|
-| 旧库备份 | `D:\开发\backups\unified-rx-mcp-20260824-040352.zip`（4836 文件/109MB） |
+| 旧库备份 | `D:\开发\backups\ADV-20260824-040352.zip`（4836 文件/109MB） |
 | fs_write 授权直传 | ✅（__authorized 直传，MCP 层实测） |
 | 工具收敛 183→34 | ✅ 12 域，注入面精简 5× |
 | 协议薄层 | ✅ server.py 纯 stdlib 零依赖（<300 行） |
 | ide_edit_multi 0 应用 | ✅ 内容匹配替代行号匹配 |
 | 全量测试 | ✅ 24/24 通过 |
 | MCP 协议联通 | ✅ initialize/list/call/授权/沙盒/未知工具 |
-| config.yaml 切换 | ✅ unified-rx → v2 + 沙盒 env（备份 .bak-v2-20260824-045453） |
+| config.yaml 切换 | ✅ ADV → v2 + 沙盒 env（备份 .bak-v2-20260824-045453） |
 
 ## ✅ 第二批完成（P2 + P3，2026-08-24）
 
@@ -45,8 +45,8 @@
 
 ## 🔜 下一步（P4 远期 + 收尾）
 
-- [ ] **重启 Hermes 验证双 MCP 注入**（unified-rx v2 34 工具 + codegraph_explore）——用户重启后确认
-- [ ] codegraph 对其他项目 init（VoxelForge-V3 / unified-rx-v2 自己）
+- [ ] **重启 Hermes 验证双 MCP 注入**（ADV v2 34 工具 + codegraph_explore）——用户重启后确认
+- [ ] codegraph 对其他项目 init（VoxelForge-V3 / ADV 自己）
 - [ ] 本地嵌入模型（bge-small-zh → code_search 向量化，≤2GB 显存约束）
 - [ ] Qwen3-VL 2B 视觉（可选，~1.5G）
 

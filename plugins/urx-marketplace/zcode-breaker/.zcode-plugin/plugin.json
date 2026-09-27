@@ -1,13 +1,13 @@
 {
   "name": "zcode-breaker",
   "version": "1.0.0",
-  "description": "Tool circuit breaker + session burn guard for ZCode: blocks the same (tool + input) repeated over the limit within a window, warns on repeated prompts, and warns when the session's model-io grows past burn tiers. Same rule as unified-rx-mcp tools/breaker.py.",
+  "description": "Tool circuit breaker + session burn guard for ZCode: blocks the same (tool + input) repeated over the limit within a window, warns on repeated prompts, and warns when the session's model-io grows past burn tiers. Same rule as ADV tools/breaker.py.",
   "description_i18n": {
     "en": "Tool circuit breaker + session burn guard for ZCode: blocks repeated (tool + input) over the limit, warns on repeated prompts and on session token burn tiers.",
-    "zh-CN": "ZCode 工具熔断 + 会话烧量哨兵：同一（工具+参数）窗口内重复超阈值即阻断；重复指令告警；会话 model-io 越档（15/30/50/80MB）注入收尾建议。与 unified-rx-mcp 的 tools/breaker.py 同规则（宿主级 + 工具级双保险）。"
+    "zh-CN": "ZCode 工具熔断 + 会话烧量哨兵：同一（工具+参数）窗口内重复超阈值即阻断；重复指令告警；会话 model-io 越档（15/30/50/80MB）注入收尾建议。与 ADV 的 tools/breaker.py 同规则（宿主级 + 工具级双保险）。"
   },
   "author": {
-    "name": "unified-rx-mcp"
+    "name": "ADV"
   },
   "license": "MIT",
   "keywords": [
@@ -17,7 +17,7 @@
     "loop-guard",
     "session-burn",
     "token-budget",
-    "unified-rx"
+    "ADV"
   ],
   "hooks": "hooks",
   "skills": "skills"

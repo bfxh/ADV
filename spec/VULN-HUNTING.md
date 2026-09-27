@@ -277,7 +277,7 @@
   UNIFIED_RX_SANDBOX="D:\开发;D:\rj\MCP" + PYTHONUTF8=1，enabled）；改前 Yan Agent
   完全关闭，备份 config.json.bak-20260906-pre-unifiedrx，diff 校验仅 mcpServers
   变更，条目扛住宿主启动重写。验证：opencode.log 属懒日志（9月3 后未再写）不可用
-  → 改走宿主 GUI"MCP 服务"页实测——"测试 UnifiedRX 连接"→**连接成功，57 个工具**
+  → 改走宿主 GUI"MCP 服务"页实测——"测试 ADV 连接"→**连接成功，57 个工具**
   （绿勾）；另有宿主外 stdio 冒烟同命令全绿（init 2.14.0 / 57 工具 / fs_read
   沙箱 / app_clone 走 rx-appops.exe / app_clean）。
 - **排查注记（S88 已落）**：三路独立排查交叉收敛——①Mimosa 深扫跑副本（禁自扫，

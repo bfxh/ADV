@@ -177,7 +177,7 @@ def _start_msg():
              "resume/compact 恢复大会话前先看体积）"]
     if total > 0:
         parts.append(f"今日已烧 ≈{total:.0f}MB（≈{_wan(total)}万 token 量级累计请求）")
-    parts.append("实时查询：session_burn 工具；告警历史 ~/.unified-rx/alarms.jsonl")
+    parts.append("实时查询：session_burn 工具；告警历史 ~/.ADV/alarms.jsonl")
     return "。".join(parts) + "。"
 
 

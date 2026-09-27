@@ -24,7 +24,7 @@ def main():
     ap.add_argument("--decision", required=True, help="关键决策与为什么")
     ap.add_argument("--evidence", required=True, help="实测数字/测试/文件出处")
     ap.add_argument("--commit", default="")
-    ap.add_argument("--project", default="unified-rx-mcp")
+    ap.add_argument("--project", default="ADV")
     a = ap.parse_args()
     entry = (
         f"\n## {a.round} · {a.task}\n"

@@ -114,7 +114,7 @@
   实现）；无测试=**静态文件约定代理**（与 code_review 覆盖透镜共用
   test_candidates 口径；rust 认内联 `#[cfg(test)]`；**非实测行覆盖**，实测用
   code_coverage）。分数=扇入×(无测试?2:1)，公式随输出透明给出。`record=true`
-  存 JSONL（默认 ~/.unified-rx/risk_history.jsonl），`mode=history` 读同 root
+  存 JSONL（默认 ~/.ADV/risk_history.jsonl），`mode=history` 读同 root
   历史出趋势（总扇入/无测试数首末对比）——覆盖率趋势欠账的静态版。
   `include_tests=true` 才把测试文件纳入榜单；exe 缺失清晰报错不静默。
 - 坑：JDK/gcc 本地化消息（中文"错误"）破坏诊断正则 → javac 强制

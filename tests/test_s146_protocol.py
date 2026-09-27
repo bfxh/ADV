@@ -6,14 +6,14 @@
 1. 协商——白名单两版皆回显；未知/缺省 → 回我方最高支持（2025-06-18）；
 2. 2025-06-18 面——tools/list 顶层 `title`（与 annotations.title 同值双发）；
 3. 留痕可归因——params_keys/pid/server 在册（首轮 4 条 null 归因困难的补丁）；
-4. 账本隔离回归——套件内的握手**不得**写进真实 ~/.unified-rx/clients.jsonl。
+4. 账本隔离回归——套件内的握手**不得**写进真实 ~/.ADV/clients.jsonl。
 """
 import json
 import os
 
 import server
 
-REAL_LOG = os.path.join(os.path.expanduser("~"), ".unified-rx", "clients.jsonl")
+REAL_LOG = os.path.join(os.path.expanduser("~"), ".ADV", "clients.jsonl")
 
 
 def _init(proto=None, client=None):

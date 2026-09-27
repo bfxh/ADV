@@ -68,7 +68,7 @@ def engine_status():
     cg = _probe_codegraph()
     # 检查已 init 的项目
     indexed = []
-    for proj in [r"D:\开发\VoxelForge", r"D:\开发\VoxelForge-V3", r"D:\开发\unified-rx-v2"]:
+    for proj in [r"D:\开发\VoxelForge", r"D:\开发\VoxelForge-V3", r"D:\开发\ADV"]:
         if os.path.exists(os.path.join(proj, ".codegraph")):
             indexed.append(proj)
     cg["indexed_projects"] = indexed

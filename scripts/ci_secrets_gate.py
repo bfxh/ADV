@@ -8,12 +8,19 @@ tests/ 里允许存在"碎片 + 合规假值"。
 历史提交不扫：GitHub push protection 在推送侧兜底新推送；改史治理见
 spec/HARDENING.md（先吊销再清史）。
 """
+import glob
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 自清被杀运行残留：history 门 dump 的 finally 必删，但 kill 不给 finally 机会；
+# 残留会让本门连环假红（private_key_block 金丝雀在场）。扫描器不追杀自产临时物。
+for _d in glob.glob(os.path.join(root, ".urx-hist-*")):
+    shutil.rmtree(_d, ignore_errors=True)
 
 # S134：secrets_hunt 原生化后读路径过沙盒（S88 纪律）——本门禁**自给自足**声明
 # 扫描根的授权（不依赖 workflow 注入 env；CI 首跑即被沙盒门 fail-closed 实锤，

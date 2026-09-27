@@ -77,8 +77,8 @@ def main():
         res = r.get("result") or {}
         ok(res.get("protocolVersion", "").startswith("20"),
            f"initialize 返回协议版本 {res.get('protocolVersion')!r}")
-        ok((res.get("serverInfo") or {}).get("name") == "unified-rx-v2",
-           "serverInfo.name = unified-rx-v2")
+        ok((res.get("serverInfo") or {}).get("name") == "ADV",
+           "serverInfo.name = ADV")
         ok((res.get("serverInfo") or {}).get("version"),
            "serverInfo.version 存在")
         ok(((res.get("capabilities") or {}).get("tools") or {}).get("listChanged") is True,

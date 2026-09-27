@@ -1,12 +1,12 @@
-# 旧版 unified-rx-mcp 停用说明（2026-08-24）
+# 旧版 ADV 停用说明（2026-08-24）
 
 ## 现状
 
 | 版本 | 路径 | 状态 |
 |---|---|---|
-| **v2（新）** | `D:\开发\unified-rx-v2` | ✅ 生效（config.yaml 已指向） |
-| v1（旧） | `D:\开发\unified-rx-mcp` | 🔒 冻结归档 |
-| E 盘旧副本 | `E:\共享\51\unified-rx` | 🔒 冻结（不再同步） |
+| **v2（新）** | `D:\开发\ADV` | ✅ 生效（config.yaml 已指向） |
+| v1（旧） | `D:\开发\ADV` | 🔒 冻结归档 |
+| E 盘旧副本 | `E:\共享\51\ADV` | 🔒 冻结（不再同步） |
 
 ## 为什么停用旧版
 
@@ -17,15 +17,15 @@
 
 ## 停用方式（已做）
 
-- `config.yaml` 的 `mcp_servers.unified-rx` args 已指向 `D:\开发\unified-rx-v2\server.py`
-- 旧库已备份：`D:\开发\backups\unified-rx-mcp-20260824-040352.zip`（4836 文件/109MB）
+- `config.yaml` 的 `mcp_servers.ADV` args 已指向 `D:\开发\ADV\server.py`
+- 旧库已备份：`D:\开发\backups\ADV-20260824-040352.zip`（4836 文件/109MB）
 - config 备份：`config.yaml.bak-v2-20260824-045453` / `config.yaml.bak-cg-20260824-051423`
 
 ## 重启 Hermes 后的预期
 
 ```
 mcp_servers:
-  unified-rx:   → v2（34 组合工具）
+  ADV:   → v2（34 组合工具）
   codegraph:    → codegraph_explore（语义引擎）
 ```
 

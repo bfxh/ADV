@@ -1,4 +1,4 @@
-"""tests/test_v2.py —— unified-rx-v2 全量测试（P3 增强后）
+"""tests/test_v2.py —— ADV 全量测试（P3 增强后）
 
 覆盖：注册表/协议/fs/scan/ide/guard/learn/ops/search/engine。
 S15 起移除 pure/collab 域与 cmd_cheatsheet（废物清理，见 UPGRADE.md S15）。
