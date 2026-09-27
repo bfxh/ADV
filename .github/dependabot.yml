@@ -15,3 +15,10 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    groups:
+      # codeql.yml 里 init 与 analyze 是同一个 action 的两步，**必须同版本**：
+      # 拆成两个 PR 各升一半直接红（#99/#100 实况：analyze 已到 4.38.2、init 还在 4.38.1
+      # → "Loaded a configuration file for version '4.38.2', but running version '4.38.1'"）。
+      # 合成一个 PR，两步一起走（与 qingjian 的 windows-rs 分组同思路）。
+      codeql-action:
+        patterns: ["github/codeql-action"]
