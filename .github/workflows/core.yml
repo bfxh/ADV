@@ -95,7 +95,7 @@ jobs:
 
       - name: Naming gate（命名纪律：主名 ADV 白名单外全专业；占位词/杂物/退役旧名）
         # PhysArena 是测试场的合法主名，不进 --forbid；--forbid 里是 ADV 旧名与物理引擎（BSHSQ）的旧仓名
-        run: python -X utf8 scripts/naming_gate.py --forbid "RUST WL" --forbid unified-rx --allow-name unified-rx-rs --allow-name unified-rx-pytest  # naming:allow（退役旧名作为门参数传入）
+        run: python -X utf8 scripts/naming_gate.py --forbid "RUST WL" --forbid "RUST-WL" --forbid unified-rx --allow-name unified-rx-rs --allow-name unified-rx-pytest  # naming:allow（退役旧名作为门参数传入）
 
       - name: Self-attack gate（S138：attack_cruise 判定必须 clean）
         run: python -X utf8 scripts/attack_gate.py
@@ -200,7 +200,7 @@ jobs:
 
       # S172：Rust 覆盖率棘轮（llvm-cov 只准升）。基线首次由本 job 取数（本地 windows-gnu
       # 无 profiler runtime / msvc 无 link.exe，测不了——coverage_gate.py 文档串有实测记录）。
-      # install-action 钉 SHA（test_s124 机器锁要求）；llvm-cov 版本 0.9.1（与 RUST-WL 同钉）。
+      # install-action 钉 SHA（test_s124 机器锁要求）；llvm-cov 版本 0.9.1（与 BSHSQ 同钉）。
       - name: Install cargo-llvm-cov 0.9.1
         uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:

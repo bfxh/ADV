@@ -25,5 +25,5 @@
 ## 出处（本文件的由来）
 
 - qingjian PR #234（iOS + Android + OHOS 三个目标捆一个 PR）→ 拆成三个；
-- RUST-WL PR #5（棘轮门禁层 + cargo-deny 依赖审计捆一个 PR）→ 拆成两个；
+- BSHSQ（原 RUST-WL）PR #5（棘轮门禁层 + cargo-deny 依赖审计捆一个 PR）→ 拆成两个； <!-- naming:allow（写明旧名沿革：该仓已更名 BSHSQ） -->
 - 依赖更新 CI 覆盖本人全部活跃仓库，依赖升级一律走 Dependabot / 独立 PR。

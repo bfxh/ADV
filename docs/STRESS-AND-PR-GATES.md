@@ -74,7 +74,7 @@ key 门（明文红线）早就在提交路径上，**路径门**本轮新建并
 1. ~~并发尾延迟归因~~ ✅ 已完成（见 §5：真并行 + 假数已更正）；
 2. **场景语料化**（§3，把本轮矩阵变 `spec/stress-corpus.json` + `bench/stress_run.py`）；
 3. **`stats.jsonl` 轮转**（40.8MB 无上限，同款问题在 `scan-log-*.jsonl` 已有 34MB+）；
-4. RUST-WL 遗留：`vxl-phys-splat` 的 wildcard 依赖（cargo-deny）+ 分析器工具版本钉（@latest 会自己漂）；
+4. BSHSQ（原 RUST-WL，物理引擎仓）遗留：`vxl-phys-splat` 的 wildcard 依赖（cargo-deny）+ 分析器工具版本钉（@latest 会自己漂）； <!-- naming:allow（写明旧名沿革：该仓已更名 BSHSQ） -->
 5. ark（TS 栈）形状锁改造；
 6. 会话收尾（本会话已 ≈125MB）。
 

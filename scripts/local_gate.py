@@ -42,7 +42,7 @@ STEPS = [
     # PhysArena 是**测试场**的合法主名（不是退役旧名），不进 --forbid；
     # --forbid 里是 ADV 自己的旧名与物理引擎（BSHSQ）的旧仓名，见下行参数。
     ("naming-gate", [PY, "-X", "utf8", "scripts/naming_gate.py",
-                     "--forbid", "RUST WL", "--forbid", "unified-rx",  # naming:allow（退役旧名作为门参数传入）
+                     "--forbid", "RUST WL", "--forbid", "RUST-WL", "--forbid", "unified-rx",  # naming:allow（退役旧名作为门参数传入）
                      "--allow-name", "unified-rx-rs", "--allow-name", "unified-rx-pytest"],
      "fast", "命名纪律门（占位词/杂物/退役旧名；主名 ADV 白名单外全专业）"),
     ("path-gate",   [PY, "-X", "utf8", "scripts/path_gate.py"], "fast", "路径门（符号链接/文件名卫生/越界写）"),
