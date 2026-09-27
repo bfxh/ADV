@@ -45,6 +45,15 @@
    "findings": 58,
    "verdict": "none",
    "head": "1a84f79"
+  },
+  {
+   "round": "复审五（BSHSQ/ADV 主名体系 + 命名纪律门期）",
+   "date": "2026-09-28",
+   "copy": "ADV 自带扫描（bug_scan + std_check；MIMOSA 本机不可用）→ %TEMP%/urx-audit-copy-2026-09-28/scan.json（扫描输出目录，非源码副本；工作树直扫）",
+   "seal": "sha256:ce1b8665",
+   "findings": 400,
+   "verdict": "inconclusive",
+   "head": "b5ae2ce"
   }
  ]
 }

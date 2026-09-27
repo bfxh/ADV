@@ -109,6 +109,7 @@ CI 侧对应的自动化门 = **Self-attack gate**（`scripts/attack_gate.py`：
 | 复审二（S143 后） | TEMP/urx-audit-copy @4eae149 | sha256:426d0a37… | 57 | inconclusive | added=0；gone=2（均为已修的命令注入，对照的是修复前基线——S137 首轮报告留档） |
 | 复审三（S144 后） | TEMP/urx-audit-copy-s144 @6e1a837 | sha256:dc2b9a97… | 57 | inconclusive | **added=0；gone=0（零漂移）** |
 | 复审四（S169 函数级瘦身期） | MIMOSA `scan-2026-09-23T16-29-40.701Z-7f210a999686`（**扫描输出目录，非源码副本**；工作树直扫 @1a84f79） | sha256:0f92c279… | 58 | **none**（`verdictEffect=none`：静态面，未做运行时验证） | 条数 57→58；**待 triage**（未与上轮逐条比对） |
+| 复审五（BSHSQ/ADV 主名体系 + 命名纪律门期） | **ADV 自带扫描**（`bug_scan` + `std_check`；MIMOSA 本机不可用，工具面与复审四不同——**条数不可直接比对**）→ `%TEMP%/urx-audit-copy-2026-09-28/scan.json`（扫描输出，非源码副本；工作树直扫 @b5ae2ce） | sha256:ce1b8665… | 400 | inconclusive（本机无 MIMOSA，换用仓内自带扫描面；**未逐条 triage**） | 主名改名 66+49 文件 + naming-gate 接入期；扫描面 400 条待 triage |
 
 **复审三记账（S144）**：副本 782 文件 / head=6e1a837（含 B3 注入前缀逻辑、
 `bench/tool_evals.py`、toolmeta 注入清单与 13 条瘦身描述）；深扫 10s；差量与
