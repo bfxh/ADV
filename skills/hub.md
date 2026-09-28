@@ -13,6 +13,7 @@
 | `hub_runs` | 账本尾 N 条（判定/封条/指纹/独立复核指引）。`verdict`：`green` / `green_with_skips` / `red` |
 | `hub_run` | **需 `__authorized`**：触发运行；返回判定、封印、`verify_plan`（机器可执行复核计划）与 `how_to_verify`（人读指引） |
 | `hub_propose` | **需 `__authorized`（G1）**：隔离工作树里跑白名单机械修复（`ruff-fix` / `ruff-format` / `cargo-fmt`），只出 `patch` + 落地建议——**永不改主树、永不提交/合并** |
+| `hub_impact` | **只读**：变更（`git diff base..HEAD` ∪ 未提交）→ import **反向闭包** → 建议测试集（保守，宁多跑不误跳）；不可信即 `fallback=full` + 理由 |
 
 ## 里子（机制与纪律）
 
@@ -53,6 +54,14 @@
 / `apply_hint` / `unchanged_main`（**主树逐位不变**，防骗门 `propose-isolation` 判据守）。
 `checks` **只接受白名单名字**（不提供任意命令面）；隔离树基于 **HEAD**（脏树上的未提交改动
 不进提案）。落地永远由人/智能体走 `git apply` + 门禁 + 人审——平台不碰合并。
+
+## 静态选测（方向①：语义 diff）
+
+`hub_impact(base)` → 变更集 → **反向 import 闭包**（谁依赖我，传递）→ `tests/` 下受影响的
+测试 + **图上无记录的测试一律纳入**（保守）。**与既有能力的分工**：`tia` 是动态口径（要"上次
+跑过"才有依赖集、状态在进程内），`ide_impact` 是单符号级（LSP 三级），本件是**变更驱动的静态
+口径**（不依赖历史、可跨进程复算）。不确定（非 git 仓 / 解析失败率过高）⇒ `fallback="full"`
++ 理由，**不假装选过**。
 
 ## 何时不要用
 

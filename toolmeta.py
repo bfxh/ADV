@@ -111,6 +111,7 @@ TOOL_TITLES = {
     "hub_runs": "运行账本",
     "hub_run": "触发管线运行",
     "hub_propose": "修复提案（隔离树）",
+    "hub_impact": "静态影响面",
 }
 
 

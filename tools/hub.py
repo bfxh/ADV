@@ -12,6 +12,7 @@ import os
 
 import hub_auth
 import hub_core
+import hub_impact as hub_impact_mod
 import hub_propose as hub_propose_mod
 import hub_runner
 from registry import tool
@@ -91,6 +92,17 @@ def hub_run(pipeline):
         return {"error": f"未知管线 {pipeline!r}", "available": sorted(pipes),
                 "invalid": invalid}
     return hub_runner.run_pipeline(pipes[pipeline], actor="mcp", trigger="manual")
+
+
+@tool("hub_impact",
+      "静态影响面（只读）：git diff ∪ 未提交 → import 反向闭包 → 建议测试集"
+      "（保守，宁多跑不误跳）；不可信即 fallback=full 如实退化",
+      "hub", {"type": "object",
+              "properties": {"base": {"type": "string", "description": "git 基线（默认 HEAD）"},
+                             "prefix": {"type": "string", "description": "测试目录前缀（默认 tests/）"}},
+              "required": []})
+def hub_impact(base="HEAD", prefix="tests/"):
+    return hub_impact_mod.impact(str(base or "HEAD"), str(prefix or "tests/"))
 
 
 @tool("hub_propose",

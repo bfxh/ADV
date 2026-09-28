@@ -1556,3 +1556,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 项目：ADV｜时间：2026-09-29T03:19
 - 决策：①G1 的机器版本：提案在 git worktree --detach 隔离树里跑，主树逐位不变（HEAD+status 对拍）、隔离树跑完即移除；②白名单 checks（ruff-fix/ruff-format/cargo-fmt）——不提供任意命令面，参数只能选名字；③平台永不提交/合并/推送：只出 patch + branch_suggestion + apply_hint，落地由人/智能体走门禁与人审；④隔离树基于 HEAD——脏树上的未提交改动不进提案；⑤判据 propose-isolation（防骗门第 14 项）：真跑一次提案，断言主树 head/status 稳定、worktree 无残留、结构完整（patch/apply_hint/never_merged）
 - 证据：防骗门 14 项全绿（propose-isolation: unchanged_main=True head_stable=True status_stable=True worktree_leak=0 patch_bytes=12275 files=19）；新增 tests/test_s180_propose.py 6 例（含 git apply --check 可用性 + 非仓拒绝 + MCP 无授权拒）；全门 26 步绿（SELFTEST tools=85）；版本锁步 2.81.0×4（exe 已重建 EXE_TAG ok=11）；god 基线 323 文件；⭐附带发现：提案 patch 含 19 个文件/12KB——仓内确有 ruff 可清理项（lint 门在计数记账、未修），可另开清理轮
+
+## S181 · S181 前沿十方向吸收判定档 + P0 落地（方向①：hub_impact 静态语义选测）；版本 2.81.0 → 2.82.0
+- 项目：ADV｜时间：2026-09-29T03:53
+- 决策：①先盘点本仓已有等价物防重复造（tia 动态口径 / ide_impact 符号级三级 / ide_callgraph rust 符号边 / lesson 记忆 / perf_gate 比值判据 / seal+链 凭证骨架 / manifest 模块声明 / breaker+准入 配额）——十条里没有一条是从零开始；②逐条判定：吸收=①语义 diff 与 ⑩假设检验；有界=③模块版本字段/⑤vc 形状输出/⑥两条韧性判据/⑧失败→lesson 草稿/⑨per-actor 配额/②热重载（属宿主侧）；不吸收=④P2P 缓存（第三方库违零依赖红线）/⑦数字孪生（需容器化）；③P0 落地 hub_impact：变更集(git diff base..HEAD ∪ 未提交) → import 反向闭包(有界) → 受影响测试；口径保守（图上无记录的测试一律纳入=宁多跑不误跳）；不可信（解析失败率>20%/非 git 仓）即 fallback=full + 理由，不假装选过；④与既有三者分工写进模块 docstring（静态/动态/符号级互补，dupe 门也守这条）
+- 证据：防骗门 15 项全绿（新增 impact-static：本仓 selected=102 + 金丝雀小仓传递闭包 caught=True）；新增 tests/test_s181_impact.py 6 例（传递不漏/精确性/已提交可见/无变更 none/非仓诚实退化/只读注解）；全门 26 步绿（SELFTEST tools=86）；版本锁步 2.82.0×4（exe 已重建 EXE_TAG ok=11）；god 基线 325 文件；判定档 spec/FRONTIER-CI.md；⭐偶发一次：计时档在 pytest 压满机器时假红（单独跑 RC=0 复跑全门绿，S160 同款资源争用偶发——已记录）

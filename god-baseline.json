@@ -164,6 +164,11 @@
   "max_fn_lines": 29,
   "max_type_members": 0
  },
+ "hub_impact.py": {
+  "file_lines": 148,
+  "max_fn_lines": 35,
+  "max_type_members": 0
+ },
  "hub_live.py": {
   "file_lines": 63,
   "max_fn_lines": 21,
@@ -635,7 +640,7 @@
   "max_type_members": 0
  },
  "scripts/hub_gate.py": {
-  "file_lines": 386,
+  "file_lines": 434,
   "max_fn_lines": 46,
   "max_type_members": 0
  },
@@ -1099,6 +1104,11 @@
   "max_fn_lines": 13,
   "max_type_members": 0
  },
+ "tests/test_s181_impact.py": {
+  "file_lines": 89,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
  "tests/test_s29_fuzz.py": {
   "file_lines": 141,
   "max_fn_lines": 17,
@@ -1355,7 +1365,7 @@
   "max_type_members": 0
  },
  "toolmeta.py": {
-  "file_lines": 150,
+  "file_lines": 151,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
@@ -1450,7 +1460,7 @@
   "max_type_members": 0
  },
  "tools/hub.py": {
-  "file_lines": 114,
+  "file_lines": 126,
   "max_fn_lines": 14,
   "max_type_members": 0
  },

@@ -300,6 +300,52 @@ def _propose_check() -> tuple[bool, str]:
                 f"error={res.get('error') or '-'}")
 
 
+def _impact_check() -> tuple[bool, str]:
+    """静态影响面判据（S181，方向①）：① 本仓真跑一次（只验契约诚实：不炸、退化带理由、
+    选中项都是真文件）；② **金丝雀小仓**：造一次真变更，断言"间接依赖不漏"（传递闭包）。
+
+    为什么带金丝雀：shallow 检出下本仓可能"无可比基线"（合法状态），只跑本仓会假绿。
+    """
+    import hub_impact
+    import hub_propose
+    res = hub_impact.impact(base="HEAD")
+    root = hub_impact.repo_root()
+    sel = res.get("impacted_tests") or []
+    honest = (res.get("ok") is True
+              and (res.get("fallback") in ("none", "full") or bool(sel))
+              and all((root / t).is_file() and t.startswith("tests/") for t in sel)
+              and (res.get("fallback") is None or bool(res.get("reason"))))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix="adv-impact-"))
+    caught = False
+    try:
+        (tmp / "pkg").mkdir()
+        (tmp / "tests").mkdir()
+        (tmp / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+        (tmp / "pkg" / "b.py").write_text("def h():\n    return 1\n", encoding="utf-8")
+        (tmp / "pkg" / "a.py").write_text("from pkg.b import h\n\n\ndef r():\n    return h()\n",
+                                          encoding="utf-8")
+        (tmp / "tests" / "test_a.py").write_text(
+            "from pkg.a import r\n\n\ndef test_r():\n    assert r()\n", encoding="utf-8")
+        hub_propose._git(tmp, ["init", "-q"])
+        for args in (["add", "-A"], ["commit", "-qm", "i"]):
+            hub_propose._git(tmp, ["-c", "user.name=g", "-c", "user.email=g@g", *args])
+        (tmp / "pkg" / "b.py").write_text("def h():\n    return 2\n", encoding="utf-8")
+        saved = os.environ.get("UNIFIED_RX_HUB_REPO")
+        os.environ["UNIFIED_RX_HUB_REPO"] = str(tmp)
+        try:
+            res2 = hub_impact.impact(base="HEAD")
+        finally:
+            if saved is None:
+                os.environ.pop("UNIFIED_RX_HUB_REPO", None)
+            else:
+                os.environ["UNIFIED_RX_HUB_REPO"] = saved
+        caught = "tests/test_a.py" in (res2.get("impacted_tests") or [])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return honest and caught, (f"repo_honest={honest} canary_transitive={caught} "
+                               f"fallback={res.get('fallback')} selected={len(sel)}")
+
+
 def _checks() -> list[tuple[str, bool, str]]:
     rows: list[tuple[str, bool, str]] = []
     pipes, invalid = hub_core.load_pipelines()
@@ -330,6 +376,8 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("auth-session-layers", ok, detail))
     ok, detail = _propose_check()
     rows.append(("propose-isolation", ok, detail))
+    ok, detail = _impact_check()
+    rows.append(("impact-static", ok, detail))
     return rows
 
 
