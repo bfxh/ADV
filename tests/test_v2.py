@@ -18,10 +18,11 @@ import tools  # noqa: F401
 
 
 def test_registry_tool_count():
-    """工具面收敛：上限随 S149（渐进披露+sys 扩面）放宽到 80、**S176 平台域（hub 四件）**
-    放宽到 84——仍在"少而准"区间（对照旧版 183）；再涨就该审"是不是又在堆噪音"。"""
+    """工具面收敛：上限随 S149（渐进披露+sys 扩面）放宽到 80、S176 平台域（hub 四件）
+    到 84、S180（+hub_propose 提案流）到 85——仍在"少而准"区间（对照旧版 183）；
+    再涨就该审"是不是又在堆噪音"。"""
     n = registry.tool_count()
-    assert 20 <= n <= 84, f"工具数 {n} 超出收敛范围"
+    assert 20 <= n <= 85, f"工具数 {n} 超出收敛范围"
 
 
 def test_registry_groups():

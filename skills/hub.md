@@ -12,6 +12,7 @@
 | `hub_pipelines` | 管线清单（id/标题/触发/资源级/步骤/指纹）；**非法 manifest 如实列出**，不静默跳过 |
 | `hub_runs` | 账本尾 N 条（判定/封条/指纹/独立复核指引）。`verdict`：`green` / `green_with_skips` / `red` |
 | `hub_run` | **需 `__authorized`**：触发运行；返回判定、封印、`verify_plan`（机器可执行复核计划）与 `how_to_verify`（人读指引） |
+| `hub_propose` | **需 `__authorized`（G1）**：隔离工作树里跑白名单机械修复（`ruff-fix` / `ruff-format` / `cargo-fmt`），只出 `patch` + 落地建议——**永不改主树、永不提交/合并** |
 
 ## 里子（机制与纪律）
 
@@ -44,6 +45,14 @@
   **最后 admin 不可删/降**（防锁死）；管理动作入账本（`kind=admin`，链保护）。
 - 首跑自举 `admin`，令牌**只在 stderr 打印一次**；坏用户表 fail closed（不重建）。
 - 触发一次运行记 `actor`（`mcp` / `web:<user>` / `cli` / `gate`），与智能体归因同账。
+
+## 修复提案（G1 的机器版本）
+
+`hub_propose(checks)` → `git worktree add --detach` 造**隔离树** → 在白名单里跑机械修复 →
+`git diff` 即提案 → 移除隔离树。返回值含 `patch` / `files` / `checks` / `branch_suggestion`
+/ `apply_hint` / `unchanged_main`（**主树逐位不变**，防骗门 `propose-isolation` 判据守）。
+`checks` **只接受白名单名字**（不提供任意命令面）；隔离树基于 **HEAD**（脏树上的未提交改动
+不进提案）。落地永远由人/智能体走 `git apply` + 门禁 + 人审——平台不碰合并。
 
 ## 何时不要用
 

@@ -12,6 +12,7 @@ import os
 
 import hub_auth
 import hub_core
+import hub_propose as hub_propose_mod
 import hub_runner
 from registry import tool
 
@@ -90,3 +91,23 @@ def hub_run(pipeline):
         return {"error": f"未知管线 {pipeline!r}", "available": sorted(pipes),
                 "invalid": invalid}
     return hub_runner.run_pipeline(pipes[pipeline], actor="mcp", trigger="manual")
+
+
+@tool("hub_propose",
+      "修复提案（需授权，G1）：隔离树里跑白名单机械修复（ruff --fix / ruff format / cargo fmt），"
+      "只出 patch 与落地建议——**永不改主树、永不提交/合并**",
+      "hub", {"type": "object",
+              "properties": {
+                  "checks": {"type": "array", "items": {"type": "string"},
+                             "description": "从 FIX_CHECKS 里选名字，如 [\"ruff-fix\"]"},
+                  "timeout_s": {"type": "integer", "minimum": 30, "maximum": 3600}},
+              "required": ["checks"]},
+      requires_auth=True)
+def hub_propose(checks, timeout_s=600):
+    if not isinstance(checks, list) or not all(isinstance(c, str) for c in checks):
+        return {"error": "checks 必须是字符串数组", "available": sorted(hub_propose_mod.FIX_CHECKS)}
+    try:
+        ts = int(timeout_s)
+    except (TypeError, ValueError):
+        ts = 600
+    return hub_propose_mod.propose(checks, max(30, min(ts, 3600)))

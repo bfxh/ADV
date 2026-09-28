@@ -278,6 +278,28 @@ def _auth_session_check() -> tuple[bool, str]:
                 f"read={st_read} viewer_users={st_users}")
 
 
+def _propose_check() -> tuple[bool, str]:
+    """提案隔离判据（S180，G1）：真跑一次提案——**主树逐位不变** + 隔离树无残留 +
+    结构完整（patch/apply_hint/never_merged）。G1 的机器版本：平台永不改主树、永不合并。"""
+    import hub_propose
+    root = hub_propose.repo_root()
+    _rc, head0, _e = hub_propose._git(root, ["rev-parse", "HEAD"])
+    _rc, st0, _e = hub_propose._git(root, ["status", "--porcelain"])
+    res = hub_propose.propose(["ruff-fix"])
+    _rc, head1, _e = hub_propose._git(root, ["rev-parse", "HEAD"])
+    _rc, st1, _e = hub_propose._git(root, ["status", "--porcelain"])
+    _rc, wtl, _e = hub_propose._git(root, ["worktree", "list"])
+    leaked = [ln for ln in wtl.splitlines() if "adv-propose-" in ln]
+    ok = (res.get("ok") is True and res.get("unchanged_main") is True
+          and head0 == head1 and st0 == st1 and not leaked
+          and isinstance(res.get("patch"), str) and bool(res.get("apply_hint"))
+          and res.get("never_merged") is True)
+    return ok, (f"unchanged_main={res.get('unchanged_main')} head_stable={head0 == head1} "
+                f"status_stable={st0 == st1} worktree_leak={len(leaked)} "
+                f"patch_bytes={len(res.get('patch') or '')} files={len(res.get('files') or [])} "
+                f"error={res.get('error') or '-'}")
+
+
 def _checks() -> list[tuple[str, bool, str]]:
     rows: list[tuple[str, bool, str]] = []
     pipes, invalid = hub_core.load_pipelines()
@@ -306,6 +328,8 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("sched-resource-class", ok, detail))
     ok, detail = _auth_session_check()
     rows.append(("auth-session-layers", ok, detail))
+    ok, detail = _propose_check()
+    rows.append(("propose-isolation", ok, detail))
     return rows
 
 

@@ -110,6 +110,7 @@ TOOL_TITLES = {
     "hub_pipelines": "管线清单",
     "hub_runs": "运行账本",
     "hub_run": "触发管线运行",
+    "hub_propose": "修复提案（隔离树）",
 }
 
 
@@ -140,6 +141,7 @@ UNTRUSTED_OUTPUT_TOOLS = frozenset({
     "ide_diagnostics",  # linter/clippy 诊断文本（含代码/消息）
     "hub_runs",         # 账本条目含日志派生的判定行/复核指引
     "hub_run",          # 同上（verdict_lines 与 how_to_verify 均为日志派生文本）
+    "hub_propose",      # patch 是仓库源码文本（内容类）
 })
 
 

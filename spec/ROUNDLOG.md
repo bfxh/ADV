@@ -1551,3 +1551,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 项目：ADV｜时间：2026-09-29T02:58
 - 决策：根因：test_runner_shared_parallel_and_exclusive_mutex 与防骗门 sched 判据都用两个线程互相等同时进活跃集；慢 CI（2 核满载）上线程启动被延迟 ⇒ 两个 0.8s 运行完全不重叠 ⇒ coexist=False 假红（core job 6m55s 失败，merge-scan 绿）。修法：改确定性口径——第 1 个 shared 位由本进程手工持有（不会自己消失）+ 第 2 个走真实 runner ⇒ 共存成为确定性事实；闸门语义（上限拒绝/互斥/清空后可独占）判据不变。
 - 证据：防骗门 13 项全绿（sched wall=1.49s，比旧版更快）；test_s176 15 例绿；全门复跑绿；教训：跨机器判据不依赖线程/时钟竞速
+
+## S180 · S180 平台层 M1 收尾：修复提案流（G1）——隔离工作树里出 patch；版本 2.80.0 → 2.81.0
+- 项目：ADV｜时间：2026-09-29T03:19
+- 决策：①G1 的机器版本：提案在 git worktree --detach 隔离树里跑，主树逐位不变（HEAD+status 对拍）、隔离树跑完即移除；②白名单 checks（ruff-fix/ruff-format/cargo-fmt）——不提供任意命令面，参数只能选名字；③平台永不提交/合并/推送：只出 patch + branch_suggestion + apply_hint，落地由人/智能体走门禁与人审；④隔离树基于 HEAD——脏树上的未提交改动不进提案；⑤判据 propose-isolation（防骗门第 14 项）：真跑一次提案，断言主树 head/status 稳定、worktree 无残留、结构完整（patch/apply_hint/never_merged）
+- 证据：防骗门 14 项全绿（propose-isolation: unchanged_main=True head_stable=True status_stable=True worktree_leak=0 patch_bytes=12275 files=19）；新增 tests/test_s180_propose.py 6 例（含 git apply --check 可用性 + 非仓拒绝 + MCP 无授权拒）；全门 26 步绿（SELFTEST tools=85）；版本锁步 2.81.0×4（exe 已重建 EXE_TAG ok=11）；god 基线 323 文件；⭐附带发现：提案 patch 含 19 个文件/12KB——仓内确有 ruff 可清理项（lint 门在计数记账、未修），可另开清理轮

@@ -33,9 +33,13 @@ _MAX_VERDICT_LINES = 40
 
 
 def _git(args: list[str]) -> str | None:
+    """注意：清掉 git 钩子注入的 GIT_* 定位变量（否则指纹可能采到错误的仓状态）。"""
+    strip = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_PREFIX",
+             "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR", "GIT_ALTERNATE_OBJECT_DIRECTORIES")
+    env = {k: v for k, v in os.environ.items() if k not in strip}
     try:
         cp = subprocess.run(["git", "-C", str(hub_core.REPO_ROOT), *args],
-                            capture_output=True, timeout=20)
+                            capture_output=True, timeout=20, env=env)
     except (OSError, subprocess.SubprocessError):
         return None
     if cp.returncode != 0:

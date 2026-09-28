@@ -169,8 +169,13 @@
   "max_fn_lines": 21,
   "max_type_members": 0
  },
+ "hub_propose.py": {
+  "file_lines": 114,
+  "max_fn_lines": 51,
+  "max_type_members": 0
+ },
  "hub_runner.py": {
-  "file_lines": 253,
+  "file_lines": 257,
   "max_fn_lines": 49,
   "max_type_members": 0
  },
@@ -630,7 +635,7 @@
   "max_type_members": 0
  },
  "scripts/hub_gate.py": {
-  "file_lines": 363,
+  "file_lines": 386,
   "max_fn_lines": 46,
   "max_type_members": 0
  },
@@ -1080,13 +1085,18 @@
   "max_type_members": 0
  },
  "tests/test_s176_hub.py": {
-  "file_lines": 245,
-  "max_fn_lines": 26,
+  "file_lines": 232,
+  "max_fn_lines": 21,
   "max_type_members": 0
  },
  "tests/test_s179_auth.py": {
   "file_lines": 238,
   "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "tests/test_s180_propose.py": {
+  "file_lines": 90,
+  "max_fn_lines": 13,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {
@@ -1330,7 +1340,7 @@
   "max_type_members": 2
  },
  "tests/test_v2.py": {
-  "file_lines": 418,
+  "file_lines": 419,
   "max_fn_lines": 23,
   "max_type_members": 0
  },
@@ -1345,7 +1355,7 @@
   "max_type_members": 0
  },
  "toolmeta.py": {
-  "file_lines": 148,
+  "file_lines": 150,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
@@ -1440,7 +1450,7 @@
   "max_type_members": 0
  },
  "tools/hub.py": {
-  "file_lines": 93,
+  "file_lines": 114,
   "max_fn_lines": 14,
   "max_type_members": 0
  },

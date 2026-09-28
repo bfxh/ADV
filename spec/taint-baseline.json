@@ -14,6 +14,12 @@
    "why": "测试基建（S140 打点隔离）：创建 pytest 专用 tmp 目录 %TEMP%/unified-rx-pytest/_stats，路径为进程内常量，无外部输入（S140 人工确认）"
   },
   {
+   "file": "hub_runner.py",
+   "sink": "subprocess.run",
+   "count": 1,
+   "why": "S180 人工确认：`_git(args)` 是**内部函数**——args 只被 fingerprint() 以字面量调用（rev-parse HEAD / status --porcelain），无外部输入路径；argv 列表 + shell=False + 清掉 GIT_* 定位变量。与协议层内部子进程同族"
+  },
+  {
    "file": "scripts/audit_copy.py",
    "sink": "os.makedirs",
    "count": 2,

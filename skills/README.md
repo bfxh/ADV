@@ -27,7 +27,7 @@
 | game | [game.md](game.md) | 2 | Blender/游戏资产校验 |
 | learn | [learn.md](learn.md) | 1 | lesson 关键词检索，非向量 |
 | sys | [sys.md](sys.md) | 6 | S148 混合架构：EfficiencyClass 双 API 交叉判 P/E（非混合如实报 uniform）；steer=CPU Set 软定向 + EcoQoS（`hard` 才是硬亲和，Intel 劝阻） |
-| hub | [hub.md](hub.md) | 4 | 平台层（S176）：管线 manifest 严格校验 + 命令首段白名单；账本 sha256 链 + 判定封印；防骗判据门（parity/金丝雀三态/复核计划真执行/授权矩阵） |
+| hub | [hub.md](hub.md) | 5 | 平台层（S176-S180）：管线 manifest 严格校验 + 命令首段白名单；账本 sha256 链 + 判定封印；资源级准入；鉴权分层；**修复提案在隔离工作树**（G1：永不碰主树） |
 
 ## 语言级索引（ide 域）
 
