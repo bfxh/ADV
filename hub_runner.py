@@ -210,7 +210,7 @@ _STEP_KEYS = ("step", "argv", "exit", "ok", "optional", "ms", "out", "err", "out
 def run_pipeline(manifest: dict, actor: str = "local", trigger: str = "manual") -> dict:
     """独占护栏内顺序执行；start/final 两行入账（final 带封印与判定）。"""
     run_id = hub_core.new_run_id()
-    adm = hub_core.admit(run_id, manifest["resource_class"], os.getpid())
+    adm = hub_core.admit(run_id, manifest["resource_class"], os.getpid(), actor=actor)
     if not adm.get("ok"):
         return {"ok": False, "busy": True, "run_id": run_id,
                 "resource_class": manifest["resource_class"],

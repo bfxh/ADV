@@ -330,6 +330,14 @@ def max_shared() -> int:
     return int(raw) if raw.isdigit() and int(raw) > 0 else 2
 
 
+def max_per_actor() -> int:
+    """单 actor 并行配额（S185，方向⑨）：默认 **1**——一个 actor 不能霸占全部 shared 位
+    （共享机器上的公平性最小兑现）。`UNIFIED_RX_HUB_MAX_PER_ACTOR` 可调。
+    `exclusive` 不受此限（它本就受全局互斥约束）；空 actor（测试/手工占位）不计入。"""
+    raw = (os.environ.get("UNIFIED_RX_HUB_MAX_PER_ACTOR") or "").strip()
+    return int(raw) if raw.isdigit() and int(raw) > 0 else 1
+
+
 @contextlib.contextmanager
 def _active_lock():
     """准入临界区锁（活跃目录内 .lock；Windows msvcrt / POSIX fcntl 双实现）。"""
@@ -390,8 +398,13 @@ def read_active() -> list[dict]:
     return sorted(out, key=lambda r: float(r.get("ts") or 0))
 
 
-def admit(run_id: str, resource_class: str, pid: int) -> dict:
-    """准入判定 + 占位（同一临界区内）；被拒返回原因与当前活跃集（可诊断）。"""
+def admit(run_id: str, resource_class: str, pid: int, actor: str = "") -> dict:
+    """准入判定 + 占位（同一临界区内）；被拒返回原因与当前活跃集（可诊断）。
+
+    三层闸门（依次）：① exclusive ⇔ 无任何活跃；② shared 不得与 exclusive 并存且
+    总数 ≤ `max_shared()`；③ **per-actor 配额**（S185，方向⑨）——同 actor 的 shared
+    并行 ≤ `max_per_actor()`（默认 1），超出如实拒且理由可读。
+    """
     if resource_class not in RESOURCE_CLASSES:
         return {"ok": False, "reason": f"未知资源级 {resource_class!r}"}
     with _active_lock():
@@ -407,13 +420,20 @@ def admit(run_id: str, resource_class: str, pid: int) -> dict:
         if resource_class == "shared" and len(shared) >= max_shared():
             return {"ok": False, "reason": f"shared 并行已达上限 {max_shared()}",
                     "active": active}
+        if resource_class == "shared" and actor:
+            mine = [a for a in shared if (a.get("actor") or "") == actor]
+            if len(mine) >= max_per_actor():
+                return {"ok": False,
+                        "reason": f"actor {actor!r} 的并行已达上限 {max_per_actor()}"
+                                  "（UNIFIED_RX_HUB_MAX_PER_ACTOR 可调）",
+                        "active": active}
         p = _active_file(run_id)
         try:
             fd = os.open(str(p), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
             return {"ok": False, "reason": f"运行位已被占用 {run_id}", "active": active}
         try:                       # 单次 write 落整份内容（缩小"创建→可见"窗口）
-            os.write(fd, json.dumps({"run_id": run_id, "pid": pid,
+            os.write(fd, json.dumps({"run_id": run_id, "pid": pid, "actor": actor,
                                      "resource_class": resource_class,
                                      "ts": time.time()}).encode())
         finally:

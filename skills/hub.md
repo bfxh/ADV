@@ -25,7 +25,10 @@
 - **账本**：`runs.jsonl` append-only + sha256 链（`prev_hash`/`hash`，篡改即链断）；
   每条 final 行带**判定封印** `seal`（同输入同封印）；**原始日志落盘 + sha256 入账**。
 - **资源级准入**：`resource_class` 真生效——`exclusive` 与**任何**活跃运行互斥；`shared`
-  之间可并行（上限 `UNIFIED_RX_HUB_MAX_SHARED`，默认 2），且不得与 exclusive 并存。
+  之间可并行（上限 `UNIFIED_RX_HUB_MAX_SHARED`，默认 2），且不得与 exclusive 并存；
+  **per-actor 配额**（S185）：同 actor 的 shared 并行 ≤ `UNIFIED_RX_HUB_MAX_PER_ACTOR`
+  （默认 **1**——一个 actor 不能霸占全部位），超出如实拒；`exclusive` 不受此限。
+  `hub_status` 的 `active_by_actor` 显示"谁占了多少"。
   护栏 = 活跃目录"一运行一文件"（O_CREAT|O_EXCL + pid 存活探测 + 陈旧清理），
   **检查与创建在同一临界区内**（目录锁，防 TOCTOU 超卖）。被拒返回 `busy` + 原因 +
   当前活跃集（可诊断）；**阻塞式排队未做**（先量后改，有真实需求再说）。

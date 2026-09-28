@@ -49,8 +49,19 @@ def hub_status():
         "data_root": str(hub_core.runs_path().parent),
         "log_dir": str(hub_core.logs_dir()),
         "max_shared": hub_core.max_shared(),
+        "max_per_actor": hub_core.max_per_actor(),
+        "active_by_actor": _count_by_actor(hub_core.read_active()),
         "active": hub_core.read_active(),
     }
+
+
+def _count_by_actor(active: list) -> dict:
+    """活跃运行按 actor 计数（S185，方向⑨）：配额可见性——谁占了多少一眼看到。"""
+    out: dict = {}
+    for a in active:
+        key = str(a.get("actor") or "(未标注)")
+        out[key] = out.get(key, 0) + 1
+    return out
 
 
 def _pipeline_row(m: dict) -> dict:

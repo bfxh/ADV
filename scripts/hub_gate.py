@@ -216,7 +216,9 @@ def _sched_check() -> tuple[bool, str]:
             coexist = True
             break
         time.sleep(0.05)
-    third = hub_runner.run_pipeline(pipes["adv.canary-sched"], actor="gate", trigger="canary")
+    # 第三个用**另一个 actor**：让本条判据验证的是"shared 总数上限"（per-actor 配额由
+    # 独立判据 `per-actor-quota` 覆盖——两条语义分开测，不互相遮挡）。
+    third = hub_runner.run_pipeline(pipes["adv.canary-sched"], actor="gate3", trigger="canary")
     excl_busy = hub_runner.run_pipeline(pipes["adv.canary-excl"], actor="gate", trigger="canary")
     th.join(60)
     hub_core.release_active("gate-hold")
@@ -460,6 +462,53 @@ def _memory_check() -> tuple[bool, str]:
     return ok, " ".join(f"{k}={v}" for k, v in out.items())
 
 
+def _quota_check() -> tuple[bool, str]:
+    """per-actor 配额判据（S185，方向⑨）：同 actor 第二个 shared ⇒ 如实拒（理由可读）；
+    不同 actor ⇒ 放行；**env 可调生效**；exclusive 不受此限（受全局互斥）。"""
+    import hub_core as hc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix="adv-quota-"))
+    saved = {k: os.environ.get(k)
+             for k in ("UNIFIED_RX_HUB_ROOT", "UNIFIED_RX_HUB_MAX_PER_ACTOR")}
+    out: dict[str, bool] = {}
+    pid = os.getpid()
+    try:
+        os.environ["UNIFIED_RX_HUB_ROOT"] = str(tmp / "hub")
+        os.environ.pop("UNIFIED_RX_HUB_MAX_PER_ACTOR", None)
+        r1 = hc.admit("q1", "shared", pid, actor="alice")
+        out["first_ok"] = r1.get("ok") is True
+        r2 = hc.admit("q2", "shared", pid, actor="alice")
+        out["same_actor_rejected"] = (r2.get("ok") is False
+                                      and "上限" in str(r2.get("reason")))
+        r3 = hc.admit("q3", "shared", pid, actor="bob")
+        out["other_actor_ok"] = r3.get("ok") is True
+        out["counted_by_actor"] = len([a for a in hc.read_active()
+                                       if a.get("actor") == "alice"]) == 1
+        for rid in ("q1", "q2", "q3"):
+            hc.release_active(rid)
+        os.environ["UNIFIED_RX_HUB_MAX_PER_ACTOR"] = "2"
+        r4 = hc.admit("q4", "shared", pid, actor="alice")
+        r5 = hc.admit("q5", "shared", pid, actor="alice")
+        out["env_raises_quota"] = r4.get("ok") is True and r5.get("ok") is True
+        for rid in ("q4", "q5"):
+            hc.release_active(rid)
+        os.environ["UNIFIED_RX_HUB_MAX_PER_ACTOR"] = "1"
+        r6 = hc.admit("q6", "exclusive", pid, actor="alice")
+        r7 = hc.admit("q7", "exclusive", pid, actor="alice")
+        out["exclusive_not_quota_limited"] = (r6.get("ok") is True
+                                              and r7.get("ok") is False)
+        for rid in ("q6", "q7"):
+            hc.release_active(rid)
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    ok = all(out.values())
+    return ok, " ".join(f"{k}={v}" for k, v in out.items())
+
+
 def _checks() -> list[tuple[str, bool, str]]:
     rows: list[tuple[str, bool, str]] = []
     pipes, invalid = hub_core.load_pipelines()
@@ -498,6 +547,8 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("resilience-write-fail", ok, detail))
     ok, detail = _memory_check()
     rows.append(("failure-memory", ok, detail))
+    ok, detail = _quota_check()
+    rows.append(("per-actor-quota", ok, detail))
     return rows
 
 

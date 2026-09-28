@@ -50,8 +50,9 @@
   `/api/users*` 要 admin；触发 = 会话（operator/admin）**或** Bearer（脚本/智能体兼容）。
 - **并发**：ThreadingHTTPServer；账本跨进程单写者（锁文件，msvcrt/fcntl）；**资源级准入**
   （S178：`exclusive` 与任何活跃运行互斥、`shared` 并行 ≤ `UNIFIED_RX_HUB_MAX_SHARED`（默认 2）；
-  活跃集 = 目录内"一运行一文件"，检查与创建在同一临界区防 TOCTOU）；**阻塞式排队未做**
-  （先量后改——拒绝式 busy + 活跃可见已够本机分钟级作业）。
+  **S185 增 per-actor 配额**：同 actor 的 shared 并行 ≤ `UNIFIED_RX_HUB_MAX_PER_ACTOR`（默认 1），
+  `hub_status.active_by_actor` 可查"谁占了多少"；活跃集 = 目录内"一运行一文件"，
+  检查与创建在同一临界区防 TOCTOU）；**阻塞式排队未做**（先量后改）。
 - **稳定/开发双实例**：稳定（`UNIFIED_RX_HUB_INSTANCE=stable`，提案端口 7741）供团队与
   智能体；开发（dev，7742）供开发；控制台横幅常驻实例身份。智能体只配稳定版 MCP。
 

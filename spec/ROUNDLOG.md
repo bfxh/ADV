@@ -1576,3 +1576,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 项目：ADV｜时间：2026-09-29T05:00
 - 决策：①**同库同格式**（不造第二份记忆）：复用 tools/learn 的 _load/_save 与 {id,text,ts,recall_count} 格式 ⇒ 智能体 lesson(action=recall) 直接搜得到平台草稿；②草稿含**账本互链**（run_id + --seal 复核命令）+ **错误签名去重**（sha256(pipeline|step|exit|特征)[:12]，同签名不重复写=不刷屏）；③hub_runs 对最近的 red 运行附 recall（"上次怎么修的"）；④写教训失败**不影响运行结果**（容错，lesson 字段标 error）；⚠️**修到判据自污染（本片最有价值的产出）**：首版把金丝雀"故意失败"也写成教训 ⇒ 实测真库被写进 adv.canary-bad（每跑一次门刷一条）⇒ 修三件：①trigger=="canary" 或 actor=="gate" 不写；②**默认库随数据根隔离**（UNIFIED_RX_HUB_ROOT 显式设置时落 <root>/lessons.jsonl）⇒ 测试/判据自动不碰真库；③显式 UNIFIED_RX_LESSONS 优先级最高；④删掉被污染那条并验证不再复现（全门跑完真库仍不存在）
 - 证据：防骗门 18 项全绿（新增 failure-memory：draft_written/deduped/green_clean/single_row/learn_format/recall_hits 六条全 True）；新增 tests/test_s184_memory.py 5 例（含"同库同格式"跨面验证：用 learn 的读取器读回平台草稿）；全门 26 步绿（pytest 全量）；版本锁步 2.85.0×4（exe 已重建）；god 基线 330 文件；⭐教训：**判据/金丝雀的"故意失败"不得进记忆库**——否则门越勤、库越脏
+
+## S185 · S185 方向⑨落地：per-actor 并发配额（默认 1 + env 可调 + 可见性）；版本 2.85.0 → 2.86.0
+- 项目：ADV｜时间：2026-09-29T06:27
+- 决策：①最小兑现=准入**第三层闸门**：同 actor 的 shared 并行 ≤ max_per_actor()（默认 1，UNIFIED_RX_HUB_MAX_PER_ACTOR 可调），超出如实拒且理由可读（含 actor 名与上限）；②exclusive 不受此限（它受全局互斥）；③**空 actor 不计入**——兼容既有测试/手工占位路径（gate 的 held 位即空 actor），不改旧语义；④可见性：hub_status 增 max_per_actor 与 active_by_actor（"谁占了多少"一眼看到）；⑤**判据语义分离**：sched 判据的"第三个"改用另一 actor（gate3）以验证 shared 总数上限，per-actor 语义由独立判据 per-actor-quota 覆盖——两条不互相遮挡
+- 证据：防骗门 19 项全绿（新增 per-actor-quota：first_ok/same_actor_rejected/other_actor_ok/counted_by_actor/env_raises_quota/exclusive_not_quota_limited 六条全 True）；新增 tests/test_s185_quota.py 7 例（含端到端"actor 真的进准入"）；全门 26 步绿（pytest 全量）；版本锁步 2.86.0×4（exe 已重建）；god 基线 331 文件；data-flow 新条目人工确认为**判据夹具**（临时小仓/临时管线 manifest，内容全字面量、路径来自 mkdtemp）并填 why

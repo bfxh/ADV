@@ -160,8 +160,8 @@
   "max_type_members": 0
  },
  "hub_core.py": {
-  "file_lines": 426,
-  "max_fn_lines": 29,
+  "file_lines": 446,
+  "max_fn_lines": 41,
   "max_type_members": 0
  },
  "hub_impact.py": {
@@ -645,7 +645,7 @@
   "max_type_members": 0
  },
  "scripts/hub_gate.py": {
-  "file_lines": 554,
+  "file_lines": 605,
   "max_fn_lines": 47,
   "max_type_members": 0
  },
@@ -1134,6 +1134,11 @@
   "max_fn_lines": 10,
   "max_type_members": 0
  },
+ "tests/test_s185_quota.py": {
+  "file_lines": 86,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
  "tests/test_s29_fuzz.py": {
   "file_lines": 141,
   "max_fn_lines": 17,
@@ -1485,8 +1490,8 @@
   "max_type_members": 0
  },
  "tools/hub.py": {
-  "file_lines": 137,
-  "max_fn_lines": 17,
+  "file_lines": 148,
+  "max_fn_lines": 19,
   "max_type_members": 0
  },
  "tools/ide.py": {
