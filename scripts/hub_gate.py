@@ -190,45 +190,44 @@ def _live_check() -> tuple[bool, str]:
 
 
 def _sched_check() -> tuple[bool, str]:
-    """调度判据（S178）：shared **真共存**（两者同进活跃集）+ 第 3 个被"上限"拒 +
-    exclusive 与任何活跃运行互斥 + 活跃清空后 exclusive 可单独跑。
+    """调度判据（S178/S179）：共享位共存 + 上限拒绝 + exclusive 互斥 + 清空后可独占。
 
-    判据用**结构证据**（活跃集共存/拒绝原因字样），不用绝对墙钟做阈值——CI 慢机器
-    不会假红；墙钟只记录供人看。
+    **确定性口径**：第 1 个 shared 位由本进程**手工持有**（不会自己消失），第 2 个走真实
+    runner ⇒ "共存"不再依赖线程竞速（S179 CI 实锤：双线程互相等待会因慢机启动延迟而假红，
+    `coexist=False`）。真并行的执行重叠由 runner 语义 + live-log 判据共同背书。
     """
     pipes, _inv = hub_core.load_pipelines()
     for pid in ("adv.canary-sched", "adv.canary-excl"):
         if pid not in pipes:
             return False, f"缺金丝雀 {pid}"
-    box: dict = {}
-
-    def _run(key: str, pid: str) -> None:
-        box[key] = hub_runner.run_pipeline(pipes[pid], actor="gate", trigger="canary")
-
     t0 = time.monotonic()
-    th1 = threading.Thread(target=_run, args=("a", "adv.canary-sched"), daemon=True)
-    th2 = threading.Thread(target=_run, args=("b", "adv.canary-sched"), daemon=True)
-    th1.start()
-    th2.start()
-    both = False
-    for _ in range(120):
+    held = hub_core.admit("gate-hold", "shared", os.getpid())
+    if not held.get("ok"):
+        return False, f"手工占位失败：{held.get('reason')}"
+    box: dict = {}
+    th = threading.Thread(
+        target=lambda: box.update(hub_runner.run_pipeline(pipes["adv.canary-sched"],
+                                                          actor="gate", trigger="canary")),
+        daemon=True)
+    th.start()
+    coexist = False
+    for _ in range(240):
         if len(hub_core.read_active()) >= 2:
-            both = True
+            coexist = True
             break
         time.sleep(0.05)
     third = hub_runner.run_pipeline(pipes["adv.canary-sched"], actor="gate", trigger="canary")
     excl_busy = hub_runner.run_pipeline(pipes["adv.canary-excl"], actor="gate", trigger="canary")
-    th1.join(30)
-    th2.join(30)
+    th.join(60)
+    hub_core.release_active("gate-hold")
     wall = time.monotonic() - t0
     excl_alone = hub_runner.run_pipeline(pipes["adv.canary-excl"], actor="gate", trigger="canary")
     ok_third = third.get("busy") is True and "上限" in str(third.get("error"))
     ok_excl_busy = excl_busy.get("busy") is True and "exclusive" in str(excl_busy.get("error"))
     ok_excl_alone = excl_alone.get("ok") is True
-    ok = both and ok_third and ok_excl_busy and ok_excl_alone
-    return ok, (f"coexist={both} third_busy_at_limit={ok_third} excl_mutex={ok_excl_busy} "
-                f"excl_alone={ok_excl_alone} wall={wall:.2f}s "
-                f"verdicts={box.get('a', {}).get('verdict')}/{box.get('b', {}).get('verdict')}")
+    ok = coexist and ok_third and ok_excl_busy and ok_excl_alone
+    return ok, (f"coexist={coexist} third_busy_at_limit={ok_third} excl_mutex={ok_excl_busy} "
+                f"excl_alone={ok_excl_alone} wall={wall:.2f}s verdict={box.get('verdict')}")
 
 
 def _auth_session_check() -> tuple[bool, str]:

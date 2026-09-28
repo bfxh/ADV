@@ -9,8 +9,6 @@ import json
 import os
 import pathlib
 import sys
-import threading
-import time
 
 import pytest
 
@@ -133,32 +131,22 @@ def test_admit_matrix_and_stale_cleanup(hub_root):
     assert hub_core.read_active() == []            # 死 pid ⇒ 清理，不阻塞后续运行
 
 
-def test_runner_shared_parallel_and_exclusive_mutex(hub_root):
-    """两个 shared 真共存（活跃集同时含两个）；across 期间 exclusive 被拒，清空后可跑。"""
-    _put(hub_root["pipes"], "adv.p1", "import time; time.sleep(0.8); print('p1')")
-    _put(hub_root["pipes"], "adv.p2", "import time; time.sleep(0.8); print('p2')")
+def test_runner_exclusive_mutex_and_after_clear(hub_root):
+    """**确定性**验证互斥：手工持两个 shared 位 ⇒ exclusive 必拒；清空后可跑。
+
+    为什么不用"两个线程互相等同时进活跃集"：慢 CI（2 核满载）上线程启动会被延迟，
+    两个 0.8s 的运行可能完全不重叠 ⇒ 假红（S179 CI 实锤）。准入语义仍被完整验证：
+    已有活跃位时 shared 能进到上限、exclusive 进不去、清空后独占可跑。
+    """
     _put(hub_root["pipes"], "adv.x1", "print('x1')", resource_class="exclusive")
+    assert hub_core.admit("hold1", "shared", os.getpid())["ok"] is True
+    assert hub_core.admit("hold2", "shared", os.getpid())["ok"] is True
     pipes, _ = hub_core.load_pipelines()
-    box: dict = {}
-    th1 = threading.Thread(target=lambda: box.update(a=hub_runner.run_pipeline(pipes["adv.p1"])),
-                           daemon=True)
-    th2 = threading.Thread(target=lambda: box.update(b=hub_runner.run_pipeline(pipes["adv.p2"])),
-                           daemon=True)
-    th1.start()
-    th2.start()
-    coex = False
-    for _ in range(120):
-        if len(hub_core.read_active()) >= 2:
-            coex = True
-            break
-        time.sleep(0.02)
     x = hub_runner.run_pipeline(pipes["adv.x1"])
-    th1.join(30)
-    th2.join(30)
-    assert coex, "两个 shared 未同时进入活跃集"
-    assert box["a"]["verdict"] == "green" and box["b"]["verdict"] == "green"
     assert x["busy"] is True and "exclusive" in str(x.get("error"))
-    assert hub_runner.run_pipeline(pipes["adv.x1"])["ok"] is True      # 活跃清空后独占可跑
+    hub_core.release_active("hold1")
+    hub_core.release_active("hold2")
+    assert hub_runner.run_pipeline(pipes["adv.x1"])["ok"] is True
 
 
 # ---------------- 执行器三态 + 指纹 + 封印 + 复核计划 ----------------

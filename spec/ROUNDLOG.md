@@ -1546,3 +1546,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 项目：ADV｜时间：2026-09-29T02:40
 - 决策：①**鉴权分层**：开放=控制台外壳+`/api/status` **摘要态**（未登录也看得见平台是否降级）+登录端点；读面=会话 Cookie（HttpOnly+SameSite=Strict）；`/api/users*`=admin；触发=会话（operator/admin）**或** Bearer（脚本/智能体兼容面保留）；②用户管理：令牌**只此一次返回**（表内只存 pbkdf2 哈希）、**最后 admin 不可删/降**（防锁死）、坏名/重名即拒、改表原子写（tmp+os.replace）；③管理动作入账本 `kind=admin`（同一哈希链保护；无 id ⇒ 不进运行列表）；④测试按轮次分文件：HTTP/RBAC 面从 test_s176 整体搬到 test_s179_auth.py——搬迁时**修掉上轮 Edit 造成的真缺陷**（`def test_web_write_requires_token_and_role` 函数头被吃、两个测试被合并）
 - 证据：防骗门 **13 项全绿**（新增 auth-session-layers 六层矩阵：status=200/anon=401/bad=401/login=200/read=200/viewer_users=403）；pytest 全量绿（新增 tests/test_s179_auth.py 7 例）；全门 26 步绿；版本锁步 2.80.0×4（exe 已重建 EXE_TAG ok=11）；god 基线 321 文件；**两处自造 bug 被测试当场抓到并修**：①改 `_status_payload` 签名漏改调用点 ⇒ 会话在 status 不生效；②`BaseHTTPRequestHandler` 无 `self.method`（应为 `self.command`）⇒ handler 崩
+
+## S179 · S179 补记：CI 假红修复——并行判据改确定性结构证据
+- 项目：ADV｜时间：2026-09-29T02:58
+- 决策：根因：test_runner_shared_parallel_and_exclusive_mutex 与防骗门 sched 判据都用两个线程互相等同时进活跃集；慢 CI（2 核满载）上线程启动被延迟 ⇒ 两个 0.8s 运行完全不重叠 ⇒ coexist=False 假红（core job 6m55s 失败，merge-scan 绿）。修法：改确定性口径——第 1 个 shared 位由本进程手工持有（不会自己消失）+ 第 2 个走真实 runner ⇒ 共存成为确定性事实；闸门语义（上限拒绝/互斥/清空后可独占）判据不变。
+- 证据：防骗门 13 项全绿（sched wall=1.49s，比旧版更快）；test_s176 15 例绿；全门复跑绿；教训：跨机器判据不依赖线程/时钟竞速
