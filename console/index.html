@@ -29,6 +29,10 @@ pre { background:#f6f8fa; border:1px solid var(--bd); border-radius:6px; padding
 #banner { display:none; background:#fff8c5; border:1px solid #d4a72c; color:#4d2d00; padding:8px 14px; margin:0 16px; border-radius:6px; }
 input { border:1px solid var(--bd); border-radius:6px; padding:4px 8px; font-size:12px; width:100%; }
 .row { display:flex; gap:8px; align-items:center; }
+.ovl { display:none; position:fixed; inset:0; background:rgba(31,35,40,.55); z-index:9;
+       align-items:center; justify-content:center; }
+.ovl.show { display:flex; }
+select { border:1px solid var(--bd); border-radius:6px; padding:4px; font-size:12px; }
 </style>
 </head>
 <body>
@@ -38,8 +42,9 @@ input { border:1px solid var(--bd); border-radius:6px; padding:4px 8px; font-siz
   <span class="pill" id="ver">v…</span>
   <span class="pill" id="chain">链 …</span>
   <span style="flex:1"></span>
-  <label for="token" style="color:#c9d1d9;font-size:12px">令牌 user:token（触发用，只存本标签页）</label>
-  <input id="token" style="max-width:220px" />
+  <span id="who" style="color:#c9d1d9;font-size:12px"></span>
+  <button class="ghost" id="ubtn" style="display:none" onclick="users()">用户</button>
+  <button class="ghost" onclick="logout()">退出</button>
 </header>
 <div id="banner"></div>
 <main>
@@ -63,6 +68,30 @@ input { border:1px solid var(--bd); border-radius:6px; padding:4px 8px; font-siz
     </div>
   </section>
 </main>
+<div id="login" class="ovl">
+  <div class="card" style="width:340px">
+    <h3>登录（团队身份）</h3>
+    <div class="item"><label class="muted" for="lu">用户名</label><input id="lu" /></div>
+    <div class="item"><label class="muted" for="lt">令牌</label><input id="lt" type="password" /></div>
+    <div class="item"><button onclick="doLogin()">登录</button> <span class="v-red" id="lerr"></span></div>
+    <div class="item muted">首跑 admin 令牌只在服务端 stderr 打印一次；admin 可用「用户」面板给成员发新令牌。</div>
+  </div>
+</div>
+<div id="users" class="ovl">
+  <div class="card" style="width:460px">
+    <h3>用户管理（admin）<button class="ghost" style="float:right" onclick="hide('users')">关闭</button></h3>
+    <div id="ulist" class="item muted">加载中…</div>
+    <div class="item">
+      <label class="muted" for="un">新用户（小写字母/数字/_/-，2..32 位）</label>
+      <div class="row" style="margin-top:6px">
+        <input id="un" style="flex:1" />
+        <select id="ur" class="ghost"><option>viewer</option><option>operator</option><option>admin</option></select>
+        <button onclick="addUser()">创建</button>
+      </div>
+      <div class="muted" id="ntok"></div>
+    </div>
+  </div>
+</div>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -74,7 +103,13 @@ async function api(path, opts) {
 }
 
 async function load() {
+  const rr = await fetch('/api/runs?limit=20');
+  if (rr.status === 401) { $('login').classList.add('show'); $('who').textContent = ''; return; }
+  $('login').classList.remove('show');
   const st = await api('/api/status');
+  ME = st;
+  $('who').textContent = (st.user || '') + (st.role ? ' · ' + st.role : '');
+  $('ubtn').style.display = st.role === 'admin' ? '' : 'none';
   $('inst').textContent = st.instance === 'stable' ? '稳定版' : '开发版';
   $('ver').textContent = 'v' + st.version;
   const c = st.chain || {};
@@ -95,7 +130,7 @@ async function load() {
      </div></div>`).join('') +
     (Object.keys(p.invalid || {}).length ? `<div class="item v-red">非法 manifest：${esc(JSON.stringify(p.invalid))}</div>` : '');
 
-  const r = await api('/api/runs?limit=20');
+  const r = await rr.json();
   const rows = r.runs || [];
   $('runs').innerHTML = rows.length ? `<table><thead><tr><th>运行</th><th>管线</th><th>判定</th><th>actor</th><th>时间</th></tr></thead><tbody>` +
     rows.map(x => `<tr style="cursor:pointer" onclick="detail('${esc(x.id)}')">
@@ -107,10 +142,7 @@ async function load() {
 }
 
 async function run(pid) {
-  const tok = $('token').value.trim();
-  if (!tok) { alert('先在右上角填令牌（user:token），admin 首跑令牌在服务端 stderr 打印一次'); return; }
-  const r = await api('/api/runs', { method:'POST',
-    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + tok },
+  const r = await api('/api/runs', { method:'POST', headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ pipeline: pid }) });
   if (!r.ok) { alert('失败：' + (r.error || JSON.stringify(r).slice(0,200))); }
   load();
@@ -131,7 +163,47 @@ async function detail(id) {
     <div class="item"><div class="muted">独立复核（how_to_verify）</div><pre>${esc((d.how_to_verify||[]).join('\n'))}</pre></div>`;
 }
 
-let es = null, curRun = null;
+let es = null, curRun = null, ME = null;
+
+function hide(id) { $(id).classList.remove('show'); }
+
+async function doLogin() {
+  const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ user: $('lu').value.trim(), token: $('lt').value.trim() }) });
+  const d = await r.json();
+  if (!r.ok) { $('lerr').textContent = d.error || '登录失败'; return; }
+  $('lerr').textContent = ''; $('lt').value = ''; load();
+}
+
+async function logout() { await fetch('/api/logout', { method:'POST' }); ME = null; location.reload(); }
+
+async function users() {
+  const r = await fetch('/api/users'); const d = await r.json();
+  if (!r.ok) { alert(d.error || '需要 admin'); return; }
+  $('ulist').innerHTML = (d.users || []).map(u =>
+    `<div class="row" style="padding:3px 0"><b style="flex:1">${esc(u.name)}</b>
+     <span class="muted">${esc(u.role)}</span>
+     <button class="ghost" onclick="delUser('${esc(u.name)}')">删</button></div>`).join('');
+  $('users').classList.add('show');
+}
+
+async function addUser() {
+  const r = await fetch('/api/users', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name: $('un').value.trim(), role: $('ur').value }) });
+  const d = await r.json();
+  $('ntok').textContent = d.ok
+    ? `已创建 ${d.name}（${d.role}）——一次性令牌：${d.token}（只显示这一次，请立即保存）`
+    : (d.error || '创建失败');
+  if (d.ok) { $('un').value = ''; users(); }
+}
+
+async function delUser(name) {
+  if (!confirm('删除用户 ' + name + '？')) return;
+  const r = await fetch('/api/users/' + encodeURIComponent(name), { method:'DELETE' });
+  const d = await r.json();
+  if (!d.ok) alert(d.error || '删除失败');
+  users();
+}
 
 function live() {
   if (!curRun) { alert('先点一行运行'); return; }

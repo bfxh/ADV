@@ -35,6 +35,7 @@ import hub_auth
 import hub_core
 import hub_live
 import hub_runner
+import server_web
 
 PY = sys.executable
 FP_KEYS = ("manifest_sha256", "git_head", "git_dirty", "argv0", "cwd",
@@ -230,6 +231,54 @@ def _sched_check() -> tuple[bool, str]:
                 f"verdicts={box.get('a', {}).get('verdict')}/{box.get('b', {}).get('verdict')}")
 
 
+def _auth_session_check() -> tuple[bool, str]:
+    """鉴权分层判据（S179）：status 摘要公开 / 读面无会话 401 / 坏令牌 401 / 登录后 200 /
+    非 admin 管用户 403。只连本进程刚起的回环服务（host 字面量白名单，不出网）。"""
+    import http.client as hc
+    boot = hub_auth.bootstrap()
+    srv = server_web.make_server(0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    host, port = "127.0.0.1", int(srv.server_address[1])
+
+    def _call(method: str, path: str, payload: dict | None = None,
+              cookie: str | None = None) -> tuple[int, str, str | None]:
+        conn = hc.HTTPConnection(host, port, timeout=20)
+        try:
+            body = json.dumps(payload).encode() if payload is not None else None
+            headers = {"Content-Type": "application/json"} if body else {}
+            if cookie:
+                headers["Cookie"] = cookie
+            conn.request(method, path, body=body, headers=headers)
+            r = conn.getresponse()
+            return r.status, r.read().decode("utf-8", "replace"), r.getheader("Set-Cookie")
+        finally:
+            conn.close()
+
+    def _cookie_of(sc: str | None) -> str | None:
+        return "hub_sid=" + sc.split("hub_sid=")[1].split(";")[0] if sc else None
+
+    try:
+        st_status = _call("GET", "/api/status")[0]
+        st_anon = _call("GET", "/api/runs")[0]
+        st_bad = _call("POST", "/api/login", {"user": "admin", "token": "nope"})[0]
+        st_login, _t, sc = _call("POST", "/api/login",
+                                 {"user": "admin", "token": boot["bootstrap_token"]})
+        ck = _cookie_of(sc)
+        st_read = _call("GET", "/api/runs", cookie=ck)[0] if ck else 0
+        v = hub_auth.add_user("gateviewer", "viewer")
+        _s2, _t2, sc2 = _call("POST", "/api/login",
+                              {"user": "gateviewer", "token": v.get("token")})
+        ck2 = _cookie_of(sc2)
+        st_users = _call("GET", "/api/users", cookie=ck2)[0] if ck2 else 0
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    ok = (st_status == 200 and st_anon == 401 and st_bad == 401
+          and st_login == 200 and st_read == 200 and st_users == 403)
+    return ok, (f"status={st_status} anon={st_anon} bad={st_bad} login={st_login} "
+                f"read={st_read} viewer_users={st_users}")
+
+
 def _checks() -> list[tuple[str, bool, str]]:
     rows: list[tuple[str, bool, str]] = []
     pipes, invalid = hub_core.load_pipelines()
@@ -256,6 +305,8 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("live-log", ok, detail))
     ok, detail = _sched_check()
     rows.append(("sched-resource-class", ok, detail))
+    ok, detail = _auth_session_check()
+    rows.append(("auth-session-layers", ok, detail))
     return rows
 
 

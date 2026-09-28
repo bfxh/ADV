@@ -155,7 +155,7 @@
   "max_type_members": 0
  },
  "hub_auth.py": {
-  "file_lines": 141,
+  "file_lines": 219,
   "max_fn_lines": 16,
   "max_type_members": 0
  },
@@ -630,8 +630,8 @@
   "max_type_members": 0
  },
  "scripts/hub_gate.py": {
-  "file_lines": 312,
-  "max_fn_lines": 40,
+  "file_lines": 363,
+  "max_fn_lines": 46,
   "max_type_members": 0
  },
  "scripts/lint_gate.py": {
@@ -725,9 +725,9 @@
   "max_type_members": 0
  },
  "server_web.py": {
-  "file_lines": 285,
-  "max_fn_lines": 36,
-  "max_type_members": 9
+  "file_lines": 397,
+  "max_fn_lines": 35,
+  "max_type_members": 16
  },
  "tests/fixtures/fake_lsp_server.py": {
   "file_lines": 104,
@@ -1080,7 +1080,12 @@
   "max_type_members": 0
  },
  "tests/test_s176_hub.py": {
-  "file_lines": 371,
+  "file_lines": 245,
+  "max_fn_lines": 26,
+  "max_type_members": 0
+ },
+ "tests/test_s179_auth.py": {
+  "file_lines": 238,
   "max_fn_lines": 30,
   "max_type_members": 0
  },

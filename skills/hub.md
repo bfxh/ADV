@@ -35,10 +35,15 @@
 ## 网页面与身份
 
 - `python -X utf8 server_web.py`（缺省端口：stable 7741 / dev 7742；只绑 `127.0.0.1`）。
-  读面开放（回环）；**写面（POST /api/runs）要求 `Authorization: Bearer <user>:<token>`**
-  且角色 ∈ {operator, admin}。首跑自举 `admin`，令牌**只在 stderr 打印一次**（表内只存
-  pbkdf2 哈希；坏表 fail closed，不重建）。
-- 触发一次运行记 `actor`（`mcp` / `web:<user>` / `cli` / `gate`），与 S172 的智能体归因同账。
+- **鉴权分层（S179）**：开放 = 控制台外壳 + `/api/status` **摘要态**（未登录也看得见平台
+  是否降级）+ 登录端点；**读面要会话**（`POST /api/login` → Cookie `hub_sid`，
+  HttpOnly + SameSite=Strict）；`/api/users*` 要 admin；触发 = 会话（operator/admin）
+  **或** `Authorization: Bearer <user>:<token>`（脚本/智能体兼容面）。
+- **用户管理（admin）**：`GET/POST /api/users`、`POST /api/users/role`、
+  `DELETE /api/users/<name>`；令牌**只此一次返回**（表内只存 pbkdf2 哈希）；
+  **最后 admin 不可删/降**（防锁死）；管理动作入账本（`kind=admin`，链保护）。
+- 首跑自举 `admin`，令牌**只在 stderr 打印一次**；坏用户表 fail closed（不重建）。
+- 触发一次运行记 `actor`（`mcp` / `web:<user>` / `cli` / `gate`），与智能体归因同账。
 
 ## 何时不要用
 

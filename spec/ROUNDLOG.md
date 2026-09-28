@@ -1541,3 +1541,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 项目：ADV｜时间：2026-09-28T20:46
 - 决策：根因：read_active 把'解析失败'当陈旧**直接删**——而 admit 的'创建 → 写入'之间有极小窗口，主线程轮询不在临界区 ⇒ 活跃位被误清 ⇒ 准入上限静默失效（表征：自家调度判据 third_busy_at_limit=False / excl_mutex=False，而 coexist=True——两个 shared 明明同时在跑）。修：①admit 用单次 os.write 落整份内容（缩小窗口）；②read_active 对新文件宽容（解析失败且 age<60s 只跳过、不删；>60s 才判陈旧）。验证：sched 判据连跑 3 次全绿（wall 稳定 2.54 s）+ 全门复跑绿。
 - 证据：hub_core.read_active/admit 改动；3/3 稳定；全门 26 步绿（pytest 947+2）；**环境事件**：C: 盘 100% 满（剩 2.2 MB）导致 linker 'No space left on device'（cargo-test 编译失败，非代码错）⇒ 清理 %TEMP%：proc-macro-srv 残留 544 个/5.5G（保留近 2h 的）+ rx-rs-target/debug 18G（release 336M 保留，EXE_TAG 依赖）⇒ 回收 23G（100%→93%）；此后跑门带 CARGO_PROFILE_TEST_DEBUG=0/CARGO_PROFILE_DEV_DEBUG=0/CARGO_INCREMENTAL=0（产物 18G→几 G，判据不受影响）
+
+## S179 · 平台层 M1 片 3：读面会话 + RBAC 全量 + 用户管理；版本 2.79.0 → 2.80.0
+- 项目：ADV｜时间：2026-09-29T02:40
+- 决策：①**鉴权分层**：开放=控制台外壳+`/api/status` **摘要态**（未登录也看得见平台是否降级）+登录端点；读面=会话 Cookie（HttpOnly+SameSite=Strict）；`/api/users*`=admin；触发=会话（operator/admin）**或** Bearer（脚本/智能体兼容面保留）；②用户管理：令牌**只此一次返回**（表内只存 pbkdf2 哈希）、**最后 admin 不可删/降**（防锁死）、坏名/重名即拒、改表原子写（tmp+os.replace）；③管理动作入账本 `kind=admin`（同一哈希链保护；无 id ⇒ 不进运行列表）；④测试按轮次分文件：HTTP/RBAC 面从 test_s176 整体搬到 test_s179_auth.py——搬迁时**修掉上轮 Edit 造成的真缺陷**（`def test_web_write_requires_token_and_role` 函数头被吃、两个测试被合并）
+- 证据：防骗门 **13 项全绿**（新增 auth-session-layers 六层矩阵：status=200/anon=401/bad=401/login=200/read=200/viewer_users=403）；pytest 全量绿（新增 tests/test_s179_auth.py 7 例）；全门 26 步绿；版本锁步 2.80.0×4（exe 已重建 EXE_TAG ok=11）；god 基线 321 文件；**两处自造 bug 被测试当场抓到并修**：①改 `_status_payload` 签名漏改调用点 ⇒ 会话在 status 不生效；②`BaseHTTPRequestHandler` 无 `self.method`（应为 `self.command`）⇒ handler 崩

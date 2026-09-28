@@ -5,7 +5,6 @@
 verify_plan 可执行 · 授权矩阵（令牌/角色/MCP 侧 __authorized）· HTTP 面（读放行/写需令牌）。
 """
 import hashlib
-import http.client
 import json
 import os
 import pathlib
@@ -18,7 +17,6 @@ import pytest
 import hub_auth
 import hub_core
 import hub_runner
-import server_web
 
 PY = sys.executable
 
@@ -240,131 +238,6 @@ def test_hub_tools_registered_with_auth_schema():
     assert "hub_status" in tools and tools["hub_status"]["annotations"]["readOnlyHint"] is True
 
 
-# ---------------- HTTP 面（读放行 / 写需令牌） ----------------
-
-@pytest.fixture()
-def web(hub_root):
-    _put(hub_root["pipes"], "adv.ok", "print('ok')")
-    srv = server_web.make_server(0)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    yield (str(srv.server_address[0]), int(srv.server_address[1]))
-    srv.shutdown()
-    srv.server_close()
-
-
-def _req(addr, method, path, payload=None, headers=None):
-    """只连本进程刚起的回环服务：host 固定 127.0.0.1（白名单，拒绝非回环），
-    端口来自进程内 server 对象（非用户输入）；强制 http、不跟随重定向、不出网。"""
-    host, port = addr
-    if host != "127.0.0.1":
-        raise ValueError(f"非回环目标拒绝: {host}")
-    conn = http.client.HTTPConnection(host, port, timeout=30)
-    try:
-        body = json.dumps(payload).encode("utf-8") if payload is not None else None
-        hdrs = dict(headers or {})
-        if body is not None:
-            hdrs["Content-Type"] = "application/json"
-        conn.request(method, path, body=body, headers=hdrs)
-        resp = conn.getresponse()
-        return resp.status, resp.read().decode("utf-8", "replace")
-    finally:
-        conn.close()
-
-
-def _json_of(text: str):
-    return json.loads(text)
-
-
-def test_web_read_paths_open_on_loopback(web):
-    st, text = _req(web, "GET", "/api/status")
-    payload = _json_of(text)
-    assert st == 200 and payload["ok"] is True and payload["instance"] in ("dev", "stable")
-    st, text = _req(web, "GET", "/api/pipelines")
-    assert st == 200 and any(p["id"] == "adv.ok" for p in _json_of(text)["pipelines"])
-    st, text = _req(web, "GET", "/")
-    assert st == 200 and "<html" in text.lower()
-
-
-def _read_sse(addr, run_id, max_frames=60):
-    """读 SSE 帧 [(event, payload_text)...]；只在回环地址上（见 _req 的白名单口径）。"""
-    host, port = addr
-    if host != "127.0.0.1":
-        raise ValueError(f"非回环目标拒绝: {host}")
-    conn = http.client.HTTPConnection(host, port, timeout=40)
-    conn.request("GET", f"/api/stream?run={run_id}")
-    resp = conn.getresponse()
-    events = []
-    try:
-        while len(events) < max_frames:
-            line = resp.fp.readline()
-            if not line:
-                break
-            head = line.decode("utf-8", "replace").strip()
-            if not head.startswith("event: "):
-                continue
-            body = resp.fp.readline().decode("utf-8", "replace").strip()
-            payload = body[len("data: "):] if body.startswith("data: ") else "{}"
-            events.append((head[len("event: "):], payload))
-            if events[-1][0] == "done":
-                break
-    finally:
-        conn.close()
-    return events
-
-
-def test_web_stream_live_log_before_final(web, hub_root):
-    """live 硬判据：首条日志事件到达时，该 run 在账本里**还没有 final 行**（真流式）。"""
-    _put(hub_root["pipes"], "adv.live",
-         "import time; print('live-1', flush=True); time.sleep(1.5); print('live-2', flush=True)")
-    pipes, _ = hub_core.load_pipelines()
-    box: dict = {}
-    th = threading.Thread(target=lambda: box.update(hub_runner.run_pipeline(pipes["adv.live"])),
-                          daemon=True)
-    th.start()
-    rid = None
-    for _ in range(100):
-        rows = hub_core.read_rows()
-        if rows:
-            rid = rows[-1]["id"]
-            break
-        time.sleep(0.05)
-    assert rid, "run 未启动"
-    events = _read_sse(web, rid)
-    kinds = [k for k, _ in events]
-    assert "log" in kinds and kinds[-1] == "done", f"事件序列异常: {kinds}"
-    text = "".join(json.loads(p)["text"] for k, p in events if k == "log")
-    assert "live-1" in text and "live-2" in text, text
-    th.join(20)
-    assert box.get("verdict") == "green"
-
-
-def test_web_log_incremental_offset(web, hub_root):
-    """增量端点：offset 推进后不再重复返回已读内容；done 标志在结束后为真。"""
-    _put(hub_root["pipes"], "adv.ok", "print('inc-1')")
-    pipes, _ = hub_core.load_pipelines()
-    res = hub_runner.run_pipeline(pipes["adv.ok"])
-    st, text = _req(web, "GET", f"/api/runs/{res['run_id']}/log?step=s&stream=out")
-    payload = _json_of(text)
-    assert st == 200 and "inc-1" in payload["text"] and payload["done"] is True
-    st, text = _req(web, "GET",
-                    f"/api/runs/{res['run_id']}/log?step=s&stream=out&offset={payload['offset']}")
-    assert st == 200 and _json_of(text)["text"] == ""
-    st, text = _req(web, "POST", "/api/runs", {"pipeline": "adv.ok"})
-    assert st == 401, text
-    boot = hub_auth.bootstrap()
-    users = json.loads(hub_auth.users_path().read_text(encoding="utf-8"))
-    users["users"].append({"name": "viewer1", "role": "viewer",
-                           "salt": users["users"][0]["salt"],
-                           "token_hash": users["users"][0]["token_hash"]})
-    hub_auth.users_path().write_text(json.dumps(users), encoding="utf-8")
-    st, _ = _req(web, "POST", "/api/runs", {"pipeline": "adv.ok"},
-                 {"Authorization": "Bearer viewer1:whatever"})
-    assert st == 401                      # 坏令牌即使名字存在也拒
-    auth = {"Authorization": "Bearer admin:" + boot["bootstrap_token"]}
-    st, _ = _req(web, "POST", "/api/runs", {"pipeline": "nope"}, auth)
-    assert st == 404
-    st, text = _req(web, "POST", "/api/runs", {"pipeline": "adv.ok"}, auth)
-    payload = _json_of(text)
-    assert st == 202 and payload["verdict"] == "green"
-    st, text = _req(web, "GET", f"/api/runs/{payload['run_id']}")
-    assert st == 200 and _json_of(text)["how_to_verify"]
+# ---------------- HTTP / RBAC 面已迁至 tests/test_s179_auth.py ----------------
+# （S179 起：读面要会话、用户管理属 admin 面——按轮次分文件，断言在新文件里升级；
+#   此前本文件曾因一次编辑吃掉函数头把两个测试合并，搬迁时一并修正。）
