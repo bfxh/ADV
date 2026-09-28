@@ -32,31 +32,34 @@ def test_perf_gate_green_on_small_corpus():
     cp = _run("perf_gate.py", "--files", "120")
     assert cp.returncode == 0, cp.stdout + cp.stderr
     assert "PERF-GATE OK" in cp.stdout
-    # 五例都跑了（不是空跑）：每例一行"工作 串行=…"
-    assert cp.stdout.count("工作 串行=") == 5, cp.stdout
-    # 判据说明在输出里（含"启动已扣"——这正是判据的关键口径）
-    assert "启动已扣" in cp.stdout
+    # 五例都跑了（不是空跑）：每例一行——S182 起为统计口径（中位数+区间）或如实 SIZE-SKIP
+    assert (cp.stdout.count("中位数=") + cp.stdout.count("规模过小")) == 5, cp.stdout
+    # 判据口径必须自报（读者要知道在看什么）
+    assert "Bootstrap 95% 区间" in cp.stdout
 
 
-def test_perf_gate_reports_serial_vs_parallel():
-    """门必须真的做了 A/B：输出要同时出现串行与并行两列，且**被判的**比值都是正数。
+def test_perf_gate_reports_statistical_verdicts():
+    """门真的做了 A/B 且给**统计量**：中位数 / 区间 / n / 限 / 三态标记齐备。
 
-    别对 SIZE-SKIP 行要求正比值（2026-09-21 实测偶发红）：门的语义是「工作量 <25ms 的用例
-    不判」（判据是扣启动后的并行/串行比值，工作太小没判定力），但这类行**照旧打印比值**
-    ——当某行扣启动后的并行工作 ≈0 时比值会印成 `0.000`（`wp = max(min(par)-base, 0.001)`），
-    「五个都 >0」于是偶发失败。按门自己声明的语义判：跳过行照旧计数，只是不要求正比值。
+    S182 口径升级（先量后改）：单点比值极差 0.15–0.54、三次抽到 ≥0.95 ⇒ 改为
+    "K 轮采样 → 中位数 + Bootstrap 区间 → 三态（OK/WEAK/SLOW!）"。
+    本测试只验**形状**（真的在报统计量且点估计落在区间内）；数值判据归
+    `tests/test_s182_stat.py` 与防骗门 `stat-judge`。
     """
-    cp = _run("perf_gate.py", "--files", "120")
-    assert "并行=" in cp.stdout and "比率=" in cp.stdout
     import re
-    judged, skipped = [], []
-    for line in cp.stdout.splitlines():
-        m = re.search(r"比率=\s*([0-9.]+)", line)
-        if m:
-            (skipped if "SIZE-SKIP" in line else judged).append(float(m.group(1)))
-    assert len(judged) + len(skipped) == 5, (judged, skipped)
-    assert all(r > 0 for r in judged), (judged, skipped)
-    assert all(x >= 0 for x in skipped), (judged, skipped)
+    cp = _run("perf_gate.py", "--files", "120")
+    lines = [ln for ln in cp.stdout.splitlines() if ("中位数=" in ln or "规模过小" in ln)]
+    assert len(lines) == 5, cp.stdout
+    for ln in lines:
+        if "中位数=" not in ln:
+            assert "SIZE-SKIP" in ln, ln
+            continue
+        m = re.search(r"中位数=([0-9.]+) 区间=\[([0-9.]+),([0-9.]+)\] n=(\d+) 限 ([0-9.]+)", ln)
+        assert m, ln
+        point, lo, hi = float(m.group(1)), float(m.group(2)), float(m.group(3))
+        assert lo <= point <= hi, ln                      # 点估计必须在区间内
+        assert int(m.group(4)) >= 1 and float(m.group(5)) > 0, ln
+        assert ln.rstrip().endswith(("OK", "WEAK", "SLOW!")), ln
 
 
 def test_mcp_surface_gate_green_and_covers_contracts():

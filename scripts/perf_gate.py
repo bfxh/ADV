@@ -173,16 +173,25 @@ def main(argv):
     n = int(argv[argv.index("--files") + 1]) if explicit else 400
     if not explicit:
         n = calibrate(n)          # 自动模式：按机器速度扩语料（CI 上会自动放大）
-    rows = measure(CASES)
-    rows = [r for r in rows if "skipped" not in r]
-    if not rows:
+    import stat_judge
+    k = max(1, min(int(os.environ.get("UNIFIED_RX_PERF_SAMPLES", "5") or 5), 15))
+    series: dict[str, list[float]] = {}
+    last: dict[str, dict] = {}
+    for _ in range(k):
+        for r in measure(CASES):
+            if "skipped" in r:
+                continue
+            series.setdefault(r["label"], []).append(r["ratio"])
+            last[r["label"]] = r
+    if not series:
         sys.exit("PERF-GATE SKIP: 没有任何 exe 可测（先 cargo build --release）")
     cores = os.cpu_count() or 1
     # S173：CI runner 的边界档抖动（实测 0.958/0.964 贴着 0.95 假红——共享 runner 的
     # CPU 竞争落在"并行确实更快、但快不到 5%"的噪声带）。GITHUB_ACTIONS 下给判据
     # 加 0.03 裕量：拦的是真回归（并行显著慢于串行），不拦 runner 噪声；本地判据不变。
     ci_slack = 0.03 if os.environ.get("GITHUB_ACTIONS") == "1" else 0.0
-    print(f"PERF-GATE 语料={n} 文件 逻辑核={cores}（各例判据上限见行尾）"
+    print(f"PERF-GATE 语料={n} 文件 逻辑核={cores} 采样={k} 轮"
+          f"（判据：**中位数 + Bootstrap 95% 区间**三态）"
           + ("；CI 裕量 +0.03" if ci_slack else ""))
     # 核数自适应（S160）：≤2 核的 runner 上并行收益有限 → 只要求"不慢于串行"，
     # 不苛求加速比（否则 CI 小机器上假红）
@@ -196,26 +205,35 @@ def main(argv):
         tier_note = "核数 ≤2：只判'不慢于串行'（不苛求并行加速比）"
         lim_map = 1.05
     print(f"  （{tier_note}）")
-    small_machine = cores <= 2
-    bad = []
-    for r in rows:
-        flag = ""
+    strict = os.environ.get("PERF_STRICT") == "1"
+    bad, weak = [], []
+    for label, ratios in series.items():
+        r = last[label]
         lim = lim_map if lim_map is not None else r["expect_parallel"]
+        lim_eff = lim + ci_slack
         if r["rc"] != [0]:
-            bad.append(f"{r['label']}: 退出码 {r['rc']}")
-            flag = " RC!"
-        elif r["too_small"]:
-            flag = f" SIZE-SKIP(工作量<{MIN_WORK_MS:.0f}ms，不判)"
-        elif lim and r["ratio"] > lim + ci_slack:
-            bad.append(f"{r['label']}: 并行/串行={r['ratio']} > {lim}"
-                       f"（{'并行未生效？' if not small_machine else '比串行还慢'}）")
-            flag = " SLOW!"
-        print(f"  工作 串行={r['work_serial_ms']:8.1f}ms 并行={r['work_parallel_ms']:8.1f}ms  "
-              f"比率={r['ratio']:5.3f}（限 {lim}，启动已扣）  "
-              f"{r['label']}{flag}")
+            bad.append(f"{label}: 退出码 {r['rc']}")
+            continue
+        if r["too_small"]:
+            print(f"  {label:16s} 规模过小（串行工作 <{MIN_WORK_MS:.0f}ms）→ SIZE-SKIP 不判")
+            continue
+        v = stat_judge.judge(ratios, lim_eff)
+        tag = {"pass": "OK", "inconclusive": "WEAK", "fail": "SLOW!"}[v["verdict"]]
+        print(f"  {label:16s} 中位数={v['median']:.3f} 区间=[{v['ci'][0]:.3f},{v['ci'][1]:.3f}] "
+              f"n={v['n']} 限 {lim_eff:.2f}（min {v['min']:.3f}/max {v['max']:.3f}）  {tag}")
+        if v["verdict"] == "fail":
+            bad.append(f"{label}: 中位数 {v['median']} > {lim_eff:.2f}"
+                       f"（区间下界 {v['ci'][0]} 亦超阈——真回归）")
+        elif v["verdict"] == "inconclusive":
+            weak.append(f"{label}: 区间跨阈（median {v['median']}，限 {lim_eff:.2f}）")
     if "--json" in argv:
-        print(json.dumps({"cores": cores, "files": n, "rows": rows},
+        print(json.dumps({"cores": cores, "files": n, "samples": k, "series": series},
                          ensure_ascii=False))
+    if weak:
+        print("PERF-GATE WEAK: " + "; ".join(weak)
+              + "（噪声带内——默认不判红；PERF_STRICT=1 时计为红）")
+        if strict:
+            bad.extend(weak)
     if bad:
         sys.exit("PERF-GATE FAIL: " + "; ".join(bad))
     print("PERF-GATE OK")

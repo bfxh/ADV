@@ -37,8 +37,10 @@ def test_golden_and_baseline_are_in_place():
 
 
 def test_cli_bench_runs_green():
-    cp = subprocess.run([sys.executable, "-X", "utf8", BENCH,
-                         "--check-golden", "--check"],
+    """S182：**计时档从本测试移除**——它需要独占机器，pytest 压满机器时必然假红
+    （S160 / S181 / S182 三次实证）。计时判据由 local_gate 的 timing 档
+    （`cli-bench`/`perf-gate`）与 CI 承担；这里只跑与负载无关的**金标准比对**。"""
+    cp = subprocess.run([sys.executable, "-X", "utf8", BENCH, "--check-golden"],
                         capture_output=True, text=True, encoding="utf-8",
                         errors="replace", cwd=ROOT, shell=False, timeout=900)
     out = cp.stdout + cp.stderr
@@ -46,8 +48,6 @@ def test_cli_bench_runs_green():
     # 本机=逐字节对账；异机（如 CI runner）=显式 SKIP（金标准是机器本地证据：
     # 夹具绝对路径/硬件都不同，跨机不可比——CI 上曾假红 243 vs 249 字节）
     assert ("CLI-GOLDEN OK" in cp.stdout) or ("CLI-GOLDEN SKIP" in cp.stdout), \
-        cp.stdout[-500:]
-    assert ("CLI-BENCH OK" in cp.stdout) or ("CLI-BENCH SKIP" in cp.stdout), \
         cp.stdout[-500:]
 
 

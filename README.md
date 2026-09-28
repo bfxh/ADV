@@ -8,7 +8,7 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 > 协作纪律：**一个 PR 一个功能**——过程发现的问题另开 PR 引用出处，依赖变更自成 PR 引用需求方，不搭车、不捆包（[spec/PR-DISCIPLINE.md](spec/PR-DISCIPLINE.md)）
-**当前 v2.82.0（S181）**：86 工具 / 15 域（core 档 54 件）；**平台层落地**——
+**当前 v2.83.0（S182）**：86 工具 / 15 域（core 档 54 件）；**平台层落地**——
 MCP 之外的第二协议通道（`server_web.py` + `console/`：团队网页面，与工具面**同一份能力层**）
 + **实时日志**（`/api/stream` SSE：**日志文件即总线**——跨进程且就是账上被哈希的那份；
 `read1` 真流式，判据"运行结束前可见"，实测 gap≈2 s）+ **防骗判据门**
@@ -19,7 +19,11 @@ MCP 之外的第二协议通道（`server_web.py` + `console/`：团队网页面
 **CI 审核既有两道硬门**——
 ①**性能门**（`scripts/perf_gate.py`）：判据 = **同机并行 vs 串行比值**（7 处并行度
 收敛到 `rust/src/par.rs`，`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）——扣进程启动基线、
-工作量 <8ms 不判、per-case 上限、≤2 核只判不倒退；实测比率 0.44–0.66（五例）。
+工作量 <8ms 不判、per-case 上限、≤2 核只判不倒退；
+**S182 起口径升级为统计判定**（`scripts/stat_judge.py`）：默认 **5 轮采样 → 中位数 +
+Bootstrap 95% 区间 → 三态**（`pass` / `inconclusive` 噪声带不算真回归 / `fail` 区间下界
+也超阈）；`PERF_STRICT=1` 可把 inconclusive 计为红。**为什么改**（独占机器实测）：
+单点比值极差 0.15–0.54、三次抽到 ≥0.95（1.001/0.998/1.272）⇒ 单点口径**必然假红**。
 ②**协议面门**（`scripts/mcp_surface_gate.py`）：对真实 stdio server 握手校验 21 条契约
 （annotations 上线路/top-level title/不可信前缀/写类 __authorized/握手留痕字段/未知
 方法形态/**S161 模型适配三件**：失败回包也是 JSON、错误带 `next`、`structuredContent`
