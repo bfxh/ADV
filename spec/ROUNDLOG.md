@@ -1511,3 +1511,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 验证：全量 pytest 3.14 **888 passed + 3 skipped**；cargo 41 单测绿；clippy 零告警；
   本地全门 **15 步全绿 131s**；版本锁步 **2.76.0 ×4**（exe 已重建）。
 - 提交：本次
+
+## S174 · 场景族（playbook）设计轮：CI 提示词种子文档批判分析 + 开源对标 + 精选待办（纯文档轮，版本不变 2.76.0）
+- 项目：ADV｜时间：2026-09-28T17:34
+- 决策：可移植的不是提示词是契约骨架：15 字段映射后真缺口三个半（族未声明化/族级熔断/族→evals 映射/trigger 载体）；族=编排层不新增分区（域=工具归属，族=任务场景）；正面回应 S15 砍 pipeline 先例（场景垂直+契约+门+评测+用量准入五条区别）；拒绝发明工作流 DSL；manifest=数据、解释器≤260 行、加族不改码做成门断言；小模型/八方向 CI 特性/UI/DEMO 全部判不吸收
+- 证据：spec/PLAYBOOKS.md；toolface 41,463/帽 45,000（+2 工具约 +1.2K 帽内）；breaker 现状 per-key 10 次/300s+QPM 3000+日量 10 万；开源对标 2026-09-28 检索（Agent Skills 开放标准/claude-code-action allowed_tools/PR-Agent/mcp-scan/Cisco mcp-scanner/OpenHands Skills）；缺口如实记：S161-S173 未入 ROUNDLOG（记录在 CD-PLATFORM.md 与各轮提交，PANORAMA §四 同款失败模式）
