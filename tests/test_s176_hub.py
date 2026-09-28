@@ -11,6 +11,7 @@ import os
 import pathlib
 import sys
 import threading
+import time
 
 import pytest
 
@@ -147,7 +148,7 @@ def test_runner_fingerprint_seal_and_verify_plan(hub_root):
                "git_head": row["fingerprint"]["git_head"],
                "git_dirty": row["fingerprint"]["git_dirty"],
                "verdict": row["verdict"],
-               "steps": [{k: s[k] for k in ("step", "exit", "log_sha256")}
+               "steps": [{k: s[k] for k in ("step", "exit", "out_sha256", "err_sha256")}
                          for s in row["steps"]]}
     assert hub_runner.seal_of(payload) == row["seal"] == res["seal"]
     kinds = {e["kind"] for e in res["verify_plan"]}
@@ -244,7 +245,70 @@ def test_web_read_paths_open_on_loopback(web):
     assert st == 200 and "<html" in text.lower()
 
 
-def test_web_write_requires_token_and_role(web):
+def _read_sse(addr, run_id, max_frames=60):
+    """读 SSE 帧 [(event, payload_text)...]；只在回环地址上（见 _req 的白名单口径）。"""
+    host, port = addr
+    if host != "127.0.0.1":
+        raise ValueError(f"非回环目标拒绝: {host}")
+    conn = http.client.HTTPConnection(host, port, timeout=40)
+    conn.request("GET", f"/api/stream?run={run_id}")
+    resp = conn.getresponse()
+    events = []
+    try:
+        while len(events) < max_frames:
+            line = resp.fp.readline()
+            if not line:
+                break
+            head = line.decode("utf-8", "replace").strip()
+            if not head.startswith("event: "):
+                continue
+            body = resp.fp.readline().decode("utf-8", "replace").strip()
+            payload = body[len("data: "):] if body.startswith("data: ") else "{}"
+            events.append((head[len("event: "):], payload))
+            if events[-1][0] == "done":
+                break
+    finally:
+        conn.close()
+    return events
+
+
+def test_web_stream_live_log_before_final(web, hub_root):
+    """live 硬判据：首条日志事件到达时，该 run 在账本里**还没有 final 行**（真流式）。"""
+    _put(hub_root["pipes"], "adv.live",
+         "import time; print('live-1', flush=True); time.sleep(1.5); print('live-2', flush=True)")
+    pipes, _ = hub_core.load_pipelines()
+    box: dict = {}
+    th = threading.Thread(target=lambda: box.update(hub_runner.run_pipeline(pipes["adv.live"])),
+                          daemon=True)
+    th.start()
+    rid = None
+    for _ in range(100):
+        rows = hub_core.read_rows()
+        if rows:
+            rid = rows[-1]["id"]
+            break
+        time.sleep(0.05)
+    assert rid, "run 未启动"
+    events = _read_sse(web, rid)
+    kinds = [k for k, _ in events]
+    assert "log" in kinds and kinds[-1] == "done", f"事件序列异常: {kinds}"
+    text = "".join(json.loads(p)["text"] for k, p in events if k == "log")
+    assert "live-1" in text and "live-2" in text, text
+    th.join(20)
+    assert box.get("verdict") == "green"
+
+
+def test_web_log_incremental_offset(web, hub_root):
+    """增量端点：offset 推进后不再重复返回已读内容；done 标志在结束后为真。"""
+    _put(hub_root["pipes"], "adv.ok", "print('inc-1')")
+    pipes, _ = hub_core.load_pipelines()
+    res = hub_runner.run_pipeline(pipes["adv.ok"])
+    st, text = _req(web, "GET", f"/api/runs/{res['run_id']}/log?step=s&stream=out")
+    payload = _json_of(text)
+    assert st == 200 and "inc-1" in payload["text"] and payload["done"] is True
+    st, text = _req(web, "GET",
+                    f"/api/runs/{res['run_id']}/log?step=s&stream=out&offset={payload['offset']}")
+    assert st == 200 and _json_of(text)["text"] == ""
     st, text = _req(web, "POST", "/api/runs", {"pipeline": "adv.ok"})
     assert st == 401, text
     boot = hub_auth.bootstrap()

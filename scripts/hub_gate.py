@@ -25,12 +25,15 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import hub_auth
 import hub_core
+import hub_live
 import hub_runner
 
 PY = sys.executable
@@ -63,7 +66,10 @@ def _canary_manifest(pid: str, code: str) -> dict:
 def _write_canaries(d: pathlib.Path) -> None:
     for pid, code in (("adv.canary-ok", "print('canary-ok')"),
                       ("adv.canary-bad", "import sys; sys.exit(3)"),
-                      ("adv.canary-skip", "print('SKIP canary-line')")):
+                      ("adv.canary-skip", "print('SKIP canary-line')"),
+                      ("adv.canary-live",
+                       "import time; print('live-1', flush=True);"
+                       " time.sleep(2.0); print('live-2', flush=True)")):
         (d / f"{pid}.json").write_text(
             json.dumps(_canary_manifest(pid, code)), encoding="utf-8")
 
@@ -82,8 +88,8 @@ def _parity(res: dict) -> tuple[bool, str]:
     cp = subprocess.run(s["argv"], cwd=str(hub_core.REPO_ROOT), capture_output=True,
                         shell=False, timeout=60)
     direct = hashlib.sha256(cp.stdout).hexdigest()
-    ok = cp.returncode == s["exit"] and direct == s["stdout_sha256"]
-    return ok, f"exit {cp.returncode}=={s['exit']} stdout {direct[:12]}=={s['stdout_sha256'][:12]}"
+    ok = cp.returncode == s["exit"] and direct == s["out_sha256"]
+    return ok, f"exit {cp.returncode}=={s['exit']} stdout {direct[:12]}=={s['out_sha256'][:12]}"
 
 
 def _tamper() -> tuple[bool, str]:
@@ -132,6 +138,53 @@ def _auth_matrix() -> tuple[bool, str]:
         f"坏令牌拒={bad_token_rejected} 角色矩阵={roles} MCP 无授权拒={no_auth}"
 
 
+def _has_final(run_id: str) -> bool:
+    return any(r.get("phase") == "final" and r.get("id") == run_id
+               for r in hub_core.read_rows())
+
+
+def _live_check() -> tuple[bool, str]:
+    """live 判据（S177）：日志须在**运行结束前**就可见——真流式，而非结束后一次性给。
+
+    观测口径：起一个"先输出一行、再 sleep 2s"的金丝雀，主线程按 offset tail 日志文件；
+    判据 = `收到 live-1 的时刻` 早于 `账本出现 final 行的时刻` 至少 0.3s（post-hoc 实现
+    两者几乎同时 ⇒ 判红）。不依赖绝对时钟精度，CI 慢也不会假红。
+    """
+    pipes, _inv = hub_core.load_pipelines()
+    if "adv.canary-live" not in pipes:
+        return False, "缺 adv.canary-live 金丝雀"
+    before = {r.get("id") for r in hub_core.read_rows()}
+    box: dict = {}
+    th = threading.Thread(
+        target=lambda: box.update(hub_runner.run_pipeline(pipes["adv.canary-live"],
+                                                          actor="gate", trigger="canary")),
+        daemon=True)
+    th.start()
+    run_id: str | None = None
+    early: float | None = None
+    final: float | None = None
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < 30:
+        if run_id is None:
+            for r in hub_core.read_rows():
+                if r.get("phase") == "start" and r.get("id") not in before:
+                    run_id = str(r.get("id"))
+        if run_id:
+            for p, _step, _stream in hub_live.log_files(run_id):
+                text, _off = hub_live.read_from(p, 0)
+                if "live-1" in text and early is None:
+                    early = time.monotonic()
+            if _has_final(run_id):
+                final = time.monotonic()
+                break
+        time.sleep(0.05)
+    th.join(20)
+    ok = bool(early and final and (final - early) > 0.3)
+    return ok, (f"early={early is not None} final={final is not None} "
+                f"gap={'%.2fs' % (final - early) if early and final else '-'} "
+                f"verdict={box.get('verdict')}")
+
+
 def _checks() -> list[tuple[str, bool, str]]:
     rows: list[tuple[str, bool, str]] = []
     pipes, invalid = hub_core.load_pipelines()
@@ -154,6 +207,8 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("verify-plan", ok, detail))
     ok, detail = _auth_matrix()
     rows.append(("auth-matrix", ok, detail))
+    ok, detail = _live_check()
+    rows.append(("live-log", ok, detail))
     return rows
 
 
