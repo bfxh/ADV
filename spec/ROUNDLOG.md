@@ -1521,3 +1521,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 项目：ADV｜时间：2026-09-28T19:06
 - 决策：本质=仍然是 MCP（工具面就是平台 API，智能体必须能调；网页是给团队的第二张脸）⇒ 后端 Python stdlib 与 registry 同源、零依赖，Node/JS 只做前端；范围=ADV 自身自举，不关其他仓；稳定/开发双实例保留；防骗体系九道机制（双跑对拍/金丝雀必红必绿/运行指纹/原始产物哈希/SKIP 显式化不算绿/账本哈希链+封印/runner 自攻/智能体侧 how_to_verify 独立复核/漂移报警 degraded），对拍纪律源自物理引擎仓测量协议；本轮只交文档，M0 代码挂下一轮
 - 证据：spec\HUB.md（防骗体系 §6.1 七类威胁\§6.2 九道机制\§6.3 六项判据）；备份已做 D;C:\Program Files\Git\KF\backups\ADV-20260928-184809.zip（79MB，回滚路径）；行数预算表（auth≤140\core≤220\runner≤200\hub 工具≤140\server_web≤300，god 门首日移植）；既有资产复用清单（perf_lock\CONCURRENCY-PROTOCOL\audit-ledger\session_burn\S172 归因\S149 profile）
+
+## S176 · 平台层 M0 实施（spec/HUB.md）：hub 域四工具 + 第二协议通道（server_web+console）+ 防骗判据门 scripts/hub_gate.py；版本 2.76.0 → 2.77.0
+- 项目：ADV｜时间：2026-09-28T19:43
+- 决策：①本质仍是 MCP：能力只实现一次（hub_core/hub_runner），MCP 工具面与网页面共用授权门/沙盒/熔断/审计；②命令首段白名单（python/cargo/git/node）——平台不提供任意命令面；③绿的定义收紧：绿=必跑步全 exit 0 且 skipped_lines==0，有 SKIP 只算 green_with_skips；④防骗九机制本轮落地七条+：parity（平台跑vs直跑逐字节）/金丝雀三态/指纹八项/原始产物哈希+退出码取自 OS/账本 sha256 链+判定封印/复核计划（verify_plan，argv 列表形态，经 Mimosa 建议从 shlex 改写）/授权矩阵；how_to_verify 协议化=防骗不依赖平台自觉；⑤工具数上限 80→84 为显式抬升（平台域四件属新能力面非替代，理由入提交；三处锁同步：test_v2 上限/test_s127 快照/test_s113 参数化文档正则）；⑥god 基线重记（5 个既有文件变胖，全部本次引入）
+- 证据：全门 26 步绿（pytest 946 passed + 2 skipped）；hub-gate 9 项判据全绿（repo-manifests/canary三态/parity/fingerprint-8/tamper-detect/verify-plan/auth-matrix）；新增 tests/test_s176_hub.py 16 例；版本锁步 2.77.0×2（server.py + Cargo.toml，exe 已重建）；Mimosa 拦两处并按建议改写（命令拼接→结构化 verify_plan；动态 URL→http.client+回环白名单）；工具面 41,463→(hub+4) 帽内；早前 doc-only 轮 S174/S175 产物 spec/PLAYBOOKS.md 与 spec/HUB.md

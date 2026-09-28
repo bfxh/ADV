@@ -1,0 +1,2 @@
+{"id": "adv.gate-all", "title": "ADV 全门（local_gate 全量）", "when": "合入前 / 发版前", "resource_class": "exclusive", "on": ["manual"],
+ "steps": [{"step": "gate-all", "cmd": ["python", "-X", "utf8", "scripts/local_gate.py"], "timeout_s": 3600}]}

@@ -8,7 +8,11 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 > 协作纪律：**一个 PR 一个功能**——过程发现的问题另开 PR 引用出处，依赖变更自成 PR 引用需求方，不搭车、不捆包（[spec/PR-DISCIPLINE.md](spec/PR-DISCIPLINE.md)）
-**当前 v2.76.0（S160）**：80 工具 / 14 域（core 档 54 件）；**CI 审核再加两道硬门**——
+**当前 v2.77.0（S176）**：84 工具 / 15 域（core 档 54 件）；**平台层落地**——
+MCP 之外的第二协议通道（`server_web.py` + `console/`：团队网页面，与工具面**同一份能力层**）
++ **防骗判据门**（`scripts/hub_gate.py`：平台跑↔直跑 parity、金丝雀三态、账本哈希链 +
+篡改注入必红、复核计划真执行、授权矩阵——**判据先于平台**：门红 = 平台当前不可信）。
+**CI 审核既有两道硬门**——
 ①**性能门**（`scripts/perf_gate.py`）：判据 = **同机并行 vs 串行比值**（7 处并行度
 收敛到 `rust/src/par.rs`，`UNIFIED_RX_NO_PAR=1` 强制串行做 A/B）——扣进程启动基线、
 工作量 <8ms 不判、per-case 上限、≤2 核只判不倒退；实测比率 0.44–0.66（五例）。
@@ -65,14 +69,14 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 
 | | 旧 ADV | ADV（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **80 个组合工具 / 14 域**（core 档 54 件） |
+| 工具面 | 183（注入面 200+） | **84 个组合工具 / 15 域**（core 档 54 件） |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（14 域 · 80 工具）
+## 工具面（15 域 · 84 工具）
 
 | 域 | 工具 |
 |---|---|
@@ -90,6 +94,7 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 | 🕵️ attack (6) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航） — 自攻面常驻 |
 | 🧬 appaudit (3) | `app_audit` `app_clone` `app_clean` |
 | 🧰 meta (3) | `local_run` `process` `gpu_status` — 授权门控 / GPU 遥测 |
+| 🚀 hub (4) | `hub_status`（实例/版本/用户数/账本链/降级原因——不带病报绿）`hub_pipelines`（manifest 清单 + 非法条目如实列出）`hub_runs`（账本尾 N：判定/封条/指纹/独立复核指引）`hub_run`（**需授权**：独占护栏内顺序执行，原始日志落盘+哈希入账） — 平台层（[spec/HUB.md](spec/HUB.md)）：第二协议通道 + 团队网页面，防骗判据见 §六；命令首段白名单（python/cargo/git/node） |
 
 已于 S15 移除的废物面（证据驱动）：kb_query / chatlog_search / cmd_cheatsheet /
 code_complete / ide_references / cost_report / trend_analysis / pipeline / parallel / pure_*。

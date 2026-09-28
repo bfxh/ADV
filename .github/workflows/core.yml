@@ -182,6 +182,12 @@ jobs:
       - name: Gitleaks gate（凭据泄漏——业界规则库，零容忍）
         run: python -X utf8 scripts/gitleaks_gate.py
 
+      # S176：平台层防骗判据门（spec/HUB.md §6.3）——平台跑 vs 直跑 parity、金丝雀三态
+      # （必绿/必红/含 SKIP 只算 green_with_skips）、账本链 + 篡改注入必红、复核计划真执行、
+      # 授权矩阵。判据先于平台：门红 = 平台当前不可信。
+      - name: Hub gate（平台层防骗判据）
+        run: python -X utf8 scripts/hub_gate.py
+
       # S173：质量-速度契约门——perf 提交必须带 EVIDENCE 行（对拍一致/行为变更+理由/
       # 基础设施 三选一，见 spec/CD-PLATFORM.md §三）。提速不得是质量的债务转移。
       - name: Quality pact gate（perf 提交必须带 EVIDENCE）

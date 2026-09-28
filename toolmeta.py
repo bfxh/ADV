@@ -105,6 +105,11 @@ TOOL_TITLES = {
     "code_coverage": "行覆盖率测量",
     "dep_graph": "依赖关系图",
     "module_stability": "模块稳定性",
+    # hub 域（S176）
+    "hub_status": "平台状态",
+    "hub_pipelines": "管线清单",
+    "hub_runs": "运行账本",
+    "hub_run": "触发管线运行",
 }
 
 
@@ -133,6 +138,8 @@ UNTRUSTED_OUTPUT_TOOLS = frozenset({
     "secrets_hunt",     # 命中上下文（掩码后仍含周边文本）
     "near_dupes",       # 样本片段
     "ide_diagnostics",  # linter/clippy 诊断文本（含代码/消息）
+    "hub_runs",         # 账本条目含日志派生的判定行/复核指引
+    "hub_run",          # 同上（verdict_lines 与 how_to_verify 均为日志派生文本）
 })
 
 

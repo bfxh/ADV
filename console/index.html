@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>ADV 平台</title>
+<style>
+:root { --b:#24292f; --bd:#d0d7de; --muted:#57606a; --link:#0969da; --ok:#1a7f37; --bad:#cf222e; --warn:#9a6700; }
+* { box-sizing:border-box; }
+body { margin:0; font:14px/1.55 -apple-system,"Segoe UI","Noto Sans CJK SC",sans-serif; color:#1f2328; background:#f6f8fa; }
+header { background:var(--b); color:#fff; padding:10px 18px; display:flex; gap:14px; align-items:center; }
+header b { font-size:16px; }
+.pill { border:1px solid rgba(255,255,255,.35); border-radius:999px; padding:1px 10px; font-size:12px; }
+.pill.red { background:#82071e; border-color:#82071e; }
+main { max-width:1080px; margin:16px auto; padding:0 16px; display:grid; grid-template-columns:340px 1fr; gap:16px; }
+.card { background:#fff; border:1px solid var(--bd); border-radius:6px; }
+.card h3 { margin:0; padding:10px 14px; border-bottom:1px solid var(--bd); font-size:14px; }
+.item { padding:10px 14px; border-bottom:1px solid #eaeef2; }
+.item:last-child { border-bottom:0; }
+.muted { color:var(--muted); font-size:12px; }
+button { background:#1f883d; color:#fff; border:0; border-radius:6px; padding:4px 12px; cursor:pointer; font-size:12px; }
+button.ghost { background:#f6f8fa; color:#1f2328; border:1px solid var(--bd); }
+button:disabled { opacity:.5; cursor:default; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th,td { text-align:left; padding:7px 10px; border-bottom:1px solid #eaeef2; }
+th { color:var(--muted); font-weight:600; background:#f6f8fa; }
+.v-green { color:var(--ok); font-weight:600; } .v-red { color:var(--bad); font-weight:600; }
+.v-green_with_skips { color:var(--warn); font-weight:600; }
+pre { background:#f6f8fa; border:1px solid var(--bd); border-radius:6px; padding:10px; overflow:auto; font-size:12px; }
+#banner { display:none; background:#fff8c5; border:1px solid #d4a72c; color:#4d2d00; padding:8px 14px; margin:0 16px; border-radius:6px; }
+input { border:1px solid var(--bd); border-radius:6px; padding:4px 8px; font-size:12px; width:100%; }
+.row { display:flex; gap:8px; align-items:center; }
+</style>
+</head>
+<body>
+<header>
+  <b>ADV 平台</b>
+  <span class="pill" id="inst">实例 …</span>
+  <span class="pill" id="ver">v…</span>
+  <span class="pill" id="chain">链 …</span>
+  <span style="flex:1"></span>
+  <label for="token" style="color:#c9d1d9;font-size:12px">令牌 user:token（触发用，只存本标签页）</label>
+  <input id="token" style="max-width:220px" />
+</header>
+<div id="banner"></div>
+<main>
+  <section class="card">
+    <h3>管线</h3>
+    <div id="pipes" class="muted" style="padding:10px 14px">加载中…</div>
+  </section>
+  <section>
+    <div class="card" style="margin-bottom:16px">
+      <h3>运行账本（尾 20）<button class="ghost" style="float:right" onclick="load()">刷新</button></h3>
+      <div id="runs">加载中…</div>
+    </div>
+    <div class="card">
+      <h3>运行详情</h3>
+      <div id="detail" class="muted" style="padding:10px 14px">点上方一行查看（判定 / 封条 / 指纹 / 独立复核命令）。</div>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let PIPES = [];
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+async function load() {
+  const st = await api('/api/status');
+  $('inst').textContent = st.instance === 'stable' ? '稳定版' : '开发版';
+  $('ver').textContent = 'v' + st.version;
+  const c = st.chain || {};
+  $('chain').textContent = c.ok ? `链 OK (${c.count})` : '链 断';
+  if (st.degraded) {
+    $('banner').style.display = 'block';
+    $('banner').textContent = 'degraded：' + (st.degraded_reasons || []).join('；');
+  } else { $('banner').style.display = 'none'; }
+
+  const p = await api('/api/pipelines');
+  PIPES = p.pipelines || [];
+  $('pipes').innerHTML = PIPES.map(m =>
+    `<div class="item"><div class="row"><b>${esc(m.title)}</b></div>
+     <div class="muted">${esc(m.id)} · ${esc(m.resource_class)} · ${esc(m.when)}</div>
+     <div class="row" style="margin-top:6px">
+       <button onclick="run('${esc(m.id)}')">运行</button>
+       <span class="muted">${esc((m.steps||[]).join(' → '))}</span>
+     </div></div>`).join('') +
+    (Object.keys(p.invalid || {}).length ? `<div class="item v-red">非法 manifest：${esc(JSON.stringify(p.invalid))}</div>` : '');
+
+  const r = await api('/api/runs?limit=20');
+  const rows = r.runs || [];
+  $('runs').innerHTML = rows.length ? `<table><thead><tr><th>运行</th><th>管线</th><th>判定</th><th>actor</th><th>时间</th></tr></thead><tbody>` +
+    rows.map(x => `<tr style="cursor:pointer" onclick="detail('${esc(x.id)}')">
+      <td>${esc(x.id)}</td><td>${esc(x.pipeline)}</td>
+      <td class="v-${esc(x.verdict || '')}">${esc(x.verdict || '(进行中)')}</td>
+      <td class="muted">${esc(x.actor)}</td>
+      <td class="muted">${new Date((x.ts||0)*1000).toLocaleString()}</td></tr>`).join('') +
+    '</tbody></table>' : '<div class="muted" style="padding:10px 14px">暂无运行。</div>';
+}
+
+async function run(pid) {
+  const tok = $('token').value.trim();
+  if (!tok) { alert('先在右上角填令牌（user:token），admin 首跑令牌在服务端 stderr 打印一次'); return; }
+  const r = await api('/api/runs', { method:'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + tok },
+    body: JSON.stringify({ pipeline: pid }) });
+  if (!r.ok) { alert('失败：' + (r.error || JSON.stringify(r).slice(0,200))); }
+  load();
+}
+
+async function detail(id) {
+  const d = await api('/api/runs/' + encodeURIComponent(id));
+  if (!d.ok) { $('detail').textContent = d.error; return; }
+  const x = d.run, fp = x.fingerprint || {};
+  $('detail').innerHTML = `
+    <div class="item"><b>${esc(x.id)}</b> <span class="v-${esc(x.verdict||'')}">${esc(x.verdict||'进行中')}</span></div>
+    <div class="item muted">管线 ${esc(x.pipeline)} · actor ${esc(x.actor)} · seal <code>${esc((x.seal||'').slice(0,16))}…</code></div>
+    <div class="item"><div class="muted">指纹</div><pre>${esc(JSON.stringify(fp, null, 1))}</pre></div>
+    <div class="item"><div class="muted">步骤</div><pre>${esc(JSON.stringify(x.steps||[], null, 1))}</pre></div>
+    <div class="item"><div class="muted">独立复核（how_to_verify）</div><pre>${esc((d.how_to_verify||[]).join('\n'))}</pre></div>`;
+}
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

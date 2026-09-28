@@ -154,6 +154,21 @@
   "max_fn_lines": 13,
   "max_type_members": 0
  },
+ "hub_auth.py": {
+  "file_lines": 141,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "hub_core.py": {
+  "file_lines": 312,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
+ "hub_runner.py": {
+  "file_lines": 199,
+  "max_fn_lines": 33,
+  "max_type_members": 0
+ },
  "plugins/urx-marketplace/zcode-breaker/hooks/breaker_hook.py": {
   "file_lines": 184,
   "max_fn_lines": 97,
@@ -609,13 +624,18 @@
   "max_fn_lines": 68,
   "max_type_members": 0
  },
+ "scripts/hub_gate.py": {
+  "file_lines": 210,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
  "scripts/lint_gate.py": {
   "file_lines": 153,
   "max_fn_lines": 41,
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 182,
+  "file_lines": 184,
   "max_fn_lines": 67,
   "max_type_members": 0
  },
@@ -698,6 +718,11 @@
   "file_lines": 557,
   "max_fn_lines": 84,
   "max_type_members": 0
+ },
+ "server_web.py": {
+  "file_lines": 203,
+  "max_fn_lines": 29,
+  "max_type_members": 7
  },
  "tests/fixtures/fake_lsp_server.py": {
   "file_lines": 104,
@@ -875,7 +900,7 @@
   "max_type_members": 0
  },
  "tests/test_s113_gates.py": {
-  "file_lines": 205,
+  "file_lines": 207,
   "max_fn_lines": 18,
   "max_type_members": 0
  },
@@ -995,7 +1020,7 @@
   "max_type_members": 0
  },
  "tests/test_s145_gates.py": {
-  "file_lines": 116,
+  "file_lines": 117,
   "max_fn_lines": 15,
   "max_type_members": 0
  },
@@ -1047,6 +1072,11 @@
  "tests/test_s169_gate_allowance.py": {
   "file_lines": 107,
   "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "tests/test_s176_hub.py": {
+  "file_lines": 267,
+  "max_fn_lines": 21,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {
@@ -1305,12 +1335,12 @@
   "max_type_members": 0
  },
  "toolmeta.py": {
-  "file_lines": 141,
+  "file_lines": 148,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
  "tools/__init__.py": {
-  "file_lines": 87,
+  "file_lines": 89,
   "max_fn_lines": 0,
   "max_type_members": 0
  },
@@ -1397,6 +1427,11 @@
  "tools/guard.py": {
   "file_lines": 244,
   "max_fn_lines": 68,
+  "max_type_members": 0
+ },
+ "tools/hub.py": {
+  "file_lines": 92,
+  "max_fn_lines": 13,
   "max_type_members": 0
  },
  "tools/ide.py": {

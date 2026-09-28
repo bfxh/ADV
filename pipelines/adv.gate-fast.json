@@ -1,0 +1,2 @@
+{"id": "adv.gate-fast", "title": "ADV 快门（local_gate --fast）", "when": "改完想快检 / 提交前", "resource_class": "shared", "on": ["manual", "hook"],
+ "steps": [{"step": "gate-fast", "cmd": ["python", "-X", "utf8", "scripts/local_gate.py", "--fast"], "timeout_s": 900}]}

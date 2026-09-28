@@ -1,0 +1,209 @@
+"""hub_gate.py —— 平台层防骗判据机器门（S176，spec/HUB.md §6.3）。
+
+判据（任一不达标即红；全部在临时数据根里跑，**不污染真实账本**）：
+  ① 本仓 pipelines/ 无非法 manifest；
+  ② 金丝雀三态：必绿（green）/ 必红（exit 3 → red）/ 含 SKIP 只算 green_with_skips；
+  ③ **parity**：平台跑与直跑同 argv/cwd——退出码 + stdout 逐字节一致；
+  ④ 运行指纹八项齐（缺一即红）；
+  ⑤ 账本链校验 ok，且**篡改注入必红**（先记基线再验红）；
+  ⑥ 复核计划（verify_plan，argv 列表形态）**真执行**：日志哈希重算一致 + 直跑退出码一致；
+  ⑦ 授权矩阵：坏令牌 None / viewer 不可触发 / MCP 无 __authorized 必拒。
+
+独立复核入口（供智能体/人**不信任平台地**复核）：
+  python -X utf8 scripts/hub_gate.py --verify-chain
+  python -X utf8 scripts/hub_gate.py --seal <run_id>
+"""
+# ruff: noqa: E402  # 本文件刻意先建 sys.path 再 import 仓内模块（scripts/ 直跑入口惯例）
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+import hub_auth
+import hub_core
+import hub_runner
+
+PY = sys.executable
+FP_KEYS = ("manifest_sha256", "git_head", "git_dirty", "argv0", "cwd",
+           "env_keys_hash", "python", "cargo")
+
+
+@contextlib.contextmanager
+def _env(root: pathlib.Path, pipes: pathlib.Path):
+    keys = ("UNIFIED_RX_HUB_ROOT", "UNIFIED_RX_HUB_PIPELINES")
+    old = {k: os.environ.get(k) for k in keys}
+    os.environ["UNIFIED_RX_HUB_ROOT"] = str(root)
+    os.environ["UNIFIED_RX_HUB_PIPELINES"] = str(pipes)
+    try:
+        yield
+    finally:
+        for k, v in old.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def _canary_manifest(pid: str, code: str) -> dict:
+    return {"id": pid, "title": pid, "when": "gate", "resource_class": "shared",
+            "on": ["manual"],
+            "steps": [{"step": "s", "cmd": [PY, "-X", "utf8", "-c", code], "timeout_s": 60}]}
+
+
+def _write_canaries(d: pathlib.Path) -> None:
+    for pid, code in (("adv.canary-ok", "print('canary-ok')"),
+                      ("adv.canary-bad", "import sys; sys.exit(3)"),
+                      ("adv.canary-skip", "print('SKIP canary-line')")):
+        (d / f"{pid}.json").write_text(
+            json.dumps(_canary_manifest(pid, code)), encoding="utf-8")
+
+
+def _run_canaries() -> dict[str, dict]:
+    pipes, invalid = hub_core.load_pipelines()
+    if invalid:
+        raise AssertionError(f"金丝雀 manifest 非法：{invalid}")
+    return {pid: hub_runner.run_pipeline(pipes[pid], actor="gate", trigger="canary")
+            for pid in ("adv.canary-ok", "adv.canary-bad", "adv.canary-skip")}
+
+
+def _parity(res: dict) -> tuple[bool, str]:
+    """平台跑 vs 直跑：退出码 + stdout 逐字节一致（机制①）。argv 列表，shell=False。"""
+    s = res["steps"][0]
+    cp = subprocess.run(s["argv"], cwd=str(hub_core.REPO_ROOT), capture_output=True,
+                        shell=False, timeout=60)
+    direct = hashlib.sha256(cp.stdout).hexdigest()
+    ok = cp.returncode == s["exit"] and direct == s["stdout_sha256"]
+    return ok, f"exit {cp.returncode}=={s['exit']} stdout {direct[:12]}=={s['stdout_sha256'][:12]}"
+
+
+def _tamper() -> tuple[bool, str]:
+    """篡改注入：改一行内容 → 链校验必红（金丝雀；先记基线再验红）。"""
+    p = hub_core.runs_path()
+    base = hub_core.verify_chain()
+    if not base.get("ok"):
+        return False, f"篡改前链已坏：{base.get('reason')}"
+    text = p.read_text(encoding="utf-8")
+    marker = '"verdict": "green"'
+    if marker not in text:
+        marker = '"verdict":"green"'
+    if marker not in text:
+        return False, "找不到可篡改的 verdict 字段（金丝雀失效即红）"
+    p.write_text(text.replace(marker, marker.replace("green", "gren"), 1), encoding="utf-8")
+    after = hub_core.verify_chain()
+    ok = not after.get("ok")
+    return ok, (f"篡改后 {after.get('reason')}" if ok else "篡改未被发现（仪器失效）")
+
+
+def _verify_plan_check(res: dict) -> tuple[bool, str]:
+    """复核计划真执行：日志哈希重算一致 + 直跑退出码一致（argv 列表，无 shell）。"""
+    plan = res.get("verify_plan") or []
+    logs = [e for e in plan if e.get("kind") == "log_hash"]
+    reruns = [e for e in plan if e.get("kind") == "direct_rerun"]
+    kinds = {e.get("kind") for e in plan}
+    if not logs or not reruns or not {"chain", "seal"} <= kinds:
+        return False, f"plan 不全 kinds={sorted(kinds)}"
+    ok_log = all(
+        hashlib.sha256(pathlib.Path(str(e["path"])).read_bytes()).hexdigest() == e["expect_sha256"]
+        for e in logs)
+    e0 = reruns[0]
+    cp = subprocess.run(list(e0["argv"]), cwd=str(e0["cwd"]), capture_output=True,
+                        shell=False, timeout=60)
+    ok_run = cp.returncode == e0["expect_exit"]
+    return ok_log and ok_run, f"log_hash={ok_log} rerun_exit={cp.returncode}=={e0['expect_exit']}"
+
+
+def _auth_matrix() -> tuple[bool, str]:
+    import registry
+    bad_token_rejected = hub_auth.verify("admin", "wrong-token") is None
+    roles = hub_auth.can_trigger("viewer") is False and hub_auth.can_trigger("operator") is True
+    denied = registry.call("hub_run", {"pipeline": "adv.gate-fast"})
+    no_auth = denied.get("ok") is False
+    return (bad_token_rejected and roles and no_auth), \
+        f"坏令牌拒={bad_token_rejected} 角色矩阵={roles} MCP 无授权拒={no_auth}"
+
+
+def _checks() -> list[tuple[str, bool, str]]:
+    rows: list[tuple[str, bool, str]] = []
+    pipes, invalid = hub_core.load_pipelines()
+    rows.append(("canary-manifests", not invalid, f"ok={len(pipes)} invalid={invalid}"))
+    can = _run_canaries()
+    rows.append(("canary-green", can["adv.canary-ok"]["verdict"] == "green",
+                 can["adv.canary-ok"]["verdict"]))
+    rows.append(("canary-red", can["adv.canary-bad"]["verdict"] == "red",
+                 can["adv.canary-bad"]["verdict"]))
+    rows.append(("canary-skip-not-green",
+                 can["adv.canary-skip"]["verdict"] == "green_with_skips",
+                 can["adv.canary-skip"]["verdict"]))
+    ok, detail = _parity(can["adv.canary-ok"])
+    rows.append(("parity", ok, detail))
+    miss = [k for k in FP_KEYS if k not in can["adv.canary-ok"]["fingerprint"]]
+    rows.append(("fingerprint-8", not miss, f"missing={miss}"))
+    ok, detail = _tamper()
+    rows.append(("tamper-detect", ok, detail))
+    ok, detail = _verify_plan_check(can["adv.canary-ok"])
+    rows.append(("verify-plan", ok, detail))
+    ok, detail = _auth_matrix()
+    rows.append(("auth-matrix", ok, detail))
+    return rows
+
+
+def _seal_check(run_id: str) -> int:
+    for row in hub_core.read_rows():
+        if row.get("id") == run_id and row.get("phase") == "final":
+            fp = row.get("fingerprint") or {}
+            payload = {"pipeline": row.get("pipeline"),
+                       "manifest_sha256": fp.get("manifest_sha256"),
+                       "git_head": fp.get("git_head"), "git_dirty": fp.get("git_dirty"),
+                       "verdict": row.get("verdict"),
+                       "steps": [{k: s.get(k) for k in ("step", "exit", "log_sha256")}
+                                 for s in row.get("steps") or []]}
+            got = hub_runner.seal_of(payload)
+            same = got == row.get("seal")
+            print(f"SEAL {run_id} recorded={row.get('seal')} recomputed={got} "
+                  f"{'OK' if same else 'MISMATCH'}")
+            return 0 if same else 1
+    print(f"SEAL {run_id} NOT_FOUND")
+    return 1
+
+
+def main(argv: list[str]) -> int:
+    if "--verify-chain" in argv:
+        v = hub_core.verify_chain()
+        print(f"CHAIN ok={v.get('ok')} count={v.get('count')} reason={v.get('reason')}")
+        return 0 if v.get("ok") else 1
+    if "--seal" in argv:
+        return _seal_check(argv[argv.index("--seal") + 1])
+    root = pathlib.Path(tempfile.mkdtemp(prefix="adv-hub-gate-"))
+    pipes = root / "pipelines"
+    pipes.mkdir(parents=True, exist_ok=True)
+    _write_canaries(pipes)
+    repo_pipes, repo_invalid = hub_core.load_pipelines()   # 真实 env 下的本仓管线
+    try:
+        with _env(root, pipes):
+            rows = _checks()
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    rows.insert(0, ("repo-manifests", not repo_invalid,
+                    f"ok={len(repo_pipes)} invalid={repo_invalid}"))
+    for name, ok, detail in rows:
+        print(f"{'OK  ' if ok else 'FAIL'} {name:22s} {detail}")
+    bad = [n for n, ok, _d in rows if not ok]
+    if bad:
+        print(f"HUB-GATE FAIL: {bad}")
+        return 1
+    print("HUB-GATE OK")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

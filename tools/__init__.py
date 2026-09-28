@@ -21,6 +21,7 @@ from . import (
     game,  # noqa: F401,E402
     gpu,  # noqa: F401,E402  # S114：GPU 计算支持（OpenCL/ctypes，零 pip 依赖）
     guard,  # noqa: F401,E402
+    hub,  # S176 平台域（管线/账本/触发；spec/HUB.md）——不挂 noqa：F401/E402 未启用，挂了撞 RUF100 门
     ide,  # noqa: F401,E402
     ide_autopilot,  # noqa: F401,E402  # S69：开发目录自动驾驶（启动自动体检+打开）
     ide_callgraph,  # noqa: F401,E402  # S125：真调用图（同 nameres 作用域引擎 + stitch）
@@ -62,6 +63,7 @@ __all__ = [
     "game",
     "gpu",
     "guard",
+    "hub",
     "ide",
     "ide_autopilot",
     "ide_callgraph",
