@@ -1110,7 +1110,7 @@
   "max_type_members": 0
  },
  "tests/test_s179_auth.py": {
-  "file_lines": 238,
+  "file_lines": 241,
   "max_fn_lines": 30,
   "max_type_members": 0
  },

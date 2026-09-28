@@ -84,10 +84,13 @@ def web(hub_root):
 
 
 def _read_sse(addr, run_id, cookie, max_frames=60):
+    """读 SSE 帧；**超时给足**（S186 实测：pre-push 全门里机器已被前面步骤压满，
+    服务端 0.25s 轮询会被拖慢 ⇒ 40s 不够 ⇒ 偶发 TimeoutError。正常路径 ~2s 完成，
+    放宽只影响"真的要等多久才判失败"，不放宽任何判据）。"""
     host, port = addr
     if host != "127.0.0.1":
         raise ValueError(f"非回环目标拒绝: {host}")
-    conn = http.client.HTTPConnection(host, port, timeout=40)
+    conn = http.client.HTTPConnection(host, port, timeout=120)
     conn.request("GET", f"/api/stream?run={run_id}", headers=cookie)
     resp = conn.getresponse()
     events = []
