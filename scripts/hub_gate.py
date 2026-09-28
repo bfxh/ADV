@@ -411,6 +411,55 @@ def _resilience_check() -> tuple[bool, str]:
     return ok, " ".join(f"{k}={v}" for k, v in out.items())
 
 
+def _memory_check() -> tuple[bool, str]:
+    """失败记忆判据（S184，方向⑧）：失败 ⇒ 草稿写入（**同库同格式**）+ 同签名去重 +
+    绿运行不写 + 召回命中。全程把教训库指向临时路径——**绝不触碰真 `~/.ADV/lessons.jsonl`**。"""
+    import hub_core as hc
+    import hub_lesson
+    import hub_runner as hr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix="adv-mem-"))
+    pipes = tmp / "pipes"
+    pipes.mkdir(parents=True)
+    (pipes / "adv.bad.json").write_text(json.dumps(
+        {"id": "adv.bad", "title": "t", "when": "t", "resource_class": "shared",
+         "on": ["manual"],
+         "steps": [{"step": "s", "cmd": [PY, "-X", "utf8", "-c", "import sys; sys.exit(3)"],
+                    "timeout_s": 60}]}), encoding="utf-8")
+    (pipes / "adv.ok.json").write_text(json.dumps(
+        {"id": "adv.ok", "title": "t", "when": "t", "resource_class": "shared",
+         "on": ["manual"],
+         "steps": [{"step": "s", "cmd": [PY, "-X", "utf8", "-c", "print(1)"],
+                    "timeout_s": 60}]}), encoding="utf-8")
+    lessons = tmp / "lessons.jsonl"
+    saved = {k: os.environ.get(k) for k in
+             ("UNIFIED_RX_HUB_ROOT", "UNIFIED_RX_HUB_PIPELINES", "UNIFIED_RX_LESSONS")}
+    out: dict[str, bool] = {}
+    try:
+        os.environ["UNIFIED_RX_HUB_ROOT"] = str(tmp / "hub")
+        os.environ["UNIFIED_RX_HUB_PIPELINES"] = str(pipes)
+        os.environ["UNIFIED_RX_LESSONS"] = str(lessons)
+        pm, _inv = hc.load_pipelines()
+        r1 = hr.run_pipeline(pm["adv.bad"], actor="cli", trigger="chaos")
+        out["draft_written"] = r1.get("lesson", {}).get("status") == "written"
+        r2 = hr.run_pipeline(pm["adv.bad"], actor="cli", trigger="chaos")
+        out["deduped"] = r2.get("lesson", {}).get("status") == "duplicate"
+        r3 = hr.run_pipeline(pm["adv.ok"], actor="cli", trigger="chaos")
+        out["green_clean"] = r3.get("lesson", {}).get("status") == "skipped"
+        rows = lessons.read_text(encoding="utf-8").strip().splitlines()
+        out["single_row"] = len(rows) == 1
+        out["learn_format"] = set(json.loads(rows[0])) == {"id", "text", "ts", "recall_count"}
+        out["recall_hits"] = bool(hub_lesson.recall_for("adv.bad"))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    ok = all(out.values())
+    return ok, " ".join(f"{k}={v}" for k, v in out.items())
+
+
 def _checks() -> list[tuple[str, bool, str]]:
     rows: list[tuple[str, bool, str]] = []
     pipes, invalid = hub_core.load_pipelines()
@@ -447,6 +496,8 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("stat-judge", ok, detail))
     ok, detail = _resilience_check()
     rows.append(("resilience-write-fail", ok, detail))
+    ok, detail = _memory_check()
+    rows.append(("failure-memory", ok, detail))
     return rows
 
 

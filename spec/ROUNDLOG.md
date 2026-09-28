@@ -1571,3 +1571,8 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 项目：ADV｜时间：2026-09-29T04:37
 - 决策：**复现证据（修复前，本片最有价值的产出）**：账本不可写时 run_pipeline 抛异常**且留下一条 exclusive 活跃位**（pid 活着）⇒ 平台被自己锁死（后续运行全被拒）、且无账可查；日志目录不可写时异常直接冒泡（未结构化）。修法五条：①admit 之后的一切进 try/finally（任何异常都释放活跃位）；②start 行写失败 ⇒ 如实拒绝执行（不静默）；③步骤 IO 故障 ⇒ 记 final red + 错误文本；④final 写失败 ⇒ 返回 ledger=unwritable（不静默报绿）；⑤读路径容错（账本不可读返空表不崩）+ **verify_chain 对"存在但不可读"直接判 ok=False**（空表的"链 OK"是假绿）+ hub_status 与 /api/status 加 storage_writable 探针（坏存储 degraded 可见）。注入手法：**用文件占位目录位置**（跨平台可靠；Windows 上 chmod 不可靠）
 - 证据：防骗门 17 项全绿（新增 resilience-write-fail：ledger_rejected/no_leak_1/no_fake_chain_ok/logs_red/no_leak_2/happy_green 六条全 True，含好路径对照）；新增 tests/test_s183_resilience.py 6 例；全门 26 步绿（pytest 全量）；版本锁步 2.84.0×4（exe 已重建 EXE_TAG ok=11）；god 基线 328 文件；⭐这是"混沌对 CI 自己"的首次实测落地——抓到的是自家平台的静默失效路径
+
+## S184 · S184 方向⑧落地：失败→lesson 自动草稿（同库同格式 + 去重 + 召回）——顺带修到"判据自污染"；版本 2.84.0 → 2.85.0
+- 项目：ADV｜时间：2026-09-29T05:00
+- 决策：①**同库同格式**（不造第二份记忆）：复用 tools/learn 的 _load/_save 与 {id,text,ts,recall_count} 格式 ⇒ 智能体 lesson(action=recall) 直接搜得到平台草稿；②草稿含**账本互链**（run_id + --seal 复核命令）+ **错误签名去重**（sha256(pipeline|step|exit|特征)[:12]，同签名不重复写=不刷屏）；③hub_runs 对最近的 red 运行附 recall（"上次怎么修的"）；④写教训失败**不影响运行结果**（容错，lesson 字段标 error）；⚠️**修到判据自污染（本片最有价值的产出）**：首版把金丝雀"故意失败"也写成教训 ⇒ 实测真库被写进 adv.canary-bad（每跑一次门刷一条）⇒ 修三件：①trigger=="canary" 或 actor=="gate" 不写；②**默认库随数据根隔离**（UNIFIED_RX_HUB_ROOT 显式设置时落 <root>/lessons.jsonl）⇒ 测试/判据自动不碰真库；③显式 UNIFIED_RX_LESSONS 优先级最高；④删掉被污染那条并验证不再复现（全门跑完真库仍不存在）
+- 证据：防骗门 18 项全绿（新增 failure-memory：draft_written/deduped/green_clean/single_row/learn_format/recall_hits 六条全 True）；新增 tests/test_s184_memory.py 5 例（含"同库同格式"跨面验证：用 learn 的读取器读回平台草稿）；全门 26 步绿（pytest 全量）；版本锁步 2.85.0×4（exe 已重建）；god 基线 330 文件；⭐教训：**判据/金丝雀的"故意失败"不得进记忆库**——否则门越勤、库越脏

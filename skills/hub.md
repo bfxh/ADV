@@ -10,7 +10,7 @@
 |---|---|
 | `hub_status` | 实例（stable/dev）· 版本 · 用户数 · 账本链校验 · **存储可写性**（`storage_writable`）· **降级原因**（链坏/不可读/不可写/非法 manifest）。**不带病报绿**：`degraded=true` 时必须先处理原因 |
 | `hub_pipelines` | 管线清单（id/标题/触发/资源级/步骤/指纹）；**非法 manifest 如实列出**，不静默跳过 |
-| `hub_runs` | 账本尾 N 条（判定/封条/指纹/独立复核指引）。`verdict`：`green` / `green_with_skips` / `red` |
+| `hub_runs` | 账本尾 N 条（判定/封条/指纹/独立复核指引）+ **失败记忆召回**（有 red 运行时附 `recall`：同管线历史教训）。`verdict`：`green` / `green_with_skips` / `red` |
 | `hub_run` | **需 `__authorized`**：触发运行；返回判定、封印、`verify_plan`（机器可执行复核计划）与 `how_to_verify`（人读指引） |
 | `hub_propose` | **需 `__authorized`（G1）**：隔离工作树里跑白名单机械修复（`ruff-fix` / `ruff-format` / `cargo-fmt`），只出 `patch` + 落地建议——**永不改主树、永不提交/合并** |
 | `hub_impact` | **只读**：变更（`git diff base..HEAD` ∪ 未提交）→ import **反向闭包** → 建议测试集（保守，宁多跑不误跳）；不可信即 `fallback=full` + 理由 |
@@ -62,6 +62,15 @@
 跑过"才有依赖集、状态在进程内），`ide_impact` 是单符号级（LSP 三级），本件是**变更驱动的静态
 口径**（不依赖历史、可跨进程复算）。不确定（非 git 仓 / 解析失败率过高）⇒ `fallback="full"`
 + 理由，**不假装选过**。
+
+## 失败记忆（方向⑧）
+
+`hub_run` 得到 `red` 时自动写一条**教训草稿**（`hub_lesson`）——与 `lesson` 工具**同库同格式**
+（`~/.ADV/lessons.jsonl`，`{id,text,ts,recall_count}`），所以 `lesson(action="recall")` 直接
+搜得到；草稿含账本互链（`run_id` + `--seal` 复核命令）与**错误签名去重**（同签名不重复写）。
+边界：**金丝雀/判据的"故意失败"不写**（`trigger=="canary"` 或 `actor=="gate"` 跳过——防自污染）；
+默认库随数据根隔离（`UNIFIED_RX_HUB_ROOT` 显式设置时落 `<root>/lessons.jsonl`）；
+写教训失败**不影响运行结果**。
 
 ## 何时不要用
 

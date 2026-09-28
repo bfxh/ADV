@@ -13,6 +13,7 @@ import os
 import hub_auth
 import hub_core
 import hub_impact as hub_impact_mod
+import hub_lesson
 import hub_propose as hub_propose_mod
 import hub_runner
 from registry import tool
@@ -79,7 +80,14 @@ def hub_runs(limit=10):
     except (TypeError, ValueError):
         n = 10
     rows = hub_core.latest_runs(max(1, min(n, 200)))
-    return {"ok": True, "count": len(rows), "runs": rows,
+    reds = [r for r in rows if r.get("verdict") == "red"]
+    recall: list[dict] = []
+    if reds:
+        try:                                       # 失败记忆召回（S184，方向⑧）
+            recall = hub_lesson.recall_for(str(reds[0].get("pipeline") or ""))
+        except (OSError, ValueError):
+            recall = []
+    return {"ok": True, "count": len(rows), "runs": rows, "recall": recall,
             "chain": hub_core.verify_chain()}
 
 

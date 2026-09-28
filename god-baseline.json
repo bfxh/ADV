@@ -169,6 +169,11 @@
   "max_fn_lines": 35,
   "max_type_members": 0
  },
+ "hub_lesson.py": {
+  "file_lines": 91,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
  "hub_live.py": {
   "file_lines": 63,
   "max_fn_lines": 21,
@@ -180,8 +185,8 @@
   "max_type_members": 0
  },
  "hub_runner.py": {
-  "file_lines": 283,
-  "max_fn_lines": 57,
+  "file_lines": 296,
+  "max_fn_lines": 69,
   "max_type_members": 0
  },
  "plugins/urx-marketplace/zcode-breaker/hooks/breaker_hook.py": {
@@ -640,8 +645,8 @@
   "max_type_members": 0
  },
  "scripts/hub_gate.py": {
-  "file_lines": 503,
-  "max_fn_lines": 46,
+  "file_lines": 554,
+  "max_fn_lines": 47,
   "max_type_members": 0
  },
  "scripts/lint_gate.py": {
@@ -1120,8 +1125,13 @@
   "max_type_members": 0
  },
  "tests/test_s183_resilience.py": {
-  "file_lines": 94,
+  "file_lines": 93,
   "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s184_memory.py": {
+  "file_lines": 89,
+  "max_fn_lines": 10,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {
@@ -1475,7 +1485,7 @@
   "max_type_members": 0
  },
  "tools/hub.py": {
-  "file_lines": 129,
+  "file_lines": 137,
   "max_fn_lines": 17,
   "max_type_members": 0
  },

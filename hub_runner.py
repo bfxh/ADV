@@ -26,6 +26,7 @@ import threading
 import time
 
 import hub_core
+import hub_lesson
 
 _SKIP_RE = re.compile(r"^\s*(SKIP\b|\[SKIP\])")
 _VERDICT_RE = re.compile(r"^\s*(?:OK|FAIL|SKIP)\s+\S+|LOCAL-GATE\s+(?:OK|FAIL)")
@@ -257,8 +258,20 @@ def run_pipeline(manifest: dict, actor: str = "local", trigger: str = "manual") 
             return {"ok": False, "run_id": run_id, "verdict": "red", "ledger": "unwritable",
                     "error": f"运行已完成但账本写入失败（{exc}）——如实报失败，不静默报绿",
                     "steps": steps}
+        lesson: dict = {"status": "skipped", "reason": "非失败运行"}
+        if verdict == "red":
+            if trigger == "canary" or actor == "gate":
+                # 判据/金丝雀的"故意失败"不是教训——否则每跑一次门就往教训库刷一条
+                lesson = {"status": "skipped",
+                          "reason": "判据/金丝雀失败不写教训（防自污染）"}
+            else:
+                try:                               # 写教训绝不改变运行结果（容错）
+                    lesson = hub_lesson.draft_from_run(manifest["id"], run_id, steps)
+                except (OSError, ValueError) as exc:
+                    lesson = {"status": "error", "error": str(exc)}
         return {"ok": verdict != "red", "run_id": run_id, "verdict": verdict, "seal": seal,
                 "steps": steps, "fingerprint": fp, "ledger_hash": row.get("hash"),
+                "lesson": lesson,
                 "how_to_verify": _how_to_verify(run_id, steps, str(hub_core.REPO_ROOT)),
                 "verify_plan": _verify_plan(run_id, steps, str(hub_core.REPO_ROOT))}
     finally:
