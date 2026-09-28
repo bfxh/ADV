@@ -160,8 +160,8 @@
   "max_type_members": 0
  },
  "hub_core.py": {
-  "file_lines": 312,
-  "max_fn_lines": 23,
+  "file_lines": 383,
+  "max_fn_lines": 29,
   "max_type_members": 0
  },
  "hub_live.py": {
@@ -170,7 +170,7 @@
   "max_type_members": 0
  },
  "hub_runner.py": {
-  "file_lines": 251,
+  "file_lines": 253,
   "max_fn_lines": 49,
   "max_type_members": 0
  },
@@ -630,7 +630,7 @@
   "max_type_members": 0
  },
  "scripts/hub_gate.py": {
-  "file_lines": 265,
+  "file_lines": 312,
   "max_fn_lines": 40,
   "max_type_members": 0
  },
@@ -725,7 +725,7 @@
   "max_type_members": 0
  },
  "server_web.py": {
-  "file_lines": 284,
+  "file_lines": 285,
   "max_fn_lines": 36,
   "max_type_members": 9
  },
@@ -1080,7 +1080,7 @@
   "max_type_members": 0
  },
  "tests/test_s176_hub.py": {
-  "file_lines": 331,
+  "file_lines": 371,
   "max_fn_lines": 30,
   "max_type_members": 0
  },
@@ -1435,8 +1435,8 @@
   "max_type_members": 0
  },
  "tools/hub.py": {
-  "file_lines": 92,
-  "max_fn_lines": 13,
+  "file_lines": 93,
+  "max_fn_lines": 14,
   "max_type_members": 0
  },
  "tools/ide.py": {

@@ -60,7 +60,8 @@ def _status_payload() -> dict:
     return {"ok": True, "instance": _instance(), "version": hub_core.server_version(),
             "pipelines": len(pipes), "invalid": invalid, "users": hub_auth.count_users(),
             "chain": chain, "degraded": bool(reasons), "degraded_reasons": reasons,
-            "active": hub_core.read_active(), "data_root": str(hub_core.runs_path().parent)}
+            "active": hub_core.read_active(), "max_shared": hub_core.max_shared(),
+            "data_root": str(hub_core.runs_path().parent)}
 
 
 def _final_row(run_id: str) -> dict | None:

@@ -22,8 +22,11 @@
   只算 `green_with_skips`（诚实降级，**不是绿**）。退出码取自 OS，不经中间解释层。
 - **账本**：`runs.jsonl` append-only + sha256 链（`prev_hash`/`hash`，篡改即链断）；
   每条 final 行带**判定封印** `seal`（同输入同封印）；**原始日志落盘 + sha256 入账**。
-- **护栏**：`active.json`（O_CREAT|O_EXCL + pid 存活探测）= 同时至多一个运行；
-  陈旧持有者（进程已死）自动接管，活持有者 → `busy`。
+- **资源级准入**：`resource_class` 真生效——`exclusive` 与**任何**活跃运行互斥；`shared`
+  之间可并行（上限 `UNIFIED_RX_HUB_MAX_SHARED`，默认 2），且不得与 exclusive 并存。
+  护栏 = 活跃目录"一运行一文件"（O_CREAT|O_EXCL + pid 存活探测 + 陈旧清理），
+  **检查与创建在同一临界区内**（目录锁，防 TOCTOU 超卖）。被拒返回 `busy` + 原因 +
+  当前活跃集（可诊断）；**阻塞式排队未做**（先量后改，有真实需求再说）。
 - **防骗判据**（`python -X utf8 scripts/hub_gate.py`，进本地门 + CI）：平台跑↔直跑 parity
   （退出码 + stdout 逐字节一致）· 金丝雀三态（必绿/必红/含 SKIP 不算绿）· 篡改注入必红 ·
   指纹八项齐 · 复核计划真执行（日志哈希重算 + 直跑）· 授权矩阵（坏令牌/角色/MCP 无授权）。

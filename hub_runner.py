@@ -205,10 +205,12 @@ _STEP_KEYS = ("step", "argv", "exit", "ok", "optional", "ms", "out", "err", "out
 def run_pipeline(manifest: dict, actor: str = "local", trigger: str = "manual") -> dict:
     """独占护栏内顺序执行；start/final 两行入账（final 带封印与判定）。"""
     run_id = hub_core.new_run_id()
-    if not hub_core.acquire_active(run_id, os.getpid()):
+    adm = hub_core.admit(run_id, manifest["resource_class"], os.getpid())
+    if not adm.get("ok"):
         return {"ok": False, "busy": True, "run_id": run_id,
-                "active": hub_core.read_active(),
-                "error": "已有运行进行中（护栏：同时至多一个）——先等它结束或查 hub_runs"}
+                "resource_class": manifest["resource_class"],
+                "error": f"准入被拒：{adm.get('reason')}——等活跃运行结束或改时机（查 hub_runs）",
+                "active": adm.get("active")}
     fp = fingerprint(manifest)
     hub_core.append_row({"id": run_id, "phase": "start", "pipeline": manifest["id"],
                          "actor": actor, "trigger": trigger, "fingerprint": fp})

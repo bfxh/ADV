@@ -9,6 +9,7 @@ manifest 与 spec/PLAYBOOKS.md 族骨架同源；步骤语义刻意最小（顺�
 """
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import hashlib
 import json
@@ -250,7 +251,13 @@ def verify_chain() -> dict:
     return {"ok": True, "count": len(read_rows()), "broken_index": None, "reason": None}
 
 
-# ---------------- 跨进程「至多一个运行」护栏 ----------------
+# ---------------- 资源级准入（S178：shared 并行 / exclusive 互斥） ----------------
+# manifest.resource_class 生效：exclusive 与**任何**活跃运行互斥；shared 之间可并行
+# （上限 max_shared()），且不得与 exclusive 并存。护栏 = 活跃目录"一运行一文件"
+# （O_CREAT|O_EXCL 原子创建 + pid 存活探测 + 陈旧清理），**检查与创建在同一临界区内**
+# 完成（目录锁，避免 TOCTOU 超卖），跨进程成立。
+# 为什么不做阻塞式排队：本机作业粒度是分钟级，拒绝式（busy）+ 活跃可见已够用，且免掉
+# 跨进程唤醒与公平性的复杂度——"先量后改"，有真实排队需求再做（spec/HUB.md §七 M1 余项）。
 
 def _pid_alive(pid: int) -> bool:
     if pid <= 0:
@@ -271,41 +278,105 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
-def active_path() -> pathlib.Path:
-    return _data_root() / "active.json"
+def active_dir() -> pathlib.Path:
+    return _data_root() / "runs_active"
 
 
-def read_active() -> dict | None:
-    p = active_path()
-    if not p.exists():
-        return None
-    try:
-        data: object = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return data if isinstance(data, dict) else None
+def max_shared() -> int:
+    raw = (os.environ.get("UNIFIED_RX_HUB_MAX_SHARED") or "").strip()
+    return int(raw) if raw.isdigit() and int(raw) > 0 else 2
 
 
-def acquire_active(run_id: str, pid: int) -> bool:
-    """原子抢占运行位；已有活持有者 → False（busy）；持有进程已死 → 接管。"""
-    p = active_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    for _ in range(2):
+@contextlib.contextmanager
+def _active_lock():
+    """准入临界区锁（活跃目录内 .lock；Windows msvcrt / POSIX fcntl 双实现）。"""
+    d = active_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    with (d / ".lock").open("a+b") as lf:
+        locked = False
+        if _HAVE_MSVCRT:
+            lf.seek(0)
+            msvcrt.locking(lf.fileno(), msvcrt.LK_LOCK, 1)
+            locked = True
+        else:
+            try:
+                import fcntl
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                locked = True
+            except ImportError:
+                locked = False
+        try:
+            yield
+        finally:
+            if locked and _HAVE_MSVCRT:
+                lf.seek(0)
+                msvcrt.locking(lf.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+def _active_file(run_id: str) -> pathlib.Path:
+    return active_dir() / f"{run_id}.json"
+
+
+def read_active() -> list[dict]:
+    """活跃运行清单（清理陈旧：pid 已死 / 坏文件）。
+
+    **新文件宽容**：`admit` 的"创建 → 写入"之间有极小窗口，此刻读到会解析失败——
+    直接当陈旧删掉会**静默放开准入上限**（S178 实锤：第三个 shared 被放行、exclusive
+    互斥失效，表现为自家调度判据 `third_busy_at_limit=False`）。故解析失败/无 pid 时，
+    文件够旧（>60s）才删，否则本轮只跳过。
+    """
+    d = active_dir()
+    if not d.is_dir():
+        return []
+    out: list[dict] = []
+    for p in sorted(d.glob("*.json")):
+        try:
+            data: object = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = None
+        pid = int(data.get("pid") or 0) if isinstance(data, dict) else 0
+        if isinstance(data, dict) and _pid_alive(pid):
+            out.append(data)
+            continue
+        try:
+            age = time.time() - p.stat().st_mtime
+        except OSError:
+            continue
+        if age > 60:
+            p.unlink(missing_ok=True)
+    return sorted(out, key=lambda r: float(r.get("ts") or 0))
+
+
+def admit(run_id: str, resource_class: str, pid: int) -> dict:
+    """准入判定 + 占位（同一临界区内）；被拒返回原因与当前活跃集（可诊断）。"""
+    if resource_class not in RESOURCE_CLASSES:
+        return {"ok": False, "reason": f"未知资源级 {resource_class!r}"}
+    with _active_lock():
+        active = read_active()
+        excl = [a for a in active if a.get("resource_class") == "exclusive"]
+        shared = [a for a in active if a.get("resource_class") != "exclusive"]
+        if resource_class == "exclusive" and active:
+            return {"ok": False, "reason": "已有运行在进行（exclusive 需整机独占）",
+                    "active": active}
+        if resource_class == "shared" and excl:
+            return {"ok": False, "reason": "有 exclusive 运行在进行（shared 不得与其并存）",
+                    "active": active}
+        if resource_class == "shared" and len(shared) >= max_shared():
+            return {"ok": False, "reason": f"shared 并行已达上限 {max_shared()}",
+                    "active": active}
+        p = _active_file(run_id)
         try:
             fd = os.open(str(p), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
-            prev = read_active()
-            if prev and _pid_alive(int(prev.get("pid") or 0)):
-                return False
-            p.unlink(missing_ok=True)
-            continue
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump({"run_id": run_id, "pid": pid, "ts": time.time()}, fh)
-        return True
-    return False
+            return {"ok": False, "reason": f"运行位已被占用 {run_id}", "active": active}
+        try:                       # 单次 write 落整份内容（缩小"创建→可见"窗口）
+            os.write(fd, json.dumps({"run_id": run_id, "pid": pid,
+                                     "resource_class": resource_class,
+                                     "ts": time.time()}).encode())
+        finally:
+            os.close(fd)
+        return {"ok": True, "active": read_active()}
 
 
 def release_active(run_id: str) -> None:
-    prev = read_active()
-    if prev and prev.get("run_id") == run_id:
-        active_path().unlink(missing_ok=True)
+    _active_file(run_id).unlink(missing_ok=True)

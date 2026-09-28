@@ -111,16 +111,56 @@ def test_latest_runs_keeps_final_row(hub_root):
     assert by_id["r1"]["verdict"] == "red" and by_id["r2"]["phase"] == "start"
 
 
-# ---------------- 跨进程护栏 ----------------
+# ---------------- 资源级准入（S178：shared 并行 / exclusive 互斥） ----------------
 
-def test_active_guard_busy_and_stale_takeover(hub_root):
-    assert hub_core.acquire_active("r1", os.getpid()) is True
-    assert hub_core.acquire_active("r2", os.getpid()) is False        # 活持有者 → busy
-    hub_core.release_active("r1")
-    assert hub_core.read_active() is None
-    hub_core.active_path().write_text(json.dumps({"run_id": "old", "pid": 999999999}),
-                                      encoding="utf-8")
-    assert hub_core.acquire_active("r3", os.getpid()) is True          # 陈旧 → 接管
+def test_admit_matrix_and_stale_cleanup(hub_root):
+    """准入矩阵：shared 并行到上限、exclusive 互斥、未知资源级拒、陈旧自动清理。"""
+    assert hub_core.admit("s1", "shared", os.getpid())["ok"] is True
+    assert hub_core.admit("s2", "shared", os.getpid())["ok"] is True
+    third = hub_core.admit("s3", "shared", os.getpid())
+    assert third["ok"] is False and "上限" in third["reason"]
+    excl = hub_core.admit("x1", "exclusive", os.getpid())
+    assert excl["ok"] is False and "exclusive" in excl["reason"]
+    assert hub_core.admit("z", "wild", os.getpid())["ok"] is False
+    hub_core.release_active("s1")
+    hub_core.release_active("s2")
+    assert hub_core.read_active() == []
+    assert hub_core.admit("x1", "exclusive", os.getpid())["ok"] is True   # 清空后可独占
+    shared_now = hub_core.admit("s9", "shared", os.getpid())
+    assert shared_now["ok"] is False and "exclusive" in shared_now["reason"]
+    hub_core.release_active("x1")
+    (hub_core.active_dir() / "dead.json").write_text(
+        json.dumps({"run_id": "dead", "pid": 999999999, "resource_class": "exclusive"}),
+        encoding="utf-8")
+    assert hub_core.read_active() == []            # 死 pid ⇒ 清理，不阻塞后续运行
+
+
+def test_runner_shared_parallel_and_exclusive_mutex(hub_root):
+    """两个 shared 真共存（活跃集同时含两个）；across 期间 exclusive 被拒，清空后可跑。"""
+    _put(hub_root["pipes"], "adv.p1", "import time; time.sleep(0.8); print('p1')")
+    _put(hub_root["pipes"], "adv.p2", "import time; time.sleep(0.8); print('p2')")
+    _put(hub_root["pipes"], "adv.x1", "print('x1')", resource_class="exclusive")
+    pipes, _ = hub_core.load_pipelines()
+    box: dict = {}
+    th1 = threading.Thread(target=lambda: box.update(a=hub_runner.run_pipeline(pipes["adv.p1"])),
+                           daemon=True)
+    th2 = threading.Thread(target=lambda: box.update(b=hub_runner.run_pipeline(pipes["adv.p2"])),
+                           daemon=True)
+    th1.start()
+    th2.start()
+    coex = False
+    for _ in range(120):
+        if len(hub_core.read_active()) >= 2:
+            coex = True
+            break
+        time.sleep(0.02)
+    x = hub_runner.run_pipeline(pipes["adv.x1"])
+    th1.join(30)
+    th2.join(30)
+    assert coex, "两个 shared 未同时进入活跃集"
+    assert box["a"]["verdict"] == "green" and box["b"]["verdict"] == "green"
+    assert x["busy"] is True and "exclusive" in str(x.get("error"))
+    assert hub_runner.run_pipeline(pipes["adv.x1"])["ok"] is True      # 活跃清空后独占可跑
 
 
 # ---------------- 执行器三态 + 指纹 + 封印 + 复核计划 ----------------

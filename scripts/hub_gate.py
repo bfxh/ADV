@@ -57,21 +57,24 @@ def _env(root: pathlib.Path, pipes: pathlib.Path):
                 os.environ[k] = v
 
 
-def _canary_manifest(pid: str, code: str) -> dict:
-    return {"id": pid, "title": pid, "when": "gate", "resource_class": "shared",
+def _canary_manifest(pid: str, code: str, resource_class: str = "shared") -> dict:
+    return {"id": pid, "title": pid, "when": "gate", "resource_class": resource_class,
             "on": ["manual"],
             "steps": [{"step": "s", "cmd": [PY, "-X", "utf8", "-c", code], "timeout_s": 60}]}
 
 
 def _write_canaries(d: pathlib.Path) -> None:
-    for pid, code in (("adv.canary-ok", "print('canary-ok')"),
-                      ("adv.canary-bad", "import sys; sys.exit(3)"),
-                      ("adv.canary-skip", "print('SKIP canary-line')"),
-                      ("adv.canary-live",
-                       "import time; print('live-1', flush=True);"
-                       " time.sleep(2.0); print('live-2', flush=True)")):
+    cans = (("adv.canary-ok", "print('canary-ok')", "shared"),
+            ("adv.canary-bad", "import sys; sys.exit(3)", "shared"),
+            ("adv.canary-skip", "print('SKIP canary-line')", "shared"),
+            ("adv.canary-live",
+             "import time; print('live-1', flush=True); time.sleep(2.0);"
+             " print('live-2', flush=True)", "shared"),
+            ("adv.canary-sched", "import time; time.sleep(1.2); print('sched')", "shared"),
+            ("adv.canary-excl", "import time; time.sleep(1.2); print('excl')", "exclusive"))
+    for pid, code, rc in cans:
         (d / f"{pid}.json").write_text(
-            json.dumps(_canary_manifest(pid, code)), encoding="utf-8")
+            json.dumps(_canary_manifest(pid, code, rc)), encoding="utf-8")
 
 
 def _run_canaries() -> dict[str, dict]:
@@ -185,6 +188,48 @@ def _live_check() -> tuple[bool, str]:
                 f"verdict={box.get('verdict')}")
 
 
+def _sched_check() -> tuple[bool, str]:
+    """调度判据（S178）：shared **真共存**（两者同进活跃集）+ 第 3 个被"上限"拒 +
+    exclusive 与任何活跃运行互斥 + 活跃清空后 exclusive 可单独跑。
+
+    判据用**结构证据**（活跃集共存/拒绝原因字样），不用绝对墙钟做阈值——CI 慢机器
+    不会假红；墙钟只记录供人看。
+    """
+    pipes, _inv = hub_core.load_pipelines()
+    for pid in ("adv.canary-sched", "adv.canary-excl"):
+        if pid not in pipes:
+            return False, f"缺金丝雀 {pid}"
+    box: dict = {}
+
+    def _run(key: str, pid: str) -> None:
+        box[key] = hub_runner.run_pipeline(pipes[pid], actor="gate", trigger="canary")
+
+    t0 = time.monotonic()
+    th1 = threading.Thread(target=_run, args=("a", "adv.canary-sched"), daemon=True)
+    th2 = threading.Thread(target=_run, args=("b", "adv.canary-sched"), daemon=True)
+    th1.start()
+    th2.start()
+    both = False
+    for _ in range(120):
+        if len(hub_core.read_active()) >= 2:
+            both = True
+            break
+        time.sleep(0.05)
+    third = hub_runner.run_pipeline(pipes["adv.canary-sched"], actor="gate", trigger="canary")
+    excl_busy = hub_runner.run_pipeline(pipes["adv.canary-excl"], actor="gate", trigger="canary")
+    th1.join(30)
+    th2.join(30)
+    wall = time.monotonic() - t0
+    excl_alone = hub_runner.run_pipeline(pipes["adv.canary-excl"], actor="gate", trigger="canary")
+    ok_third = third.get("busy") is True and "上限" in str(third.get("error"))
+    ok_excl_busy = excl_busy.get("busy") is True and "exclusive" in str(excl_busy.get("error"))
+    ok_excl_alone = excl_alone.get("ok") is True
+    ok = both and ok_third and ok_excl_busy and ok_excl_alone
+    return ok, (f"coexist={both} third_busy_at_limit={ok_third} excl_mutex={ok_excl_busy} "
+                f"excl_alone={ok_excl_alone} wall={wall:.2f}s "
+                f"verdicts={box.get('a', {}).get('verdict')}/{box.get('b', {}).get('verdict')}")
+
+
 def _checks() -> list[tuple[str, bool, str]]:
     rows: list[tuple[str, bool, str]] = []
     pipes, invalid = hub_core.load_pipelines()
@@ -209,6 +254,8 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("auth-matrix", ok, detail))
     ok, detail = _live_check()
     rows.append(("live-log", ok, detail))
+    ok, detail = _sched_check()
+    rows.append(("sched-resource-class", ok, detail))
     return rows
 
 

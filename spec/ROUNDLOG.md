@@ -1531,3 +1531,13 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 项目：ADV｜时间：2026-09-28T20:05
 - 决策：①**日志总线=日志文件本身**（MCP 侧 runner 在 server.py 进程、网页读在 server_web.py 进程 ⇒ 内存队列跨不了进程；文件同时是被哈希的真相 ⇒ 不需要第二份现实）；②stdout 流式搬运 + stderr OS 直写**两个文件**⇒ 两个流各自确定，避免双线程交错写破坏'同输入同封印'；③**真流式必须 read1 不能 read(n)**——BufferedReader.read(n) 阻塞到读满/EOF ⇒ 日志变'结束时一次性写出'（防骗门 live-log 判据首跑就抓到：gap=0.00s），换 read1 后 gap=1.98s；④新增 live-log 判据（金丝雀先输出再 sleep 2s，判据='收到首行'早于'账本出现 final'≥0.3s，不依赖绝对时钟）；⑤health 红根因=checkout 浅检出 ⇒ VERSION_TAG SKIP ⇒ 硬门判红，修 fetch-depth: 0
 - 证据：全门 26 步全绿（pytest 947 passed + 2 skipped）；防骗门 11 项全绿（新增 live-log gap=1.98s）；hub 单测 17 例（新增 SSE live + 增量 offset 两例）；版本锁步 2.78.0×2（exe 已重建）；god 基线重记 320 文件（9 处变胖全本次引入）；新增文件 hub_live.py
+
+## S178 · 平台层 M1 片 2：资源级准入（shared 并行 / exclusive 互斥）；版本 2.78.0 → 2.79.0
+- 项目：ADV｜时间：2026-09-28T20:27
+- 决策：①manifest.resource_class 真生效——exclusive 与任何活跃运行互斥、shared 并行 ≤ max_shared()（UNIFIED_RX_HUB_MAX_SHARED，默认 2）、shared 不得与 exclusive 并存；②护栏从'单文件 active.json'改为'活跃目录一运行一文件'（O_CREAT|O_EXCL + pid 存活探测 + 陈旧清理），**检查与创建放进同一临界区**（目录锁 msvcrt/fcntl）防 TOCTOU 超卖；③**不做阻塞式排队**（先量后改）：本机作业分钟级，拒绝式 busy + 活跃可见已够，免掉跨进程唤醒与公平性复杂度——spec 记为缓议；④判据用**结构证据**（两 shared 同时进活跃集 / 第三次被'上限'拒 / exclusive 被'互斥'拒 / 清空后 exclusive 可单独跑），不用绝对墙钟阈值 ⇒ CI 慢机器不假红
+- 证据：防骗门 12 项全绿（新增 sched-resource-class：coexist=True third_busy_at_limit=True excl_mutex=True excl_alone=True wall=2.52s）；hub 单测 18 例（新增准入矩阵 + 并行/互斥两例）；全门 26 步绿；版本锁步 2.79.0×2（exe 已重建 EXE_TAG ok=11）；god 基线重记 320 文件（8 处变胖全本次引入）
+
+## S178 · S178 补记：调度判据抓到**并发准入竞态**（自家判据第 2 次抓真 bug）
+- 项目：ADV｜时间：2026-09-28T20:46
+- 决策：根因：read_active 把'解析失败'当陈旧**直接删**——而 admit 的'创建 → 写入'之间有极小窗口，主线程轮询不在临界区 ⇒ 活跃位被误清 ⇒ 准入上限静默失效（表征：自家调度判据 third_busy_at_limit=False / excl_mutex=False，而 coexist=True——两个 shared 明明同时在跑）。修：①admit 用单次 os.write 落整份内容（缩小窗口）；②read_active 对新文件宽容（解析失败且 age<60s 只跳过、不删；>60s 才判陈旧）。验证：sched 判据连跑 3 次全绿（wall 稳定 2.54 s）+ 全门复跑绿。
+- 证据：hub_core.read_active/admit 改动；3/3 稳定；全门 26 步绿（pytest 947+2）；**环境事件**：C: 盘 100% 满（剩 2.2 MB）导致 linker 'No space left on device'（cargo-test 编译失败，非代码错）⇒ 清理 %TEMP%：proc-macro-srv 残留 544 个/5.5G（保留近 2h 的）+ rx-rs-target/debug 18G（release 336M 保留，EXE_TAG 依赖）⇒ 回收 23G（100%→93%）；此后跑门带 CARGO_PROFILE_TEST_DEBUG=0/CARGO_PROFILE_DEV_DEBUG=0/CARGO_INCREMENTAL=0（产物 18G→几 G，判据不受影响）

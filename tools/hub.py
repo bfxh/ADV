@@ -42,6 +42,7 @@ def hub_status():
         "degraded": bool(reasons), "degraded_reasons": reasons,
         "data_root": str(hub_core.runs_path().parent),
         "log_dir": str(hub_core.logs_dir()),
+        "max_shared": hub_core.max_shared(),
         "active": hub_core.read_active(),
     }
 
