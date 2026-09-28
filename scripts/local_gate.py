@@ -60,6 +60,8 @@ STEPS = [
     ("perf-gate",   [PY, "-X", "utf8", "scripts/perf_gate.py"], "timing",
      "性能门：并行/串行比值（需独占机器：UNIFIED_RX_TIMING_GATES=1）"),
     ("mcp-surface", [PY, "-X", "utf8", "scripts/mcp_surface_gate.py"], "fast", "协议面门：真握手契约"),
+    ("shard-plan",  [PY, "-X", "utf8", "scripts/shard_plan.py", "--verify", "2"], "fast",
+     "分片计划（覆盖等价 + 预估均衡——分片改动不许丢测试）"),
     ("hub-gate",    [PY, "-X", "utf8", "scripts/hub_gate.py"], "fast",
      "平台层防骗判据（parity/金丝雀三态/链+篡改必红/复核计划真执行/授权矩阵）"),
     ("model-fit",   [PY, "-X", "utf8", "scripts/model_fit_gate.py"], "fast", "模型适配门（弱模型模拟 + 回包预算）"),

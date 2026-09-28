@@ -21,7 +21,7 @@ GATE = os.path.join(ROOT, "scripts", "local_gate.py")
 CORE = os.path.join(ROOT, ".github", "workflows", "core.yml")
 STEPS = ("secrets", "path-gate", "self-attack", "data-flow", "secrets-history", "deps-lock",
          "audit-freshness", "toolface", "tool-evals", "cli-bench", "perf-gate",
-         "mcp-surface", "hub-gate", "model-fit", "selftest", "stress", "pytest",
+         "mcp-surface", "shard-plan", "hub-gate", "model-fit", "selftest", "stress", "pytest",
          "cargo-test", "clippy")
 
 

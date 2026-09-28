@@ -287,10 +287,14 @@ jobs:
         shell: pwsh
         run: rustup component add rust-analyzer
 
-      - name: Full test suite（分片 ${{ matrix.shard }}/2）
+      - name: Full test suite（分片 ${{ matrix.shard }}/2 —— 按耗时权重 LPT 均衡）
         shell: bash
         run: |
-          files=$(python -c "import pathlib;fs=sorted(p.as_posix() for p in pathlib.Path('tests').glob('test_*.py'));i=${{ matrix.shard }}-1;print(' '.join(fs[i::2]))")
+          # S186：分片从"按文件名轮询"改为"按耗时权重 LPT"（实测旧法 256s vs 57s，4.5× 不均，
+          # 墙钟被最慢分片支配）。计划器带**覆盖等价断言**（并集=全部 test_*.py、无重复）——
+          # 丢测试即 exit 1；权重表缺失时回退中位数估（均衡略差但不丢覆盖）。
+          python -X utf8 scripts/shard_plan.py --verify 2
+          files=$(python -X utf8 scripts/shard_plan.py --plan 2 --shard ${{ matrix.shard }})
           echo "分片 ${{ matrix.shard }}/2：$(echo $files | wc -w) 个测试文件"
           python -X utf8 -m pytest -q $files
 

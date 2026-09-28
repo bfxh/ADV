@@ -655,7 +655,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 184,
+  "file_lines": 186,
   "max_fn_lines": 67,
   "max_type_members": 0
  },
@@ -697,6 +697,11 @@
  "scripts/secrets_history.py": {
   "file_lines": 190,
   "max_fn_lines": 55,
+  "max_type_members": 0
+ },
+ "scripts/shard_plan.py": {
+  "file_lines": 132,
+  "max_fn_lines": 24,
   "max_type_members": 0
  },
  "scripts/stat_judge.py": {
@@ -1137,6 +1142,11 @@
  "tests/test_s185_quota.py": {
   "file_lines": 86,
   "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s186_shard.py": {
+  "file_lines": 61,
+  "max_fn_lines": 9,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {
