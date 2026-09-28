@@ -8,7 +8,7 @@
 
 | 工具 | 说明 |
 |---|---|
-| `hub_status` | 实例（stable/dev）· 版本 · 用户数 · 账本链校验 · **降级原因**（链坏/非法 manifest）。**不带病报绿**：`degraded=true` 时必须先处理原因 |
+| `hub_status` | 实例（stable/dev）· 版本 · 用户数 · 账本链校验 · **存储可写性**（`storage_writable`）· **降级原因**（链坏/不可读/不可写/非法 manifest）。**不带病报绿**：`degraded=true` 时必须先处理原因 |
 | `hub_pipelines` | 管线清单（id/标题/触发/资源级/步骤/指纹）；**非法 manifest 如实列出**，不静默跳过 |
 | `hub_runs` | 账本尾 N 条（判定/封条/指纹/独立复核指引）。`verdict`：`green` / `green_with_skips` / `red` |
 | `hub_run` | **需 `__authorized`**：触发运行；返回判定、封印、`verify_plan`（机器可执行复核计划）与 `how_to_verify`（人读指引） |

@@ -22,8 +22,8 @@ def instance_name() -> str:
     return (os.environ.get("UNIFIED_RX_HUB_INSTANCE") or "dev").strip().lower()
 
 
-def _degraded_reasons(invalid: dict[str, str], chain: dict) -> list[str]:
-    reasons: list[str] = []
+def _degraded_reasons(invalid: dict[str, str], chain: dict, extra: list[str]) -> list[str]:
+    reasons: list[str] = list(extra)
     if not chain.get("ok"):
         reasons.append(f"账本链校验失败：{chain.get('reason')}（index={chain.get('broken_index')}）")
     reasons.extend(f"manifest 非法 {k}: {v}" for k, v in sorted(invalid.items()))
@@ -31,16 +31,19 @@ def _degraded_reasons(invalid: dict[str, str], chain: dict) -> list[str]:
 
 
 @tool("hub_status",
-      "平台状态：实例/版本/用户数/账本链校验/降级原因（degraded 时不带病报绿）",
+      "平台状态：实例/版本/用户数/账本链校验/存储可写性/降级原因（degraded 时不带病报绿）",
       "hub", {"type": "object", "properties": {}, "required": []})
 def hub_status():
     pipes, invalid = hub_core.load_pipelines()
     chain = hub_core.verify_chain()
-    reasons = _degraded_reasons(invalid, chain)
+    writable = hub_core.storage_writable()
+    extra = [] if writable else ["数据根不可写：storage_writable=false（运行会被如实拒绝，不静默）"]
+    reasons = _degraded_reasons(invalid, chain, extra)
     return {
         "ok": True, "instance": instance_name(), "version": hub_core.server_version(),
         "pipelines": len(pipes), "invalid_manifests": invalid,
         "users": hub_auth.count_users(), "chain": chain,
+        "storage_writable": writable,
         "degraded": bool(reasons), "degraded_reasons": reasons,
         "data_root": str(hub_core.runs_path().parent),
         "log_dir": str(hub_core.logs_dir()),

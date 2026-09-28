@@ -363,6 +363,54 @@ def _stat_check() -> tuple[bool, str]:
                 f"det={det} small={weak['verdict']}/{weak['weak']}")
 
 
+def _resilience_check() -> tuple[bool, str]:
+    """混沌判据（S183，方向⑥）：注入两条写故障 ⇒ 平台必须**如实失败 + 不泄漏活跃位 +
+    不报假绿**（账本不可读时 `verify_chain` 必须 ok=False，而不是"空表看起来 OK"）。
+    第三条是对照（好根仍绿）——混沌不得把好路径一起判死。"""
+    import hub_core as hc
+    import hub_runner as hr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix="adv-chaos-"))
+    pipes = tmp / "pipes"
+    pipes.mkdir(parents=True)
+    (pipes / "adv.ok.json").write_text(json.dumps(
+        {"id": "adv.ok", "title": "t", "when": "t", "resource_class": "exclusive",
+         "on": ["manual"],
+         "steps": [{"step": "s", "cmd": [PY, "-X", "utf8", "-c", "print('chaos')"],
+                    "timeout_s": 60}]}), encoding="utf-8")
+    saved = {k: os.environ.get(k) for k in ("UNIFIED_RX_HUB_ROOT", "UNIFIED_RX_HUB_PIPELINES")}
+    out: dict[str, bool] = {}
+    try:
+        os.environ["UNIFIED_RX_HUB_PIPELINES"] = str(pipes)
+        pm, _inv = hc.load_pipelines()
+        r1root = tmp / "r1"
+        r1root.mkdir()
+        (r1root / "runs.jsonl").mkdir()                     # ① 账本不可写
+        os.environ["UNIFIED_RX_HUB_ROOT"] = str(r1root)
+        r1 = hr.run_pipeline(pm["adv.ok"], actor="gate", trigger="chaos")
+        out["ledger_rejected"] = r1.get("ok") is False
+        out["no_leak_1"] = hc.read_active() == []
+        out["no_fake_chain_ok"] = hc.verify_chain()["ok"] is False
+        r2root = tmp / "r2"
+        r2root.mkdir()
+        (r2root / "logs").write_text("occupied", encoding="utf-8")   # ② 日志不可写
+        os.environ["UNIFIED_RX_HUB_ROOT"] = str(r2root)
+        r2 = hr.run_pipeline(pm["adv.ok"], actor="gate", trigger="chaos")
+        out["logs_red"] = r2.get("ok") is False
+        out["no_leak_2"] = hc.read_active() == []
+        os.environ["UNIFIED_RX_HUB_ROOT"] = str(tmp / "r3")          # ③ 对照
+        r3 = hr.run_pipeline(pm["adv.ok"], actor="gate", trigger="chaos")
+        out["happy_green"] = r3.get("ok") is True and r3.get("verdict") == "green"
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    ok = all(out.values())
+    return ok, " ".join(f"{k}={v}" for k, v in out.items())
+
+
 def _checks() -> list[tuple[str, bool, str]]:
     rows: list[tuple[str, bool, str]] = []
     pipes, invalid = hub_core.load_pipelines()
@@ -397,6 +445,8 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("impact-static", ok, detail))
     ok, detail = _stat_check()
     rows.append(("stat-judge", ok, detail))
+    ok, detail = _resilience_check()
+    rows.append(("resilience-write-fail", ok, detail))
     return rows
 
 

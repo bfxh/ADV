@@ -58,8 +58,12 @@ def _status_payload(full: bool, who: tuple[str, str] | None = None) -> dict:
     if not chain.get("ok"):
         reasons.append(f"账本链校验失败：{chain.get('reason')}")
     reasons.extend(f"manifest 非法 {k}: {v}" for k, v in sorted(invalid.items()))
+    writable = hub_core.storage_writable()
+    if not writable:
+        reasons.append("数据根不可写：storage_writable=false（运行会被如实拒绝，不静默）")
     out = {"ok": True, "instance": _instance(), "version": hub_core.server_version(),
            "pipelines": len(pipes), "degraded": bool(reasons), "degraded_reasons": reasons,
+           "storage_writable": writable,
            "chain": {"ok": chain.get("ok"), "count": chain.get("count")}}
     if full and who is not None:
         out.update({"users": hub_auth.count_users(), "invalid": invalid,

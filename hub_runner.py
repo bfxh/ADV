@@ -215,11 +215,31 @@ def run_pipeline(manifest: dict, actor: str = "local", trigger: str = "manual") 
                 "resource_class": manifest["resource_class"],
                 "error": f"准入被拒：{adm.get('reason')}——等活跃运行结束或改时机（查 hub_runs）",
                 "active": adm.get("active")}
-    fp = fingerprint(manifest)
-    hub_core.append_row({"id": run_id, "phase": "start", "pipeline": manifest["id"],
-                         "actor": actor, "trigger": trigger, "fingerprint": fp})
+    # S183 混沌加固：**admit 之后的一切都在 try/finally 内**——任何异常（含 start 行写入
+    # 失败）都必须释放活跃位。复现证据：账本不可写时旧实现留下一条 exclusive 活跃位，
+    # 平台被自己锁死且无账可查（"写入失败 ⇒ 静默锁死"）。
     try:
-        steps = [_run_step(run_id, st) for st in manifest["steps"]]
+        fp = fingerprint(manifest)
+        try:
+            hub_core.append_row({"id": run_id, "phase": "start", "pipeline": manifest["id"],
+                                 "actor": actor, "trigger": trigger, "fingerprint": fp})
+        except OSError as exc:
+            return {"ok": False, "run_id": run_id, "verdict": "red",
+                    "error": f"账本不可写，已拒绝执行（不静默）：{exc}"}
+        try:
+            steps = [_run_step(run_id, st) for st in manifest["steps"]]
+        except OSError as exc:
+            # 日志/IO 故障：如实记一条 red（尽力），账本也坏则在返回值里说明
+            ledger = "ok"
+            try:
+                hub_core.append_row({"id": run_id, "phase": "final",
+                                     "pipeline": manifest["id"], "actor": actor,
+                                     "trigger": trigger, "verdict": "red",
+                                     "error": f"IO 故障：{exc}"})
+            except OSError:
+                ledger = "unwritable"
+            return {"ok": False, "run_id": run_id, "verdict": "red", "ledger": ledger,
+                    "error": f"IO 故障（{exc}）——已如实入账（ledger={ledger}），不静默"}
         verdict = _verdict(steps)
         payload = {"pipeline": manifest["id"], "manifest_sha256": fp["manifest_sha256"],
                    "git_head": fp["git_head"], "git_dirty": fp["git_dirty"],
@@ -227,10 +247,16 @@ def run_pipeline(manifest: dict, actor: str = "local", trigger: str = "manual") 
                    "steps": [{k: s[k] for k in ("step", "exit", "out_sha256", "err_sha256")}
                              for s in steps]}
         seal = seal_of(payload)
-        row = hub_core.append_row({"id": run_id, "phase": "final", "pipeline": manifest["id"],
-                                   "actor": actor, "trigger": trigger, "verdict": verdict,
-                                   "seal": seal, "fingerprint": fp,
-                                   "steps": [{k: s[k] for k in _STEP_KEYS} for s in steps]})
+        try:
+            row = hub_core.append_row({"id": run_id, "phase": "final",
+                                       "pipeline": manifest["id"], "actor": actor,
+                                       "trigger": trigger, "verdict": verdict,
+                                       "seal": seal, "fingerprint": fp,
+                                       "steps": [{k: s[k] for k in _STEP_KEYS} for s in steps]})
+        except OSError as exc:
+            return {"ok": False, "run_id": run_id, "verdict": "red", "ledger": "unwritable",
+                    "error": f"运行已完成但账本写入失败（{exc}）——如实报失败，不静默报绿",
+                    "steps": steps}
         return {"ok": verdict != "red", "run_id": run_id, "verdict": verdict, "seal": seal,
                 "steps": steps, "fingerprint": fp, "ledger_hash": row.get("hash"),
                 "how_to_verify": _how_to_verify(run_id, steps, str(hub_core.REPO_ROOT)),

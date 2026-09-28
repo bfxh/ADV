@@ -208,12 +208,20 @@ def append_row(row: dict) -> dict:
 
 
 def read_rows(limit: int = 0) -> list[dict]:
-    """读账本（limit>0 取尾部 N 行）；坏行跳过（完整性由 verify_chain 如实报）。"""
+    """读账本（limit>0 取尾部 N 行）；坏行跳过（完整性由 verify_chain 如实报）。
+
+    **读路径容错**（S183 混沌）：账本不可读（权限/被目录占位/盘满）时返回空表而**不崩**
+    ——"盘坏了"必须表现为"可诊断的降级"，不能让工具直接异常。
+    """
     p = runs_path()
     if not p.exists():
         return []
+    try:
+        text = p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
     rows: list[dict] = []
-    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in text.splitlines():
         line = line.strip()
         if not line:
             continue
@@ -224,6 +232,22 @@ def read_rows(limit: int = 0) -> list[dict]:
         if isinstance(row, dict):
             rows.append(row)
     return rows[-limit:] if limit > 0 else rows
+
+
+def storage_writable() -> bool:
+    """写探测（S183 混沌）：数据根能否建/删探针文件——"平台现在能不能干活"一眼可见。
+
+    只探**数据根**（账本+日志所在）；失败即如实返回 False，由 hub_status 报 degraded。
+    """
+    d = _data_root()
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        probe = d / ".write-probe"
+        probe.write_text("1", encoding="utf-8")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
 
 
 def latest_runs(limit: int = 20) -> list[dict]:
@@ -237,8 +261,27 @@ def latest_runs(limit: int = 20) -> list[dict]:
                   reverse=True)[: max(1, limit)]
 
 
+def _ledger_readable() -> bool:
+    """账本可读性（S183 混沌）：存在但打不开（权限/被目录占位/盘满）时，**不能报"链 OK"**。"""
+    p = runs_path()
+    if not p.exists():
+        return True                       # 空账本合法
+    try:
+        with p.open("rb") as fh:
+            fh.read(1)
+        return True
+    except OSError:
+        return False
+
+
 def verify_chain() -> dict:
-    """全链复核：prev_hash 连续 + 每行哈希可重算（篡改即红）。"""
+    """全链复核：prev_hash 连续 + 每行哈希可重算（篡改即红）。
+
+    S183：账本**存在但不可读** ⇒ 直接判 `ok=False`（空表会让链"看起来 OK"——那是假绿）。
+    """
+    if not _ledger_readable():
+        return {"ok": False, "count": 0, "broken_index": None,
+                "reason": "账本存在但不可读（权限/占位/盘满）——不得报'链 OK'"}
     prev = GENESIS
     for i, row in enumerate(read_rows()):
         if row.get("prev_hash") != prev:
