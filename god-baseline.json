@@ -10,13 +10,18 @@
   "max_type_members": 0
  },
  "bench/ab_run.py": {
-  "file_lines": 503,
+  "file_lines": 509,
   "max_fn_lines": 55,
   "max_type_members": 0
  },
  "bench/agent_selfcheck.py": {
   "file_lines": 110,
   "max_fn_lines": 54,
+  "max_type_members": 0
+ },
+ "bench/anchor_guard.py": {
+  "file_lines": 34,
+  "max_fn_lines": 8,
   "max_type_members": 0
  },
  "bench/cli_bench.py": {
@@ -29,18 +34,23 @@
   "max_fn_lines": 13,
   "max_type_members": 0
  },
+ "bench/fixtures/guard/alpha.py": {
+  "file_lines": 9,
+  "max_fn_lines": 2,
+  "max_type_members": 1
+ },
  "bench/h2_guard_eval.py": {
-  "file_lines": 102,
-  "max_fn_lines": 32,
+  "file_lines": 124,
+  "max_fn_lines": 40,
   "max_type_members": 0
  },
  "bench/h3_score.py": {
-  "file_lines": 121,
+  "file_lines": 127,
   "max_fn_lines": 52,
   "max_type_members": 0
  },
  "bench/impact_check.py": {
-  "file_lines": 190,
+  "file_lines": 194,
   "max_fn_lines": 97,
   "max_type_members": 0
  },
@@ -50,8 +60,8 @@
   "max_type_members": 0
  },
  "bench/l3_anchor.py": {
-  "file_lines": 38,
-  "max_fn_lines": 19,
+  "file_lines": 45,
+  "max_fn_lines": 21,
   "max_type_members": 0
  },
  "bench/log_round.py": {
@@ -60,8 +70,8 @@
   "max_type_members": 0
  },
  "bench/p1_build.py": {
-  "file_lines": 147,
-  "max_fn_lines": 50,
+  "file_lines": 154,
+  "max_fn_lines": 52,
   "max_type_members": 0
  },
  "bench/p1_manual_labels.py": {
@@ -75,8 +85,8 @@
   "max_type_members": 0
  },
  "bench/p1_score.py": {
-  "file_lines": 93,
-  "max_fn_lines": 24,
+  "file_lines": 100,
+  "max_fn_lines": 26,
   "max_type_members": 0
  },
  "bench/p1_score2.py": {
@@ -85,8 +95,8 @@
   "max_type_members": 0
  },
  "bench/p1_snapshots.py": {
-  "file_lines": 65,
-  "max_fn_lines": 35,
+  "file_lines": 72,
+  "max_fn_lines": 37,
   "max_type_members": 0
  },
  "bench/replay_ab.py": {
@@ -145,7 +155,7 @@
   "max_type_members": 0
  },
  "bench/vf3_battery.py": {
-  "file_lines": 66,
+  "file_lines": 69,
   "max_fn_lines": 0,
   "max_type_members": 0
  },
@@ -160,13 +170,18 @@
   "max_type_members": 0
  },
  "hub_core.py": {
-  "file_lines": 446,
-  "max_fn_lines": 41,
+  "file_lines": 468,
+  "max_fn_lines": 32,
   "max_type_members": 0
  },
  "hub_impact.py": {
-  "file_lines": 148,
-  "max_fn_lines": 35,
+  "file_lines": 154,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "hub_ledger.py": {
+  "file_lines": 44,
+  "max_fn_lines": 17,
   "max_type_members": 0
  },
  "hub_lesson.py": {
@@ -179,14 +194,34 @@
   "max_fn_lines": 21,
   "max_type_members": 0
  },
+ "hub_manifest.py": {
+  "file_lines": 143,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "hub_mutate.py": {
+  "file_lines": 290,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
  "hub_propose.py": {
   "file_lines": 114,
   "max_fn_lines": 51,
   "max_type_members": 0
  },
+ "hub_resilience.py": {
+  "file_lines": 115,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
  "hub_runner.py": {
   "file_lines": 296,
   "max_fn_lines": 69,
+  "max_type_members": 0
+ },
+ "hub_vc.py": {
+  "file_lines": 182,
+  "max_fn_lines": 36,
   "max_type_members": 0
  },
  "plugins/urx-marketplace/zcode-breaker/hooks/breaker_hook.py": {
@@ -584,6 +619,11 @@
   "max_fn_lines": 44,
   "max_type_members": 0
  },
+ "scripts/arch_gate.py": {
+  "file_lines": 159,
+  "max_fn_lines": 25,
+  "max_type_members": 0
+ },
  "scripts/attack_gate.py": {
   "file_lines": 32,
   "max_fn_lines": 0,
@@ -604,6 +644,11 @@
   "max_fn_lines": 19,
   "max_type_members": 0
  },
+ "scripts/bench_anchor_gate.py": {
+  "file_lines": 160,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
  "scripts/ci_gate.py": {
   "file_lines": 40,
   "max_fn_lines": 0,
@@ -612,6 +657,11 @@
  "scripts/ci_secrets_gate.py": {
   "file_lines": 55,
   "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "scripts/claim_gate.py": {
+  "file_lines": 250,
+  "max_fn_lines": 32,
   "max_type_members": 0
  },
  "scripts/coverage_gate.py": {
@@ -644,9 +694,14 @@
   "max_fn_lines": 68,
   "max_type_members": 0
  },
+ "scripts/guard_gate.py": {
+  "file_lines": 161,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
  "scripts/hub_gate.py": {
-  "file_lines": 605,
-  "max_fn_lines": 47,
+  "file_lines": 620,
+  "max_fn_lines": 46,
   "max_type_members": 0
  },
  "scripts/lint_gate.py": {
@@ -655,8 +710,8 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 186,
-  "max_fn_lines": 67,
+  "file_lines": 201,
+  "max_fn_lines": 46,
   "max_type_members": 0
  },
  "scripts/mcp_surface_gate.py": {
@@ -668,6 +723,11 @@
   "file_lines": 154,
   "max_fn_lines": 81,
   "max_type_members": 3
+ },
+ "scripts/name_ledger_gate.py": {
+  "file_lines": 152,
+  "max_fn_lines": 31,
+  "max_type_members": 0
  },
  "scripts/naming_gate.py": {
   "file_lines": 133,
@@ -704,9 +764,19 @@
   "max_fn_lines": 24,
   "max_type_members": 0
  },
+ "scripts/stat_boot.py": {
+  "file_lines": 151,
+  "max_fn_lines": 32,
+  "max_type_members": 0
+ },
+ "scripts/stat_family.py": {
+  "file_lines": 45,
+  "max_fn_lines": 28,
+  "max_type_members": 0
+ },
  "scripts/stat_judge.py": {
-  "file_lines": 76,
-  "max_fn_lines": 24,
+  "file_lines": 83,
+  "max_fn_lines": 15,
   "max_type_members": 0
  },
  "scripts/taint_gate.py": {
@@ -1149,6 +1219,51 @@
   "max_fn_lines": 9,
   "max_type_members": 0
  },
+ "tests/test_s187_manifest_vc.py": {
+  "file_lines": 254,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s187_stat_depth.py": {
+  "file_lines": 193,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "tests/test_s187_truncation.py": {
+  "file_lines": 89,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s188_arch.py": {
+  "file_lines": 140,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tests/test_s189_mutate.py": {
+  "file_lines": 169,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "tests/test_s194_claim_gate.py": {
+  "file_lines": 221,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tests/test_s195_guard_gate.py": {
+  "file_lines": 137,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_s197_name_ledger.py": {
+  "file_lines": 141,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "tests/test_s198_bench_anchors.py": {
+  "file_lines": 159,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
  "tests/test_s29_fuzz.py": {
   "file_lines": 141,
   "max_fn_lines": 17,
@@ -1390,7 +1505,7 @@
   "max_type_members": 2
  },
  "tests/test_v2.py": {
-  "file_lines": 419,
+  "file_lines": 463,
   "max_fn_lines": 23,
   "max_type_members": 0
  },
@@ -1495,13 +1610,13 @@
   "max_type_members": 0
  },
  "tools/guard.py": {
-  "file_lines": 244,
+  "file_lines": 383,
   "max_fn_lines": 68,
   "max_type_members": 0
  },
  "tools/hub.py": {
-  "file_lines": 148,
-  "max_fn_lines": 19,
+  "file_lines": 153,
+  "max_fn_lines": 18,
   "max_type_members": 0
  },
  "tools/ide.py": {

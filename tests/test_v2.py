@@ -205,14 +205,58 @@ def test_guard_manifest():
 
 
 def test_guard_hallucination(tmp_path):
-    """幻觉核查：真工具 verified / 假工具 refuted / 假文件 refuted。"""
-    text = "用 `fs_read` 读文件，`not_a_tool_xyz` 不存在；见 src/main.py:999"
+    """幻觉核查：真工具 verified / 假近邻名 refuted / 假文件 refuted。"""
+    text = "用 `fs_read` 读文件，`fs_rea` 是假称；见 src/main.py:999"
     r = registry.call("hallucination_guard", {"text": text, "root": str(tmp_path)})
     assert r["ok"]
     statuses = {(x["kind"], x["status"]) for x in r["result"]["results"]}
     assert ("tool", "verified") in statuses, "真工具应 verified"
-    assert ("tool", "refuted") in statuses, "假工具应 refuted"
+    assert ("tool", "refuted") in statuses, "在册名近似拼写应 refuted"
     assert ("file", "refuted") in statuses, "假文件应 refuted"
+
+
+def test_guard_tool_claim_shape(tmp_path):
+    """S196：工具分支只按闭集判（在册精确 verified、近邻拼写 refuted），其余不判。
+
+    形态规则（多段 snake_case ⇒ 疑似声明）退役依据：328 份真实双臂答案实测误杀
+    `build_chunk_mesh` 这类代码标识符 712 次、真工具幻觉 0 次。
+    """
+    text = "跑 `git`，注意 `parser`、`not_a_tool_xyz`、`build_chunk_mesh`；`fs_readss` 不存在"
+    r = registry.call("hallucination_guard", {"text": text, "root": str(tmp_path)})
+    res = r["result"]
+    by = {x["decl"]: x for x in res["results"]}
+    assert by["`fs_readss`"]["status"] == "refuted", "近似拼写应证伪并点名最近在册工具"
+    assert "近似在册工具" in by["`fs_readss`"]["detail"]
+    for word in ("`git`", "`parser`", "`not_a_tool_xyz`", "`build_chunk_mesh`"):
+        assert word not in by, f"{word} 是代码词/命令，不得按工具声明冤判"
+    assert res["未核查"]["非声明小写词"]["条数"] == 4, "不判项须如实上报不静默"
+
+
+def test_guard_line_zero_and_ext_whitelist(tmp_path):
+    """P3：行 0 不存在；P2：白名单内扩展名要判、白名单外如实计数。"""
+    (Path(tmp_path) / "z.py").write_text("a\nb\n", encoding="utf-8")
+    (Path(tmp_path) / "notes.md").write_text("x\ny\nz\n", encoding="utf-8")
+    text = "见 z.py:0、z.py:2、notes.md:3 与 logo.svg:2"
+    r = registry.call("hallucination_guard", {"text": text, "root": str(tmp_path)})
+    res = r["result"]
+    st = {x["decl"]: x["status"] for x in res["results"]}
+    assert st["z.py:0"] == "refuted", "行号从 1 起，:0 不得假 verified"
+    assert st["z.py:2"] == "verified"
+    assert st["notes.md:3"] == "verified", "md 进白名单后不得静默消失"
+    assert res["未核查"]["白名单外扩展名引用"]["样例"] == ["logo.svg:2"]
+
+
+def test_guard_symbol_real_scan(tmp_path):
+    """P4：符号分支真扫描——出现给 loc 证据，缺席如实 unverifiable。"""
+    (Path(tmp_path) / "m.rs").write_text("struct ComputeKernel {}\n", encoding="utf-8")
+    text = "`ComputeKernel` 定义于 m.rs，另有 `NoSuchSymbolQwerty`"
+    r = registry.call("hallucination_guard", {"text": text, "root": str(tmp_path)})
+    res = r["result"]
+    by = {x["decl"]: x for x in res["results"]}
+    assert by["`ComputeKernel`"]["status"] == "verified"
+    assert "m.rs:1" in by["`ComputeKernel`"]["detail"]
+    assert by["`NoSuchSymbolQwerty`"]["status"] == "unverifiable"
+    assert "未出现" in by["`NoSuchSymbolQwerty`"]["detail"]
 
 
 def test_lesson_add_recall(tmp_path):

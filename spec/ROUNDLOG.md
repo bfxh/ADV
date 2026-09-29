@@ -1688,3 +1688,91 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   ⇒ 这条纪律"今天已成立"、可直接钉。判据 +5 例（真仓跑通且在摘要可见闸门 `entry>=180` · 金丝雀红
   且不牵连齐栏条目 · 祖父化不红 · fail-closed 四态 · 契约指向账目不存在也红）；**变异两轮**（契约
   检查置空 ⇒ 1 红 / 祖父化失效 ⇒ 2 红）全还原。判定档 §五 队列第 1 项据此划掉。
+
+## S195 · 守卫判定金丝雀门（guard_gate）+ hallucination_guard P1-P6 修复——「判定形状」首次进硬门
+- 项目：ADV｜时间：2026-09-30T00:30
+- 决策：外部审计（2026-09-29）实测坐实 `hallucination_guard` 六件缺陷并同轮修复：P1 工具名分支
+  冤判普通小写词（`git`/`parser` 全 refuted⇒狼来了）改「疑似才判」（在册近似拼写/多段 snake_case）；
+  P2 扩展名白名单 12→27，白名单外 `x.ext:NN` 落「未核查」不静默；P3 `:0` 假 verified 改行号须 1..N；
+  P4 符号分支恒 unverifiable 接真扫描（限时/限数/沙盒钳制）；P5 H2 评测补 `refuted_precision` 并把
+  沙盒口径写进报告（评测态≠部署态入账）；P6 输出回显「根目录」。**门加强**：这类缺陷属「判定形状」
+  回归——claim_gate 管文档数字、H2 只管 kind==file 一致率，都不覆盖，故立第三族判据：真值语料逐项
+  复算（`spec/guard-corpus.json` 7 例 × 双模式 open/restricted），判定漂移即红，**多判一条也红**
+  （防新增误杀）、少判一条也红（防静默回归）；fail-closed：语料缺失/坏 JSON/空 modes/缺字段/非法
+  status 皆红。接线 local_gate 快档 +1 步、core.yml 同源一步。
+- 证据：金丝雀首跑即抓到**真缺陷**——文件正则不吃 Windows 盘符（`D:/x/y.py` 被切成 `/x/y.py`），
+  修 `_FILE_DECL_RE` 盘符前缀后 GUARD-GATE OK cases=7 modes=2；`tests/test_s195_guard_gate.py` 10 例
+  全绿（真仓绿 · 语料形状 3 kind×2 mode · 金丝雀必红四向：误杀复活/静默回归/钳制被拆/`:0` 复活 ·
+  fail-closed 四态）；P1-P4 回归测试 +3 例进 `tests/test_v2.py`（原始复现用例逐条转绿）；README 步数
+  32/25/29→33/26/30 与 `local_gate.STEPS` 复算一致（claim-gate 绿）；全量 pytest + selftest + lint/type
+  棘轮对账见当轮门链输出。
+
+## S196 · 工具声明判据改为「在册闭集」——形态规则退役（实测 712 误杀 / 0 真命中）+ 语料外部锚定
+- 项目：ADV｜时间：2026-09-30T01:10
+- 决策：S195 的 P1 修复（`git`/`parser` 不判、多段 snake_case 判疑似工具声明）只是把误杀面缩小：
+  拿 H2 同源真实双臂答案 **328 份**复测，形态规则 refuted **712 条全是代码标识符**
+  （`build_terrain_collider`/`map_width`/`named_pipe`/`file_path`…），近似拼写规则命中 **0**，
+  真工具引用 3 条判对。⇒ 名称形态不携带「这是 ADV 工具声明」的信息，规则不可救——工具分支
+  判据收缩为**闭集两条**：精确在册 → verified；difflib≥0.8 近邻（改名/笔误幻觉）→ refuted；
+  其余一律「未核查·非声明小写词」（如实上报，接受边界：近邻半径外的凭空造名不判）。
+  同时把 s195 金丝雀的期望**锚到外部观测**：新增 `code-ids-not-tool-claims` 条目，期望词
+  直接取自上面实测分布——不再由规则作者自证。符号 verified 措辞改准：「字符串在本仓出现
+  （提及≠定义）」。
+- 证据：复测脚本=bench/results/l3 全量 328 份答案过 `hallucination_guard`（沙盒 `'*'`，
+  改动前 refuted=712/near=0；改动后 refuted=**0**/verified=3/未核查=747，样例词表在案）；
+  `guard_gate` 复算绿（cases=8 modes=2）；金丝雀反向例改用 `build_chunk_mesh`「误杀复活 ⇒ 必红」
+  （tests/test_s195_guard_gate.py）；test_v2 守卫两例改判据期望（`fs_rea` 近邻 refuted 保覆盖）；
+  定点 17 测全绿。**自审入账**（CLAIM-INTEGRITY §四）：S195 语料与代码同一只手写下，把规则级
+  设计错误一起钉成了「正确行为」——判据时序独立性对**语料**同样成立，须锚规则之外的观测。
+
+## S197 · 名字账门（name-ledger）——claim-gate 的名字版：镜像面上的工具名 ↔ 在册闭集
+- 项目：ADV｜时间：2026-09-30T01:50
+- 决策：设计审计发现「数字↔真值源有账（claim-gate）、skills 文档名↔注册表有账（selftest
+  SKILLS_DOCS），但代码/README 里的**名字镜像面无账**」。实测坐实：`capability_manifest`
+  的 curated 路由第一候选 `risk_rank` 不在册（真名 `ide_risk_rank`）——防幻觉工具箱的路由
+  功能在线推荐假名。新门 `scripts/name_ledger_gate.py` 钉三面：`_INTENTS` 候选名、
+  `_CAPABILITIES` 下划线词元、README「## 工具面」章节反引号词元，全部 ⊆ 在册闭集；
+  合法非工具名走 `spec/name-ledger.json` 豁免（入册须填 why，占位被拦——同 taint-baseline
+  纪律）。真值源走子进程 `registry.list_tools()`（不 import 门内私有）；提取数下限防
+  "解析悄悄数 0"。顺手修 `_INTENTS` 的 `risk_rank` → `ide_risk_rank`。
+- 证据：建门前探针实测三面共 134 词元、不在册 2 项（`risk_rank`[INTENTS]、`hard`[README，
+  sys_steer 模式值，入豁免表]）；修复后门绿（names=134 在册=86 豁免=1）。
+  `tests/test_s197_name_ledger.py` 10 例（真仓绿 · 三面各塞假名必红且点名 · 豁免占位必红 ·
+  fail-closed：表缺失/坏 JSON/提取低于下限/闭集为空）；**变异自检**：判集比对置空 ⇒ 3 金丝雀
+  转红，还原全绿——门是判据不是装饰。接线 local_gate 快档 +1 步（README 步数由 claim-gate
+  复算逼平 34/27/31）、core.yml 同源一步（s145 锁）。
+
+## S198 · 测量锚账（bench-anchor gate）——量空气防线：仓外真值路径全入账，缺锚必 ANCHOR-MISSING
+- 项目：ADV｜时间：2026-09-30T02:30
+- 决策：H2/H3 的真值树（VF3、yan-agent 克隆）随盘迁移消失后，bench 脚本仍会"跑成功"——
+  truth 检查全 False、产出一版格式正常但无意义的数字。评测口径此前只建模了沙盒态，没建模
+  **锚可用性**。新门 `scripts/bench_anchor_gate.py` + 登记表 `spec/bench-anchors.json`：
+  ast 扫 `bench/*.py` 盘符路径常量（docstring 除外），未登记的外部引用 ⇒ 红（主判据防增量）；
+  state=present 目录必须存在；detached ⇒ 每个 consumer 必须经 `bench/anchor_guard.py` 的
+  `require_anchor` 走 ANCHOR-MISSING 退出码 2（env 可覆盖重指）；legacy ⇒ 退役脚手架只验文件在。
+  登记 4 锚（vf3/dev-root/yan-agent-src detached、adv-legacy 退役）+ 4 类机器局部路径豁免
+  （解释器/Temp/负例假盘 Z:/、WSL 换算根，各带 why）。EVAL §8 台账如实标注：H2/H3 数字=
+  当时时点值、当前不可复算；H1/H4 数据在仓内仍可复算。
+- 证据：门首跑即抓出 9 处未登记引用（4 类真锚 + 解释器/Temp/负例夹具/换算根），入账后
+  `BENCH-ANCHOR-GATE OK anchors=4 refs=21`；行为实测：本机缺 VF3，`bench/h2_guard_eval.py`
+  退出码 2 + stderr 点名 `ANCHOR-MISSING anchor=vf3`，env 覆盖实测可跑通目录校验；
+  8 个 consumer 全部改挂 `require_anchor`（py_compile 全过）；
+  `tests/test_s198_bench_anchors.py` 10 例（真仓绿 · 结构契约 · 必红四向：present 缺失/
+  detached 无出口/未登记引用/名实不符 · fail-closed 三态 · h2 真路径退出码 2）。
+  **同片当场踩坑并修**：`require_anchor` 初版放模块级，`tests/test_ab_runner.py` import bench 模块时被
+  SystemExit(2) 打死收集期（全量 pytest INTERNALERROR，`| tail -3` 管道吞退出码——「exit 0 假绿」又一例，
+  后台任务汇报以实读输出为准）。纪律入 `bench/anchor_guard.py` 头注：模块级常量用纯函数 `env_anchor`
+  （env 覆盖解析，无副作用），校验只放入口（main/__main__；vf3_battery 脚本体即入口，注明 import==run）。
+  回归锁 1 例：缺锚环境下 import ab_run/h2_guard_eval/h3_score/l3_anchor 必须安静通过
+  （tests/test_s198_bench_anchors.py，连同真路径退出码例共 11 例全过）。
+
+- 速览（本 session 收口，S195-S198 四片，2026-09-29~30）：
+  ① S195 守卫 P1-P6 修复 + guard-gate 金丝雀门；② S196 工具声明判据收缩为在册闭集
+  （形态规则退役，误杀面 712→0）；③ S197 name-ledger 名字账（三面 134 词元入账，
+  `risk_rank` 假名除名）；④ S198 bench-anchor 锚账（4 锚 21 引用，缺锚 ANCHOR-MISSING
+  退出码 2，EVAL 台账标注 H2/H3=时点值不可当前复算）。**终账**：快档 28 步
+  `LOCAL-GATE OK failed=[]`；全量 pytest **1096 passed + 2 skipped，0 error**（清掉
+  1176 个陈旧 basetemp 目录后的干净复跑——先前 1 个 FileExistsError 即残留碰撞，
+  非本仓缺陷）；新增测试 34 例（s195×10 · s197×10 · s198×11 · test_v2×3）；变异自检
+  两轮均抓到红（guard_gate 判据置空、name_ledger 比对置空）后还原。四片均未 commit
+  （本仓常态）；README 步数 35/28/32 由 claim-gate 复算钉住。

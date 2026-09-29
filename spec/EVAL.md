@@ -182,12 +182,16 @@ bench/results/l3/h2_report.json。
 复算入口：H1 = bench/results/l3/summary.json（330 份双臂原始答案在
 bench/results/l3/{A,B}/）；H2 = `python bench/h2_guard_eval.py`；
 H3 = `python bench/h3_score.py`；H4 = bench/results/l3/h4_lessons.jsonl + ROUNDLOG S20。
+**锚账（S198 如实入账）**：H2/H3 的真值树（VF3、yan-agent 克隆）已随盘迁移消失，登记为
+`spec/bench-anchors.json` 的 detached 锚——脚本缺锚时以退出码 2 报 `ANCHOR-MISSING`，
+**下表 H2/H3 数字是当时时点值，当前机器上不可复算**；重建锚或设
+`UNIFIED_RX_ANCHOR_VF3`/`UNIFIED_RX_ANCHOR_DEV` 后可复跑。H1/H4 数据在仓内，仍可复算。
 
 | 指标 | 最新实测 | 数据/入口 | 成本 | 缺口 |
 |---|---|---|---|---|
 | H1 任务增益 | Δsolved **+6.67pp**（deepseek-chat 23/90→29/90，n=90/90）；**+10pp**（glm-4.5-flash 0/90→5/50，**臂 n 不对称**如实标注）。代价侧：轮次 1→12.44、input 165→26487 tok/任务、成本 $0.0661→$0.789（12×）、墙钟 6.2→15.8s | l3/summary.json（S14 双臂） | 已花 | A/B 复跑需 API 预算 |
-| H2 守卫一致率 | A 臂 652 条 **1.0/1.0**；B 臂 766 条 **0.9295**；漏判（不存在却放行）**0**；分歧全为行级严判 | bench/h2_guard_eval.py（S95 首测，S97 复算同值） | 零 | — |
-| H3 扫描器查准 | api_key_sk tp=6/n=6 **precision 1.0**；panic_family/private_key_block/secret_by_key 各 n=1（WEAK 黄灯）；FP 复检 eval_exec **0 命中**（案底 FP=10 保持修复） | bench/h3_score.py（S18 首测，S97 复测 PASS） | 零 | 3 规则样本量不足（需扩标注库） |
+| H2 守卫一致率 | A 臂 652 条 **1.0/1.0**；B 臂 766 条 **0.9295**；漏判（不存在却放行）**0**；分歧全为行级严判 | bench/h2_guard_eval.py（S95 首测，S97 复算同值） | 零 | 锚 detached：当前不可复算（S198 入账，时点值）；口径仅 kind=file |
+| H3 扫描器查准 | api_key_sk tp=6/n=6 **precision 1.0**；panic_family/private_key_block/secret_by_key 各 n=1（WEAK 黄灯）；FP 复检 eval_exec **0 命中**（案底 FP=10 保持修复） | bench/h3_score.py（S18 首测，S97 复测 PASS） | 零 | 3 规则样本量不足（需扩标注库）；锚 detached 同上（S198） |
 | H4 记忆复利 | 8 个全败任务注入教训复跑：solved 0/8→3/8、fail 点 18→5（-72%） | h4_lessons.jsonl + ROUNDLOG S20（缩影，n 小） | 已花 | 复跑需 API 预算；样本量待扩 |
 
 **H1 口径校正（如实）**：H1 假设原文"省轮次省 token"与 L3 实测方向相反——工具臂

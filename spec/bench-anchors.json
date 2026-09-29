@@ -1,0 +1,64 @@
+{
+  "_doc": "bench 测量锚登记表（S198，scripts/bench_anchor_gate.py 消费）。每条 = 一个仓外真值目录：state=present 必须存在；state=detached 表示锚当前不在（每个 consumer 必须经 bench/anchor_guard.require_anchor 走 ANCHOR-MISSING 出口，禁止静默量空气）；state=legacy 表示退役一次性脚手架，不再要求可跑。bench/*.py 里出现**未登记**的仓外盘符路径常量 ⇒ 红（新锚先入账）。匹配规则：常量等于锚路径或在锚子树内（归一化斜杠）。",
+  "anchors": [
+    {
+      "id": "vf3",
+      "path": "D:/开发/VoxelForge-V3",
+      "state": "detached",
+      "since": "2026-09-30",
+      "reason": "整盘迁移后未重建；H1/H2/H3 的首测数字是当时时点值。env 覆盖：UNIFIED_RX_ANCHOR_VF3",
+      "consumers": ["bench/ab_run.py", "bench/h2_guard_eval.py", "bench/h3_score.py",
+                    "bench/l3_anchor.py", "bench/vf3_battery.py"]
+    },
+    {
+      "id": "dev-root",
+      "path": "D:/开发",
+      "state": "detached",
+      "since": "2026-09-30",
+      "reason": "同上：P1/P3 段的克隆工作区根；env 覆盖：UNIFIED_RX_ANCHOR_DEV",
+      "consumers": ["bench/p1_build.py", "bench/p1_score.py", "bench/p1_snapshots.py"]
+    },
+    {
+      "id": "yan-agent-src",
+      "path": "D:/开发/audits/repos/yan-agent-src",
+      "state": "detached",
+      "since": "2026-09-30",
+      "reason": "H3 标注库的第三方克隆（dev-root 子树，单独立条目以便恢复后逐锚转 present）；env 覆盖：UNIFIED_RX_ANCHOR_YAN",
+      "consumers": ["bench/h3_score.py"]
+    },
+    {
+      "id": "adv-legacy",
+      "path": "D:/开发/ADV",
+      "state": "legacy",
+      "since": "2026-09-30",
+      "reason": "本仓旧位置的一次性调试脚手架（_ 前缀），不在任何门链/评测链上；保留仅因历史考古",
+      "consumers": ["bench/_cancel_e2e_probe.py", "bench/_selfdbg_driver.py"]
+    }
+  ],
+  "local_paths": [
+    {
+      "prefix": "C:/Users/lbx13/AppData/Local/Programs/Python",
+      "why": "退役脚手架（_cancel_e2e_probe）硬编码的解释器路径——机器局部，非真值源"
+    },
+    {
+      "prefix": "C:/Users/lbx13/AppData/Local/Temp",
+      "why": "退役脚手架的一次性 stderr 日志落点——机器局部，非真值源"
+    },
+    {
+      "prefix": "C:/Temp",
+      "why": "系统临时目录约定（与 fs.py 的 exe 探测兜底同址）——机器局部，非真值源"
+    },
+    {
+      "prefix": "C:/Users/lbx13/AppData/Roaming/yan-agent",
+      "why": "H1 双臂实验的 Yan Agent 本机配置（ab_run 探测输入）——宿主局部集成件，非真值源，换机需重指"
+    },
+    {
+      "prefix": "Z:/",
+      "why": "s95 golden 夹具的**故意不存在盘**负例（沙盒拒绝用例素材）——不是数据源，永远不该存在"
+    },
+    {
+      "prefix": "C:/",
+      "why": "swe_verify 的 WSL 挂载换算基准（\"C:/\"→/mnt/c）——字符串换算根，非数据目录"
+    }
+  ]
+}

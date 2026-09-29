@@ -24,6 +24,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
+if hasattr(sys.stdout, "reconfigure"):
+    # 末行 JSON 供机器消费——编码由脚本自持：GBK 宿主上中文/箭头字符会让 print 崩溃、
+    # 契约（末行=JSON）随之消失（S198 版本 bump 后被真实触发）。
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 _SKIP_DIRS = {".git", "__pycache__", "node_modules", "target", "dist", "build", ".venv"}
 # 通用名不进"符号面"（否则 main/ROOT/HERE 会把测试面刷成噪声）

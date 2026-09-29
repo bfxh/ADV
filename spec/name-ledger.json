@@ -1,0 +1,9 @@
+{
+  "_doc": "名字账豁免表（S197，scripts/name_ledger_gate.py 消费）。镜像面上**合法的非工具名**才入册：每条必须写 why（入册须人工填理由，占位未填被门拦截——同 taint-baseline 纪律）。在册工具名不需要入册；不在册又不在此表的 ⇒ 红。",
+  "allow": [
+    {
+      "name": "hard",
+      "why": "README 工具面 sys_steer 一行的**模式值**（`hard` 走硬亲和），不是工具名；同句 render/background 无下划线形态不进词元面"
+    }
+  ]
+}
