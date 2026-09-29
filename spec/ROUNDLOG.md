@@ -1638,5 +1638,20 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 证据：新增 `tests/test_s189_mutate.py` **8 例**：金丝雀两头（有测试的变异必杀且不混进存活名单 / 无测试的必活，score∈(0,1)，三类齐）· **选测不丢**（杀手测试用 importlib 动态导入绕过静态闭包 ⇒ 必须落 `selection_missed` 而非真存活——两条的分界线就是这条判据）· **恢复安全**（全仓 sha256 逐字节一致 + 无 .mutbak 残留）· cap 确定性（两跑全 dict 相等）· 未跟踪文件全文件可变异 · 无变更如实空 · 残留 .mutbak 清扫进 degraded · CLI JSON 一种形态；**变异金丝雀**（把"真正改写"变空操作 ⇒ 两判据当场红）后已还原；判据自身还抓到我的夹具设计错误（只 touch 一行 ⇒ 变更行交集下只剩 2 候选——引擎对、我错）；三连跑 8/8 稳定；ruff/mypy/dupe/typos 全绿；taint 基线入册 subprocess.run（why 已填）；**版本不动**（不随功能 PR bump，免与 #105 的 2.90.0 撞文本冲突；exe 按本分支 2.89.0 重建对齐，`EXE_TAG ok=11 drift=0`）
 - ⚠️ 边界：①MCP 工具面**本片未挂**（引擎+CLI 先行；挂 tool 要动 toolmeta/工具计数/README 多处，属下一片）；②"历史数据预测存活突变体"记档不追（需跨次运行语料）；③Rust 侧突变记档（性能瓶颈时再 Rust 化）；④Mimosa 深度审计本轮仍未跑，**不宣称项目安全**
 
-
-
+## S193 · 覆盖率门失败取证（另案，出处 #108）：**"不静默"要能说清为什么**，不只是说失败
+- 项目：ADV｜时间：2026-09-29T20:40
+- 决策：修 #108 施工中实测到的那条诊断缺陷（已按 PR 纪律记档出处、不搭车）：`scripts/coverage_gate.py`
+  在 llvm-cov 失败时只打印 cargo 输出的**最后 300 字符**——CI 那次恰好把 `panicked at …` 截掉，
+  于是"FAIL 不静默"只做到"说失败"，真因只能靠金丝雀反推。**门是仪器；仪器报错却不说清楚，等于
+  仪器失效**（本仓 T7 一族）。改法：`_failure_context()` **按行**取证——先点名 `panicked at` /
+  `error` / `test failed` 行（最多 4 条），再附尾部若干行（去重保序、总长 2000 字符内）。
+- 证据：新增 `tests/test_s193_coverage_ctx.py` **6 例**——**金丝雀**（夹具把 panic 行放在尾部 300
+  字符之外 ⇒ 断言异常文本里必须有它，旧口径必然丢）· 无关键词时回落尾部行 · 成功路径仍解析两种
+  形状（扁平 `line_percent` / 嵌套 `data[0].totals.lines.percent`）不改行为 · 坏 JSON / 缺字段
+  仍抛且带原文头部（**不许静默返回 0**）· 取证拼接确定性 · argv 列表 + `shell=False` 契约。
+  **本机实跑演示**：新消息在本地那次 `profiler_builtins` 失败里直接给出了 `error[E0463]` 与
+  "could not compile `unified-rx-rs` (lib test)"——旧口径只会给一截编译命令行。
+- god 棘轮：新逻辑挤在**最长函数** `main`（22 行）上 ⇒ 抽出 `_write_baseline`（22→21）换额度，
+  文件 125→136（≤10% 放行，**合法交换**）；**不 `--write-baseline`**。
+- 边界：本机仍**跑不了** llvm-cov（gnu 无 profiler runtime、msvc 缺 link.exe ⇒ 门在本地永远 SKIP，
+  测量在 CI）；本轮**未跑** Mimosa 深度审计——"项目安全"仍无证据。
