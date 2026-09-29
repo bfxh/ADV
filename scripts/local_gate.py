@@ -48,6 +48,8 @@ STEPS = [
     ("path-gate",   [PY, "-X", "utf8", "scripts/path_gate.py"], "fast", "路径门（符号链接/文件名卫生/越界写）"),
     ("arch-gate",   [PY, "-X", "utf8", "scripts/arch_gate.py"], "fast",
      "架构守卫（声明式 import 禁向规则；违规定位到行；规则文件 fail-closed）"),
+    ("claim-gate",  [PY, "-X", "utf8", "scripts/claim_gate.py"], "fast",
+     "主张可复算门（文档里的数字主张 ↔ 真值源；不一致/找不到即红）"),
     ("self-attack", [PY, "-X", "utf8", "scripts/attack_gate.py"], "fast", "自攻门（巡航 clean）"),
     ("data-flow",   [PY, "-X", "utf8", "scripts/taint_gate.py"], "fast", "数据流门（taint 基线）"),
     ("secrets-history", [PY, "-X", "utf8", "scripts/secrets_history.py"], "fast", "历史 diff 明文红线"),

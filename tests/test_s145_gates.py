@@ -19,7 +19,7 @@ import server
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GATE = os.path.join(ROOT, "scripts", "local_gate.py")
 CORE = os.path.join(ROOT, ".github", "workflows", "core.yml")
-STEPS = ("secrets", "path-gate", "arch-gate", "self-attack", "data-flow", "secrets-history",
+STEPS = ("secrets", "path-gate", "arch-gate", "claim-gate", "self-attack", "data-flow", "secrets-history",
          "deps-lock", "audit-freshness", "toolface", "tool-evals", "cli-bench", "perf-gate",
          "mcp-surface", "shard-plan", "hub-gate", "model-fit", "selftest", "stress", "pytest",
          "cargo-test", "clippy")

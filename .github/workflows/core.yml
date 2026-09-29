@@ -117,6 +117,11 @@ jobs:
       - name: Arch gate（架构守卫：分层禁向规则 × import 边）
         run: python -X utf8 scripts/arch_gate.py
 
+      # S194：主张可复算门（spec/claim-checks.json：文档里的数字主张 ↔ 真值源）。
+      # 治的是"把当时的观察固化成文档事实"——README 的 71 工具 / 18 步曾长期陈旧。
+      - name: Claim gate（主张可复算：文档数字 ↔ 真值源）
+        run: python -X utf8 scripts/claim_gate.py
+
       - name: Deps-lock gate（S147：rust 依赖段恒空红线机器化）
         run: python -X utf8 scripts/deps_lock.py
 

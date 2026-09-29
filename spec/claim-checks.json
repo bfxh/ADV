@@ -1,0 +1,68 @@
+{
+ "_doc": "主张可复算门登记表（S194，scripts/claim_gate.py 消费）。每条 = 文档里的**数字主张** ↔ 一个能复算的真值源；不一致即红（主张找不到也红）。为什么只登记这几条：**能复算的才登记**——复算不出来的数字不留账面（要么删掉数字、要么改写成可复算的）；这正是对症用户点的「把过程变成东西」（当时的观察被固化成文档里的事实，然后随代码漂移）。改文案要同步改 pattern。真值源见 claim_gate.py 顶部注释。",
+ "claims": [
+  {
+   "id": "readme-philosophy-tools",
+   "file": "README.md",
+   "pattern": "少而准\\*\\*（(\\d+) 个工具",
+   "expect": ["selftest:tools"],
+   "why": "设计哲学行的工具数——曾写 71（实际 86）：当时值被固化成文档事实的活标本"
+  },
+  {
+   "id": "readme-head",
+   "file": "README.md",
+   "pattern": "\\*\\*当前 v[\\d.]+（S\\d+）\\*\\*：(\\d+) 工具 / (\\d+) 域",
+   "expect": ["selftest:tools", "selftest:groups"],
+   "why": "头部「当前版本」行的工具/域数"
+  },
+  {
+   "id": "readme-table",
+   "file": "README.md",
+   "pattern": "\\*\\*(\\d+) 个组合工具 / (\\d+) 域\\*\\*",
+   "expect": ["selftest:tools", "selftest:groups"],
+   "why": "新旧对照表的工具/域数"
+  },
+  {
+   "id": "readme-toolface-title",
+   "file": "README.md",
+   "pattern": "## 工具面（(\\d+) 域 · (\\d+) 工具）",
+   "expect": ["selftest:groups", "selftest:tools"],
+   "why": "工具面章节标题的域/工具数"
+  },
+  {
+   "id": "readme-core-profile",
+   "file": "README.md",
+   "pattern": "（core 档 (\\d+) 件）",
+   "expect": ["profile:core"],
+   "why": "core 档件数 = registry.profile_from_env() 的域集合 Σ groups()（域清单不复制进门里）"
+  },
+  {
+   "id": "readme-ide-tools",
+   "file": "README.md",
+   "pattern": "\\+ (\\d+) 件 ide 工具",
+   "expect": ["selftest:group:ide"],
+   "why": "ide 域件数"
+  },
+  {
+   "id": "readme-gate-steps",
+   "file": "README.md",
+   "pattern": "本地门 (\\d+) 步（快档 (\\d+) 步",
+   "expect": ["steps:total", "steps:fast"],
+   "why": "门步数——曾写 18/14（实际 31/24）：README 门计数长期陈旧，S188 记过账没人修"
+  },
+  {
+   "id": "readme-full-gate",
+   "file": "README.md",
+   "pattern": "全档 (\\d+) 步",
+   "expect": ["steps:full"],
+   "why": "全档步数——曾写 9（实际 28）"
+  },
+  {
+   "id": "skills-ide-tools",
+   "file": "skills/ide.md",
+   "pattern": "# ide 域（(\\d+) 工具",
+   "expect": ["selftest:group:ide"],
+   "why": "skills 文档的 ide 件数（与 README 同源，单源两处引用）"
+  }
+ ]
+}
