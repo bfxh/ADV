@@ -1,0 +1,32 @@
+{
+  "_doc": "架构守卫规则（S188，spec/FRONTIER-CI.md §5.3 第 10 项）。数据声明式：from（谁的模块名，fnmatch）不许 import（触到的模块名及点前缀，fnmatch）；scope 缺省 any=任意位置，toplevel=只限模块加载期（**延迟导入是本仓明文设计**：hub_lesson 同库同格式 / registry 分发器按需加载，函数内 import 不算违例——把延迟导入挪到顶层才会红）；allow 按**文件模块名**精确豁免；warn=true 只报告不计红（渐进启用）。fail-closed：本文件缺失/坏 JSON/空规则 ⇒ 门判红。规则必须是**今天已成立**的纪律（棘轮钉现状）；改前先跑 scripts/arch_gate.py 确认仍绿。",
+  "rules": [
+    {
+      "id": "platform-no-toolface-loadtime",
+      "from": ["hub_*"],
+      "import": ["tools", "tools.*", "server", "server_web"],
+      "scope": "toplevel",
+      "why": "平台层（hub_*）**加载期**不得依赖工具面/协议层——依赖方向是 server→tools→hub_*；hub_lesson 复用 tools.learn 属 S184 明文豁免（函数内延迟导入，避免加载期耦合）"
+    },
+    {
+      "id": "registry-independence-loadtime",
+      "from": ["registry"],
+      "import": ["tools", "tools.*", "server", "server_web", "hub_*"],
+      "scope": "toplevel",
+      "why": "registry 是框架层：**加载期**不得依赖任何被注册者/协议层；运行期按需加载工具面助手（burnwatch/aci）是分发器的明文设计"
+    },
+    {
+      "id": "toolface-no-protocol",
+      "from": ["tools", "tools.*"],
+      "import": ["server", "server_web"],
+      "why": "工具面（任意位置）不依赖协议层——server/server_web 组装工具面，反向即循环"
+    },
+    {
+      "id": "hub-base-no-upper",
+      "from": ["hub_ledger", "hub_manifest", "hub_core"],
+      "import": ["hub_runner", "hub_vc", "hub_resilience", "hub_live",
+                 "hub_impact", "hub_propose", "hub_lesson", "hub_auth"],
+      "why": "平台底座（账本/manifest/核心）不得依赖上层执行器——上层单向依赖底座（任意位置，含延迟导入）"
+    }
+  ]
+}

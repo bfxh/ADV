@@ -46,6 +46,8 @@ STEPS = [
                      "--allow-name", "unified-rx-rs", "--allow-name", "unified-rx-pytest"],
      "fast", "命名纪律门（占位词/杂物/退役旧名；主名 ADV 白名单外全专业）"),
     ("path-gate",   [PY, "-X", "utf8", "scripts/path_gate.py"], "fast", "路径门（符号链接/文件名卫生/越界写）"),
+    ("arch-gate",   [PY, "-X", "utf8", "scripts/arch_gate.py"], "fast",
+     "架构守卫（声明式 import 禁向规则；违规定位到行；规则文件 fail-closed）"),
     ("self-attack", [PY, "-X", "utf8", "scripts/attack_gate.py"], "fast", "自攻门（巡航 clean）"),
     ("data-flow",   [PY, "-X", "utf8", "scripts/taint_gate.py"], "fast", "数据流门（taint 基线）"),
     ("secrets-history", [PY, "-X", "utf8", "scripts/secrets_history.py"], "fast", "历史 diff 明文红线"),
@@ -112,6 +114,32 @@ def _run_step(name, argv, force_fail=None):
     return cp.returncode == 0, time.time() - t0, out
 
 
+def _skip_why(name, tier, want_fast, no_cargo, timing_ok, coverage_ok, only):
+    """返回 (动作, 说明)：动作 ∈ {"skip", "fail", "run"}——档位/选择器/工具链的跳过与硬失败。
+
+    顺序承重：计时/覆盖率档判定必须在 `--fast` 档位过滤**之前**（否则被档位静默吃掉，
+    `skipped` 里看不到——实测首版顺序反了，快档跑完 skipped=[] ⇒ 等于静默跳过）；
+    fast 过滤要放行**显式开档**的 tier（否则"开开关"被 --fast 静默吞掉，金丝雀会空过——
+    S172 补的洞）。skip 且 note 为 None = 纯过滤（不打印、不进 skipped）。
+    """
+    if tier == "timing" and not timing_ok:
+        return "skip", "计时档：需独占机器（设 UNIFIED_RX_TIMING_GATES=1，或交给 CI）"
+    if tier == "coverage" and not coverage_ok:
+        # 覆盖率档（S172）：llvm-cov 编译要 profiler runtime/link.exe——本机 gnu 无
+        # profiler、msvc 无 link ⇒ 测量在 CI；有 VS Build Tools 的机器可显式开。
+        return "skip", "覆盖率档：本机测量受限（设 UNIFIED_RX_COVERAGE_GATES=1，或交给 CI）"
+    explicit_on = (tier == "timing" and timing_ok) or (tier == "coverage" and coverage_ok)
+    if want_fast and tier != "fast" and not explicit_on:
+        return "skip", None
+    if only is not None and name not in only:
+        return "skip", None
+    if no_cargo and name in ("cargo-test", "clippy"):
+        return "skip", "--no-cargo（显式跳过，红线语义：不算双绿）"
+    if name in ("cargo-test", "clippy") and not shutil.which("cargo"):
+        return "fail", "cargo 不可用——不静默降级（--no-cargo 显式跳过）"
+    return "run", None
+
+
 def main(argv):
     want_fast = "--fast" in argv
     no_cargo = "--no-cargo" in argv
@@ -128,32 +156,11 @@ def main(argv):
     force_fail = os.environ.get("UNIFIED_RX_GATE_FORCE_FAIL")
     rows, failed, skipped = [], [], []
     for name, cmd, tier, why in STEPS:
-        # 计时档判定要在 `--fast` 档位过滤**之前**：否则被档位静默吃掉，`skipped` 里看不到
-        # （实测：首版顺序反了，快档跑完 skipped=[] ⇒ 等于静默跳过）。
-        if tier == "timing" and not timing_ok:
-            print(f"SKIP {name:12s} 计时档：需独占机器（设 UNIFIED_RX_TIMING_GATES=1，或交给 CI）")
-            skipped.append(name)
-            continue
-        if tier == "coverage" and not coverage_ok:
-            # 覆盖率档（S172）：llvm-cov 编译要 profiler runtime/link.exe——本机 gnu 无
-            # profiler、msvc 无 link ⇒ 测量在 CI；有 VS Build Tools 的机器可显式开。
-            print(f"SKIP {name:12s} 覆盖率档：本机测量受限（设 UNIFIED_RX_COVERAGE_GATES=1，"
-                  f"或交给 CI）")
-            skipped.append(name)
-            continue
-        # ⭐ fast 过滤要放行**显式开档**的 tier（timing/coverage）——否则"开开关"被
-        # --fast 静默吞掉（金丝雀会空过，S172 补的洞）
-        explicit_on = (tier == "timing" and timing_ok) or (tier == "coverage" and coverage_ok)
-        if want_fast and tier != "fast" and not explicit_on:
-            continue
-        if only is not None and name not in only:
-            continue
-        if no_cargo and name in ("cargo-test", "clippy"):
-            print(f"SKIP {name:12s} --no-cargo（显式跳过，红线语义：不算双绿）")
-            continue
-        if name in ("cargo-test", "clippy") and not shutil.which("cargo"):
-            print(f"FAIL {name:12s} cargo 不可用——不静默降级（--no-cargo 显式跳过）")
-            failed.append(name)
+        act, note = _skip_why(name, tier, want_fast, no_cargo, timing_ok, coverage_ok, only)
+        if act != "run":
+            if note:                       # 纯过滤（fast/only）不打印、不进 skipped
+                print(f"{'SKIP' if act == 'skip' else 'FAIL'} {name:12s} {note}")
+                (skipped if act == "skip" else failed).append(name)
             continue
         ok, secs, out = _run_step(name, cmd, force_fail)
         rows.append((name, ok, secs, why, out))
