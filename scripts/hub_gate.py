@@ -372,20 +372,37 @@ def _impact_check() -> tuple[bool, str]:
 
 
 def _stat_check() -> tuple[bool, str]:
-    """统计判定判据（S182，方向⑩）：三态正确（分离/真超阈/噪声带）+ **确定性**
-    （同输入两次逐位相同）+ 小样本不假装判过；噪声带样本用**独占机器实采数据**。"""
+    """统计判定判据（S182 建立 / S187 深化，方向⑩）：三态正确 + **确定性** + 小样本不假装判过
+    + 深化三件（**分辨力**如实报 / **族级 Holm 校正** / BCa 退化**如实回退**）；
+    噪声带样本用**独占机器实采数据**。"""
+    import stat_boot
+    import stat_family
     import stat_judge
     noise = [0.898, 1.034, 0.787, 0.862, 0.815, 0.798, 1.272]      # 实采（semantic 7 轮）
     v1 = stat_judge.judge([0.50, 0.52, 0.48, 0.51, 0.49], 0.85)
     v2 = stat_judge.judge([1.10, 1.15, 1.20, 1.12, 1.18], 0.85)
     v3 = stat_judge.judge(noise, 0.95)
-    det = stat_judge.judge(noise, 0.95) == v3
     weak = stat_judge.judge([0.9, 0.8], 0.85)
-    ok = (v1["verdict"] == "pass" and v2["verdict"] == "fail"
-          and v3["verdict"] in ("pass", "inconclusive")
-          and det and weak["verdict"] == "inconclusive" and weak["weak"] is True)
-    return ok, (f"sep={v1['verdict']} over={v2['verdict']} noise={v3['verdict']} "
-                f"det={det} small={weak['verdict']}/{weak['weak']}")
+    lo, hi = v2["ci"]
+    fam = stat_family.judge_family([("healthy", [0.50, 0.52, 0.48, 0.51, 0.49]),
+                                    ("regressed", [1.10, 1.15, 1.20, 1.12, 1.18]),
+                                    ("thin", [1.0])], 0.85)
+    holm = stat_boot.holm([0.01, 0.04, 0.045], 0.05)["reject"]
+    bca = stat_judge.judge([2.0] * 9, 10.0, method="bca")
+    p_min = stat_boot.p_value(stat_boot.median_dist([9.0] * 9), 1.0)
+    out = {
+        "three_state": (v1["verdict"] == "pass" and v2["verdict"] == "fail"
+                        and v3["verdict"] in ("pass", "inconclusive")),
+        "determinism": stat_judge.judge(noise, 0.95) == v3,
+        "small_honest": weak["verdict"] == "inconclusive" and weak["weak"] is True,
+        "resolution": v2["resolution"] == round((hi - lo) / 2, 4),
+        "family_holm": (fam["verdict"] == "fail" and fam["regressions"] == ["regressed"]
+                        and fam["weak_items"] == ["thin"]),
+        "holm_corrects": sum(holm) == 1,           # 不校正则三条全判显著
+        "bca_fallback_honest": bca["ci_method"] == "percentile" and bool(bca["ci_note"]),
+        "p_never_zero": p_min >= 1 / (len(stat_boot.median_dist([9.0] * 9)) + 1),
+    }
+    return _verdict_of(out)
 
 
 def _memory_check() -> tuple[bool, str]:
