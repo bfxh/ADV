@@ -19,6 +19,7 @@ import re
 import secrets
 import time
 
+import hub_ledger
 import hub_manifest
 
 try:
@@ -219,29 +220,15 @@ def append_row(row: dict) -> dict:
 
 
 def read_rows(limit: int = 0) -> list[dict]:
-    """读账本（limit>0 取尾部 N 行）；坏行跳过（完整性由 verify_chain 如实报）。
+    """读账本（limit>0 取尾部 N 行）；坏行**跳过**，但由 `verify_chain` 如实报。
 
-    **读路径容错**（S183 混沌）：账本不可读（权限/被目录占位/盘满）时返回空表而**不崩**
-    ——"盘坏了"必须表现为"可诊断的降级"，不能让工具直接异常。
+    **读路径容错**（S183 混沌）：账本不可读时返回空表而**不崩**——"盘坏了"必须表现为
+    "可诊断的降级"，不能让工具直接异常。编解码见 `hub_ledger`。
     """
-    p = runs_path()
-    if not p.exists():
+    text = hub_ledger.read_text(runs_path())
+    if text is None:
         return []
-    try:
-        text = p.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return []
-    rows: list[dict] = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(row, dict):
-            rows.append(row)
+    rows, _bad = hub_ledger.parse_rows(text)
     return rows[-limit:] if limit > 0 else rows
 
 
@@ -285,24 +272,45 @@ def _ledger_readable() -> bool:
         return False
 
 
-def verify_chain() -> dict:
-    """全链复核：prev_hash 连续 + 每行哈希可重算（篡改即红）。
+def _chain_bad(count: int, reason: str, bad: list[int] | None = None,
+               index: int | None = None) -> dict:
+    """链复核的"如实判红"行（各分支同形：不许报绿，且要说清坏在哪）。"""
+    return {"ok": False, "count": count, "bad_lines": bad or [],
+            "broken_index": index, "reason": reason}
 
-    S183：账本**存在但不可读** ⇒ 直接判 `ok=False`（空表会让链"看起来 OK"——那是假绿）。
+
+def verify_chain() -> dict:
+    """全链复核：**末行完整性 + 坏行 + prev_hash 连续 + 每行哈希可重算**（篡改即红）。
+
+    两条"坏账本看起来像好账本"的假绿，都必须判红：
+    - S183：账本**存在但不可读**（权限/占位/盘满）——空表会让链"看起来 OK"；
+    - S187 续：**末行被写坏**（部分写 / 盘满）——截断的末行被解析器丢掉，剩下的前缀是自洽的，
+      于是"账本被写坏"与"那行从没写过"**不可区分**（实测：末行砍一半 ⇒ 报 ok=True），
+      而且那条运行会永远停在 `start`（看着像还在跑）。判法直接取自写入器契约
+      （`_locked_append` 写的是 `line + "\n"`）：① 账本必须以换行结束；② 任何一行解析失败
+      都算坏行并如实报行号。
     """
-    if not _ledger_readable():
-        return {"ok": False, "count": 0, "broken_index": None,
-                "reason": "账本存在但不可读（权限/占位/盘满）——不得报'链 OK'"}
+    text = hub_ledger.read_text(runs_path()) if _ledger_readable() else None
+    if text is None:
+        return _chain_bad(0, "账本存在但不可读（权限/占位/盘满）——不得报'链 OK'")
+    rows, bad = hub_ledger.parse_rows(text)
+    if bad:                                   # 先报具体哪一行坏（诊断更精确）
+        return _chain_bad(len(rows), f"第 {bad[0]} 行不是合法 JSON（截断/损坏）——不得报'链 OK'",
+                          bad, max(0, bad[0] - 1))
+    if text.strip() and not text.endswith("\n"):
+        # 通用判法：末行"解析得了但没写完"（如断在合法 JSON 边界）只有换行契约能抓
+        return _chain_bad(len(rows), "末行不以换行结束（最后一次写入被截断）——不得报'链 OK'",
+                          bad, len(rows))
     prev = GENESIS
-    for i, row in enumerate(read_rows()):
+    for i, row in enumerate(rows):
         if row.get("prev_hash") != prev:
-            return {"ok": False, "count": i, "broken_index": i, "reason": "prev_hash 不连续"}
+            return _chain_bad(i, "prev_hash 不连续", bad, i)
         expect = row.get("hash")
         probe = {k: v for k, v in row.items() if k != "hash"}
         if not isinstance(expect, str) or _row_hash(prev, probe) != expect:
-            return {"ok": False, "count": i, "broken_index": i, "reason": "行哈希不匹配（内容被篡改）"}
+            return _chain_bad(i, "行哈希不匹配（内容被篡改）", bad, i)
         prev = expect
-    return {"ok": True, "count": len(read_rows()), "broken_index": None, "reason": None}
+    return {"ok": True, "count": len(rows), "bad_lines": [], "broken_index": None, "reason": None}
 
 
 # ---------------- 资源级准入（S178：shared 并行 / exclusive 互斥） ----------------
