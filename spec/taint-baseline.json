@@ -20,6 +20,12 @@
    "why": "S180 人工确认：`_git(args)` 是**内部函数**——args 只被 fingerprint() 以字面量调用（rev-parse HEAD / status --porcelain），无外部输入路径；argv 列表 + shell=False + 清掉 GIT_* 定位变量。与协议层内部子进程同族"
   },
   {
+   "file": "scripts/arch_gate.py",
+   "sink": "os.walk",
+   "count": 1,
+   "why": "架构守卫只读扫描：os.walk 枚举 .py 文件（路径仅用于 ast.parse 读取，非用户输入、不落写盘；S188 人工确认）"
+  },
+  {
    "file": "scripts/audit_copy.py",
    "sink": "os.makedirs",
    "count": 2,
@@ -132,12 +138,6 @@
    "sink": ".write_text",
    "count": 1,
    "why": "S171：审计报告落盘（--report 或沙箱内 reports/ 派生），内容是本脚本汇总的发现清单与封印，非外部输入拼装"
-  },
-  {
-   "file": "server.py",
-   "sink": "subprocess.run",
-   "count": 1,
-   "why": "协议层内部子进程（argv 列表 + env，无 shell；非用户可控命令拼接；S139 人工确认）"
   }
  ]
 }
