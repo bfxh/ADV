@@ -110,6 +110,15 @@ def _closure(seeds: list[str], reverse: dict[str, set[str]]) -> set[str]:
     return seen
 
 
+def _selected_tests(forward: dict[str, set[str]], affected: set[str],
+                    prefix: str) -> tuple[list[str], list[str], list[str]]:
+    """影响闭包 → 建议测试集（保守口径的唯一实现：图上无记录的测试一律纳入）。"""
+    tests = [f for f in forward if f.startswith(prefix)]
+    hit = sorted(t for t in tests if t in affected or (forward.get(t, set()) & affected))
+    unknown = sorted(t for t in tests if t not in forward)        # 图上无记录 ⇒ 保守纳入
+    return sorted(set(hit) | set(unknown)), unknown, tests
+
+
 def impact(base: str = "HEAD", prefix: str = "tests/") -> dict:
     """静态影响面：变更 → 波及文件 → 建议测试集（保守）+ 退化标记。"""
     root = repo_root()
@@ -126,10 +135,7 @@ def impact(base: str = "HEAD", prefix: str = "tests/") -> dict:
                 "reason": f"相对 {base} 无 .py 变更（无需选测）",
                 "impacted_files": [], "impacted_tests": []}
     affected = set(changed) | _closure(changed, reverse)
-    tests = [f for f in forward if f.startswith(prefix)]
-    hit = sorted(t for t in tests if t in affected or (forward.get(t, set()) & affected))
-    unknown = sorted(t for t in tests if t not in forward)        # 图上无记录 ⇒ 保守纳入
-    selected = sorted(set(hit) | set(unknown))
+    selected, unknown, tests = _selected_tests(forward, affected, prefix)
     return {
         "ok": True, "fallback": None, "base": base, "root": str(root),
         "changed": changed,

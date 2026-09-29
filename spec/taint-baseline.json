@@ -14,6 +14,12 @@
    "why": "测试基建（S140 打点隔离）：创建 pytest 专用 tmp 目录 %TEMP%/unified-rx-pytest/_stats，路径为进程内常量，无外部输入（S140 人工确认）"
   },
   {
+   "file": "hub_mutate.py",
+   "sink": "subprocess.run",
+   "count": 1,
+   "why": "突变引擎按 argv 列表字面量跑选测 pytest 子进程（无 shell、cwd=隔离根、超时兜底；S189 人工确认）"
+  },
+  {
    "file": "hub_runner.py",
    "sink": "subprocess.run",
    "count": 1,
@@ -132,12 +138,6 @@
    "sink": ".write_text",
    "count": 1,
    "why": "S171：审计报告落盘（--report 或沙箱内 reports/ 派生），内容是本脚本汇总的发现清单与封印，非外部输入拼装"
-  },
-  {
-   "file": "server.py",
-   "sink": "subprocess.run",
-   "count": 1,
-   "why": "协议层内部子进程（argv 列表 + env，无 shell；非用户可控命令拼接；S139 人工确认）"
   }
  ]
 }
