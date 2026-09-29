@@ -8,13 +8,19 @@
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 > 协作纪律：**一个 PR 一个功能**——过程发现的问题另开 PR 引用出处，依赖变更自成 PR 引用需求方，不搭车、不捆包（[spec/PR-DISCIPLINE.md](spec/PR-DISCIPLINE.md)）
-**当前 v2.87.0（S186）**：86 工具 / 15 域（core 档 54 件）；**平台层落地**——
+**当前 v2.88.0（S187）**：86 工具 / 15 域（core 档 54 件）；**平台层落地**——
 MCP 之外的第二协议通道（`server_web.py` + `console/`：团队网页面，与工具面**同一份能力层**）
 + **实时日志**（`/api/stream` SSE：**日志文件即总线**——跨进程且就是账上被哈希的那份；
 `read1` 真流式，判据"运行结束前可见"，实测 gap≈2 s）+ **防骗判据门**
 （`scripts/hub_gate.py`：平台跑↔直跑 parity、金丝雀三态、账本哈希链 + 篡改注入必红、
-复核计划真执行、授权矩阵、live-log、**资源级准入**、**鉴权分层**——**判据先于平台**：
-门红 = 平台当前不可信）。团队面：**读面要会话 + RBAC 全量**（admin 管用户，最后 admin
+复核计划真执行、授权矩阵、live-log、**资源级准入**、**鉴权分层**、manifest 版本/依赖声明、
+**构建凭证**——**判据先于平台**：门红 = 平台当前不可信）。
+**S187 两件**：① pipeline manifest 可声明 `version`/`requires`（**校验器认格式，不引解析器**；
+依赖只判"id 在不在"，带版本的条目如实标"未解析"——不假装校验过）；② `hub_runs` 附
+**构建凭证形状**（源码哈希/环境哈希/签发者/时刻/轨迹/封条/账本锚，是**账本最终行的纯函数**，
+可用 `hub_gate.py --credential <run_id>` 独立重算）——签名档位**如实标 `unsigned`**：
+纯 stdlib 无 Ed25519，能验"记录未被改"，**不能**验"谁签的"。
+团队面：**读面要会话 + RBAC 全量**（admin 管用户，最后 admin
 不可删/降；`/api/status` 摘要态未登录也看得见降级）。
 **CI 审核既有两道硬门**——
 ①**性能门**（`scripts/perf_gate.py`）：判据 = **同机并行 vs 串行比值**（7 处并行度
@@ -102,7 +108,7 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 | 🕵️ attack (6) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航） — 自攻面常驻 |
 | 🧬 appaudit (3) | `app_audit` `app_clone` `app_clean` |
 | 🧰 meta (3) | `local_run` `process` `gpu_status` — 授权门控 / GPU 遥测 |
-| 🚀 hub (6) | `hub_status`（实例/版本/用户数/账本链/降级原因——不带病报绿）`hub_pipelines`（manifest 清单 + 非法条目如实列出）`hub_runs`（账本尾 N：判定/封条/指纹/独立复核指引）`hub_run`（**需授权**：独占护栏内顺序执行，原始日志落盘+哈希入账）`hub_propose`（**需授权，G1**：隔离工作树里跑白名单机械修复，只出 patch 与建议——永不改主树、永不提交/合并）`hub_impact`（**只读**：变更 → import 反向闭包 → 建议测试集，保守不漏；不可信即 fallback=full） — 平台层（[spec/HUB.md](spec/HUB.md)）：第二协议通道 + 团队网页面 + 提案流 + 语义选测，防骗判据见 §六；方向判定见 [spec/FRONTIER-CI.md](spec/FRONTIER-CI.md) |
+| 🚀 hub (6) | `hub_status`（实例/版本/用户数/账本链/降级原因——不带病报绿）`hub_pipelines`（manifest 清单 + 非法条目如实列出）`hub_runs`（账本尾 N：判定/封条/指纹/**构建凭证**/独立复核指引）`hub_run`（**需授权**：独占护栏内顺序执行，原始日志落盘+哈希入账）`hub_propose`（**需授权，G1**：隔离工作树里跑白名单机械修复，只出 patch 与建议——永不改主树、永不提交/合并）`hub_impact`（**只读**：变更 → import 反向闭包 → 建议测试集，保守不漏；不可信即 fallback=full） — 平台层（[spec/HUB.md](spec/HUB.md)）：第二协议通道 + 团队网页面 + 提案流 + 语义选测，防骗判据见 §六；方向判定见 [spec/FRONTIER-CI.md](spec/FRONTIER-CI.md) |
 
 已于 S15 移除的废物面（证据驱动）：kb_query / chatlog_search / cmd_cheatsheet /
 code_complete / ide_references / cost_report / trend_analysis / pipeline / parallel / pure_*。

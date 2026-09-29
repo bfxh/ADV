@@ -16,7 +16,10 @@ import hub_impact as hub_impact_mod
 import hub_lesson
 import hub_propose as hub_propose_mod
 import hub_runner
+import hub_vc
 from registry import tool
+
+_UNWRITABLE = "数据根不可写：storage_writable=false（运行会被如实拒绝，不静默）"
 
 
 def instance_name() -> str:
@@ -38,8 +41,7 @@ def hub_status():
     pipes, invalid = hub_core.load_pipelines()
     chain = hub_core.verify_chain()
     writable = hub_core.storage_writable()
-    extra = [] if writable else ["数据根不可写：storage_writable=false（运行会被如实拒绝，不静默）"]
-    reasons = _degraded_reasons(invalid, chain, extra)
+    reasons = _degraded_reasons(invalid, chain, [] if writable else [_UNWRITABLE])
     return {
         "ok": True, "instance": instance_name(), "version": hub_core.server_version(),
         "pipelines": len(pipes), "invalid_manifests": invalid,
@@ -67,21 +69,24 @@ def _count_by_actor(active: list) -> dict:
 def _pipeline_row(m: dict) -> dict:
     return {"id": m["id"], "title": m["title"], "when": m["when"],
             "resource_class": m["resource_class"], "on": m["on"],
+            "version": m.get("version"), "requires": list(m.get("requires") or []),
             "steps": [st["step"] for st in m["steps"]],
             "fingerprint": hub_core.manifest_fingerprint(m)}
 
 
 @tool("hub_pipelines",
-      "管线清单：manifest（id/标题/触发/资源级/步骤数）与非法条目如实列出",
+      "管线清单：manifest（id/标题/触发/资源级/版本/依赖声明/步骤数）与非法条目如实列出，"
+      "依赖只做存在性（无解析器）",
       "hub", {"type": "object", "properties": {}, "required": []})
 def hub_pipelines():
     pipes, invalid = hub_core.load_pipelines()
     return {"ok": True, "pipelines": list(map(_pipeline_row, pipes.values())),
-            "invalid": invalid}
+            "invalid": invalid, "missing_requires": hub_core.missing_requires(pipes)}
 
 
 @tool("hub_runs",
-      "运行账本尾 N 条：判定/封条/指纹/独立复核命令（how_to_verify）；含 SKIP 的只算 green_with_skips",
+      "运行账本尾 N 条：判定/封条/指纹/独立复核命令（how_to_verify）；含 SKIP 的只算"
+      "green_with_skips；credentials 为构建凭证形状（账号本行纯函数，签名档位如实 unsigned）",
       "hub", {"type": "object",
               "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 200}},
               "required": []})
@@ -99,7 +104,7 @@ def hub_runs(limit=10):
         except (OSError, ValueError):
             recall = []
     return {"ok": True, "count": len(rows), "runs": rows, "recall": recall,
-            "chain": hub_core.verify_chain()}
+            "credentials": hub_vc.for_rows(rows), "chain": hub_core.verify_chain()}
 
 
 @tool("hub_run",

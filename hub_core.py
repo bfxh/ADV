@@ -19,6 +19,8 @@ import re
 import secrets
 import time
 
+import hub_manifest
+
 try:
     import msvcrt  # type: ignore[import-not-found]  # Windows 账本锁
     _HAVE_MSVCRT = True
@@ -31,6 +33,9 @@ ALLOWED_HEADS = frozenset({"python", "python3", "py", "cargo", "git", "node"})
 MAX_STEPS, MAX_CMD_SEGMENTS, MAX_TIMEOUT_S = 16, 32, 7200
 GENESIS = "0" * 64
 _ID_RE = re.compile(r"[a-z][a-z0-9]*(\.[a-z0-9-]+)+")
+HEADER_REQUIRED = ("id", "title", "when", "resource_class", "on", "steps")
+# version/requires 是**可选声明**（S187，方向③）：格式校验见 hub_manifest（不引解析器）
+HEADER_KEYS = frozenset({*HEADER_REQUIRED, "version", "requires"})
 
 
 def pipelines_dir() -> pathlib.Path:
@@ -94,10 +99,10 @@ def _check_step(pid: str, st: object, seen: set) -> None:
 
 def _check_header(data: dict, name: str) -> str:
     """头部字段（未知字段即拒 / 必填 / 类型 / id / 资源级 / 触发集）→ pid。"""
-    unknown = sorted(set(data) - {"id", "title", "when", "resource_class", "on", "steps"})
+    unknown = sorted(set(data) - HEADER_KEYS)
     if unknown:
         raise ValueError(f"{name}: 未知字段 {unknown}（默认严苛）")
-    for k in ("id", "title", "when", "resource_class", "on", "steps"):
+    for k in HEADER_REQUIRED:
         if k not in data:
             raise ValueError(f"{name}: 缺字段 {k}")
     pid = _check_id(data, name)
@@ -109,6 +114,7 @@ def _check_header(data: dict, name: str) -> str:
     on = data["on"]
     if not isinstance(on, list) or not on or not all(isinstance(x, str) for x in on):
         raise ValueError(f"{pid}: on 必须是非空字符串列表")
+    hub_manifest.check_labels(pid, data)
     return pid
 
 
@@ -154,6 +160,11 @@ def manifest_fingerprint(manifest: dict) -> str:
     blob = json.dumps(manifest, sort_keys=True, ensure_ascii=False,
                       separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()
+
+
+def missing_requires(pipes: dict[str, dict]) -> dict[str, list[str]]:
+    """依赖声明的可满足性（再导出 hub_manifest 的实现，既有调用面不变）。"""
+    return hub_manifest.missing_requires(pipes)
 
 
 def new_run_id() -> str:
@@ -398,6 +409,24 @@ def read_active() -> list[dict]:
     return sorted(out, key=lambda r: float(r.get("ts") or 0))
 
 
+def _admit_reason(resource_class: str, actor: str, active: list[dict]) -> str | None:
+    """三层闸门判定（返回拒绝理由，None=放行）；拆出来让 `admit` 只管临界区与占位。"""
+    excl = [a for a in active if a.get("resource_class") == "exclusive"]
+    shared = [a for a in active if a.get("resource_class") != "exclusive"]
+    if resource_class == "exclusive" and active:
+        return "已有运行在进行（exclusive 需整机独占）"
+    if resource_class == "shared" and excl:
+        return "有 exclusive 运行在进行（shared 不得与其并存）"
+    if resource_class == "shared" and len(shared) >= max_shared():
+        return f"shared 并行已达上限 {max_shared()}"
+    if resource_class == "shared" and actor:
+        mine = [a for a in shared if (a.get("actor") or "") == actor]
+        if len(mine) >= max_per_actor():
+            return (f"actor {actor!r} 的并行已达上限 {max_per_actor()}"
+                    "（UNIFIED_RX_HUB_MAX_PER_ACTOR 可调）")
+    return None
+
+
 def admit(run_id: str, resource_class: str, pid: int, actor: str = "") -> dict:
     """准入判定 + 占位（同一临界区内）；被拒返回原因与当前活跃集（可诊断）。
 
@@ -409,24 +438,9 @@ def admit(run_id: str, resource_class: str, pid: int, actor: str = "") -> dict:
         return {"ok": False, "reason": f"未知资源级 {resource_class!r}"}
     with _active_lock():
         active = read_active()
-        excl = [a for a in active if a.get("resource_class") == "exclusive"]
-        shared = [a for a in active if a.get("resource_class") != "exclusive"]
-        if resource_class == "exclusive" and active:
-            return {"ok": False, "reason": "已有运行在进行（exclusive 需整机独占）",
-                    "active": active}
-        if resource_class == "shared" and excl:
-            return {"ok": False, "reason": "有 exclusive 运行在进行（shared 不得与其并存）",
-                    "active": active}
-        if resource_class == "shared" and len(shared) >= max_shared():
-            return {"ok": False, "reason": f"shared 并行已达上限 {max_shared()}",
-                    "active": active}
-        if resource_class == "shared" and actor:
-            mine = [a for a in shared if (a.get("actor") or "") == actor]
-            if len(mine) >= max_per_actor():
-                return {"ok": False,
-                        "reason": f"actor {actor!r} 的并行已达上限 {max_per_actor()}"
-                                  "（UNIFIED_RX_HUB_MAX_PER_ACTOR 可调）",
-                        "active": active}
+        reason = _admit_reason(resource_class, actor, active)
+        if reason is not None:
+            return {"ok": False, "reason": reason, "active": active}
         p = _active_file(run_id)
         try:
             fd = os.open(str(p), os.O_CREAT | os.O_EXCL | os.O_WRONLY)

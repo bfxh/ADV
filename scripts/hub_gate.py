@@ -7,11 +7,14 @@
   ④ 运行指纹八项齐（缺一即红）；
   ⑤ 账本链校验 ok，且**篡改注入必红**（先记基线再验红）；
   ⑥ 复核计划（verify_plan，argv 列表形态）**真执行**：日志哈希重算一致 + 直跑退出码一致；
-  ⑦ 授权矩阵：坏令牌 None / viewer 不可触发 / MCP 无 __authorized 必拒。
+  ⑦ 授权矩阵：坏令牌 None / viewer 不可触发 / MCP 无 __authorized 必拒；
+  ⑧ manifest 版本/依赖声明（S187 方向③）：合法声明认、非法声明拒、依赖只做存在性；
+  ⑨ 构建凭证形状（S187 方向⑤）：账本行纯函数 + 篡改必变 + 签名档位如实 `unsigned`。
 
 独立复核入口（供智能体/人**不信任平台地**复核）：
   python -X utf8 scripts/hub_gate.py --verify-chain
   python -X utf8 scripts/hub_gate.py --seal <run_id>
+  python -X utf8 scripts/hub_gate.py --credential <run_id>
 """
 # ruff: noqa: E402  # 本文件刻意先建 sys.path 再 import 仓内模块（scripts/ 直跑入口惯例）
 from __future__ import annotations
@@ -34,12 +37,19 @@ sys.path.insert(0, str(ROOT))
 import hub_auth
 import hub_core
 import hub_live
+import hub_manifest
 import hub_runner
+import hub_vc
 import server_web
 
 PY = sys.executable
 FP_KEYS = ("manifest_sha256", "git_head", "git_dirty", "argv0", "cwd",
            "env_keys_hash", "python", "cargo")
+
+
+def _verdict_of(out: dict[str, bool]) -> tuple[bool, str]:
+    """判据收尾（各 check 同形）：全真才绿，且逐项可读（假的那几项一眼可见）。"""
+    return all(out.values()), " ".join(f"{k}={v}" for k, v in out.items())
 
 
 @contextlib.contextmanager
@@ -133,13 +143,25 @@ def _verify_plan_check(res: dict) -> tuple[bool, str]:
 
 
 def _auth_matrix() -> tuple[bool, str]:
+    """授权矩阵：坏令牌 / 越权角色 / **MCP 无授权** / 且注册面**非空**。
+
+    `import tools` 是**工具面注册**本身：不导入则 `_TOOLS` 为空，而未知工具同样回
+    `ok=False` ⇒ "无授权必拒"会**空过**（S187 实锤：本门进程里 tool_count 曾是 0，
+    三条断言里两条靠巧合为真）。所以注册面非空本身也是判据的一部分。
+
+    返回结构是 `{ok, result}`（`registry.call` 的统一包装）——取工具输出要看 `result`。
+    """
     import registry
+    import tools  # noqa: F401  # 触发工具面注册（副作用即本意）
     bad_token_rejected = hub_auth.verify("admin", "wrong-token") is None
     roles = hub_auth.can_trigger("viewer") is False and hub_auth.can_trigger("operator") is True
+    known = registry.call("hub_pipelines", {})
     denied = registry.call("hub_run", {"pipeline": "adv.gate-fast"})
-    no_auth = denied.get("ok") is False
-    return (bad_token_rejected and roles and no_auth), \
-        f"坏令牌拒={bad_token_rejected} 角色矩阵={roles} MCP 无授权拒={no_auth}"
+    real = registry.tool_count() > 0 and "pipelines" in (known.get("result") or {})
+    no_auth = denied.get("ok") is False and "授权" in str(denied.get("error"))
+    return (bad_token_rejected and roles and no_auth and real), \
+        (f"坏令牌拒={bad_token_rejected} 角色矩阵={roles} MCP 无授权拒={no_auth} "
+         f"registry真实={real}(n={registry.tool_count()})")
 
 
 def _has_final(run_id: str) -> bool:
@@ -409,8 +431,7 @@ def _resilience_check() -> tuple[bool, str]:
             else:
                 os.environ[k] = v
         shutil.rmtree(tmp, ignore_errors=True)
-    ok = all(out.values())
-    return ok, " ".join(f"{k}={v}" for k, v in out.items())
+    return _verdict_of(out)
 
 
 def _memory_check() -> tuple[bool, str]:
@@ -458,8 +479,7 @@ def _memory_check() -> tuple[bool, str]:
             else:
                 os.environ[k] = v
         shutil.rmtree(tmp, ignore_errors=True)
-    ok = all(out.values())
-    return ok, " ".join(f"{k}={v}" for k, v in out.items())
+    return _verdict_of(out)
 
 
 def _quota_check() -> tuple[bool, str]:
@@ -505,8 +525,19 @@ def _quota_check() -> tuple[bool, str]:
             else:
                 os.environ[k] = v
         shutil.rmtree(tmp, ignore_errors=True)
-    ok = all(out.values())
-    return ok, " ".join(f"{k}={v}" for k, v in out.items())
+    return _verdict_of(out)
+
+
+def _manifest_meta_check() -> tuple[bool, str]:
+    """版本/依赖声明判据（S187，方向③）：**事实**由 `hub_manifest` 给（含磁盘 round-trip，
+    证明字段真接到加载路径上），判定口径由门统一负责。"""
+    return _verdict_of(hub_manifest.meta_facts())
+
+
+def _credential_vc_check() -> tuple[bool, str]:
+    """凭证判据（S187，方向⑤）：事实由 `hub_vc.selfcheck_facts` 给——它在**自己的**临时根里
+    跑，不复用金丝雀（`tamper-detect` 会篡改金丝雀账本，复用即隐式时序依赖）。"""
+    return _verdict_of(hub_vc.selfcheck_facts())
 
 
 def _checks() -> list[tuple[str, bool, str]]:
@@ -549,26 +580,36 @@ def _checks() -> list[tuple[str, bool, str]]:
     rows.append(("failure-memory", ok, detail))
     ok, detail = _quota_check()
     rows.append(("per-actor-quota", ok, detail))
+    ok, detail = _manifest_meta_check()
+    rows.append(("manifest-version-requires", ok, detail))
+    ok, detail = _credential_vc_check()
+    rows.append(("credential-vc", ok, detail))
     return rows
 
 
 def _seal_check(run_id: str) -> int:
-    for row in hub_core.read_rows():
-        if row.get("id") == run_id and row.get("phase") == "final":
-            fp = row.get("fingerprint") or {}
-            payload = {"pipeline": row.get("pipeline"),
-                       "manifest_sha256": fp.get("manifest_sha256"),
-                       "git_head": fp.get("git_head"), "git_dirty": fp.get("git_dirty"),
-                       "verdict": row.get("verdict"),
-                       "steps": [{k: s.get(k) for k in ("step", "exit", "log_sha256")}
-                                 for s in row.get("steps") or []]}
-            got = hub_runner.seal_of(payload)
-            same = got == row.get("seal")
-            print(f"SEAL {run_id} recorded={row.get('seal')} recomputed={got} "
-                  f"{'OK' if same else 'MISMATCH'}")
-            return 0 if same else 1
-    print(f"SEAL {run_id} NOT_FOUND")
-    return 1
+    row = hub_vc.final_row(run_id)
+    if not row:
+        print(f"SEAL {run_id} NOT_FOUND")
+        return 1
+    got = hub_runner.seal_of(hub_vc.seal_payload(row))
+    same = got == row.get("seal")
+    print(f"SEAL {run_id} recorded={row.get('seal')} recomputed={got} "
+          f"{'OK' if same else 'MISMATCH'}")
+    return 0 if same else 1
+
+
+def _credential_check(run_id: str) -> int:
+    """独立复核入口（方向⑤）：账本行 → 凭证摘要；签名档位**如实**打印（不假装签过）。"""
+    row = hub_vc.final_row(run_id)
+    if not row:
+        print(f"CREDENTIAL {run_id} NOT_FOUND")
+        return 1
+    cred = hub_vc.build(row)
+    print(f"CREDENTIAL {run_id} sha256={cred['sha256']} "
+          f"proof={cred['proof']['cryptosuite']} issued_at={cred['issued_at']} "
+          f"verdict={cred['subject']['verdict']}")
+    return 0
 
 
 def main(argv: list[str]) -> int:
@@ -578,6 +619,8 @@ def main(argv: list[str]) -> int:
         return 0 if v.get("ok") else 1
     if "--seal" in argv:
         return _seal_check(argv[argv.index("--seal") + 1])
+    if "--credential" in argv:
+        return _credential_check(argv[argv.index("--credential") + 1])
     root = pathlib.Path(tempfile.mkdtemp(prefix="adv-hub-gate-"))
     pipes = root / "pipelines"
     pipes.mkdir(parents=True, exist_ok=True)
