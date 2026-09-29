@@ -464,7 +464,6 @@ def hits_str(c, h):
 
 
 def main():
-    require_anchor("vf3", VF3_ROOT)
     ap = argparse.ArgumentParser()
     ap.add_argument("--channel", default="conn-deepseek")
     ap.add_argument("--model", default="deepseek-chat")
@@ -491,6 +490,8 @@ def main():
     # 触发 import 校验（tools 必须成功导入一次以完成注册）
     assert registry.tool_count() > 0
     if args.run:
+        # 真双臂执行必须有目标工作树；无参数的配置自检不依赖锚（CI dry-run 契约）
+        require_anchor("vf3", VF3_ROOT)
         run(args)
     elif args.judge:
         do_judge(args)

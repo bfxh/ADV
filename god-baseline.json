@@ -10,7 +10,7 @@
   "max_type_members": 0
  },
  "bench/ab_run.py": {
-  "file_lines": 509,
+  "file_lines": 510,
   "max_fn_lines": 55,
   "max_type_members": 0
  },
@@ -1260,8 +1260,8 @@
   "max_type_members": 0
  },
  "tests/test_s198_bench_anchors.py": {
-  "file_lines": 159,
-  "max_fn_lines": 11,
+  "file_lines": 178,
+  "max_fn_lines": 17,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {

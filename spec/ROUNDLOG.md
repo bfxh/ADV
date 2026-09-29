@@ -1765,6 +1765,10 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   （env 覆盖解析，无副作用），校验只放入口（main/__main__；vf3_battery 脚本体即入口，注明 import==run）。
   回归锁 1 例：缺锚环境下 import ab_run/h2_guard_eval/h3_score/l3_anchor 必须安静通过
   （tests/test_s198_bench_anchors.py，连同真路径退出码例共 11 例全过）。
+  **CI 侧返工（合入前 gates 步实测红）**：入口校验初版放 `main()` 首行，把 CI 的 dry-run 契约步
+  （无参数=配置自检，不需要真值树）也拦死——`ab_run.py` 红在 CI。返工：校验挪进
+  `if args.run:` 真执行分支；教训=「入口」要按执行模式划，不是按函数边界。双向锁测试 2 例
+  （无参必须 exit 0 / `--run` 缺锚必须 exit 2），s198 共 13 例。
 
 - 速览（本 session 收口，S195-S198 四片，2026-09-29~30）：
   ① S195 守卫 P1-P6 修复 + guard-gate 金丝雀门；② S196 工具声明判据收缩为在册闭集

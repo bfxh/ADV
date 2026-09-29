@@ -145,6 +145,25 @@ def test_h2_missing_anchor_exits_2() -> None:
     assert "ANCHOR-MISSING" in got.stderr, got.stderr
 
 
+def test_ab_run_dry_selfcheck_needs_no_anchor() -> None:
+    """CI dry-run 契约（S198 返工）：无参数=配置自检，缺锚机器也必须 exit 0；
+    `--run` 真执行路径仍必须 ANCHOR-MISSING 退 2（两侧都要钉，单向修会另一向复活）。"""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("UNIFIED_RX_ANCHOR")}
+    dry = subprocess.run([PY, "-X", "utf8", "bench/ab_run.py"], capture_output=True,
+                         text=True, encoding="utf-8", errors="replace",
+                         cwd=str(ROOT), env=env, shell=False, timeout=300)
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    real = subprocess.run([PY, "-X", "utf8", "bench/ab_run.py", "--run", "A"],
+                          capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", cwd=str(ROOT), env=env, shell=False,
+                          timeout=300)
+    if (pathlib.Path(r"D:\开发\VoxelForge-V3")).is_dir():
+        real.check_returncode()
+    else:
+        assert real.returncode == 2 and "ANCHOR-MISSING" in real.stderr, \
+            real.stdout + real.stderr
+
+
 def test_importing_bench_modules_has_no_side_effect() -> None:
     """S198 实锤回归：require_anchor 只许在入口调用——tests/swe 会 import bench 模块，
     缺锚机器上 import 必须安静通过（曾因模块级校验把全量 pytest 打成 INTERNALERROR）。"""
