@@ -38,14 +38,22 @@ def _run(*args: str) -> subprocess.CompletedProcess:
 
 
 def _fixture(tmp_path: pathlib.Path, doc_num: int, truth: int) -> tuple[pathlib.Path, pathlib.Path]:
-    """夹具仓：一个数字真值文件（json_len 源）+ 一份声称 `doc_num 件` 的文档。"""
-    (tmp_path / "spec").mkdir(exist_ok=True)
+    """夹具仓：一个数字真值文件（json_len 源）+ 一份声称 `doc_num 件` 的文档 + 合规账目契约。
+
+    账目契约是**必填**（fail-closed 的第二族判据）——夹具必须给一份合规的，否则红在契约上、
+    就测不到第一族的比对逻辑了。
+    """
+    (tmp_path / "spec").mkdir(parents=True, exist_ok=True)
     (tmp_path / "truth.json").write_text(
         json.dumps({"items": [{"n": i} for i in range(truth)]}), encoding="utf-8")
     (tmp_path / "DOC.md").write_text(f"工具面共 {doc_num} 件。\n", encoding="utf-8")
+    (tmp_path / "spec" / "ROUNDLOG.md").write_text(
+        "## S200 · 夹具条目\n- 决策：夹具\n- 证据：本文件\n", encoding="utf-8")
     claims = {"claims": [{"id": "fx-count", "file": "DOC.md",
                           "pattern": "共 (\\d+) 件", "expect": ["json_len:truth.json:items"],
-                          "why": "夹具"}]}
+                          "why": "夹具"}],
+              "entry_contract": {"file": "spec/ROUNDLOG.md", "require": ["决策：", "证据："],
+                                 "min_session": 180, "why": "夹具"}}
     cp = tmp_path / "claims.json"
     cp.write_text(json.dumps(claims, ensure_ascii=False), encoding="utf-8")
     return tmp_path, cp
@@ -111,10 +119,12 @@ def test_canary_unknown_truth_source_is_red(tmp_path):
     """未知真值源 ⇒ 红且说明（不许静默跳过一条主张）。"""
     root, _ = _fixture(tmp_path, doc_num=5, truth=5)
     cp = tmp_path / "bad.json"
-    cp.write_text(json.dumps({"claims": [{"id": "x", "file": "DOC.md",
-                                          "pattern": "共 (\\d+) 件",
-                                          "expect": ["nope:whatever"], "why": "w"}]},
-                             ensure_ascii=False), encoding="utf-8")
+    cp.write_text(json.dumps({
+        "claims": [{"id": "x", "file": "DOC.md", "pattern": "共 (\\d+) 件",
+                    "expect": ["nope:whatever"], "why": "w"}],
+        "entry_contract": {"file": "spec/ROUNDLOG.md", "require": ["决策："],
+                           "min_session": 180, "why": "w"}},
+        ensure_ascii=False), encoding="utf-8")
     got = _run("--root", str(root), "--claims", str(cp))
     assert got.returncode == 1 and "未知真值源" in got.stdout, got.stdout
 
@@ -137,3 +147,74 @@ def test_fail_closed_registry_states(tmp_path):
         got = _run("--root", str(root), "--claims", str(path))
         assert got.returncode == 1, f"{name} 必须红：{got.stdout}"
         assert "登记表不健康" in got.stdout, (name, got.stdout)
+
+
+# ---------- 第二族判据：账目格式契约（治「把解释变成终点」）----------
+
+EC = {"file": "spec/ROUNDLOG.md", "require": ["决策：", "证据："], "min_session": 180,
+      "why": "夹具"}
+
+
+def _entry_fixture(tmp_path: pathlib.Path, log_text: str, ec: dict | None = None):
+    """账目夹具：一份 claims（满足第一族即可）+ 一份 ROUNDLOG 文本 + entry_contract。"""
+    (tmp_path / "spec").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "spec" / "ROUNDLOG.md").write_text(log_text, encoding="utf-8")
+    (tmp_path / "truth.json").write_text(json.dumps({"items": [1]}), encoding="utf-8")
+    (tmp_path / "DOC.md").write_text("共 1 件。\n", encoding="utf-8")
+    doc: dict = {"claims": [{"id": "fx", "file": "DOC.md", "pattern": "共 (\\d+) 件",
+                             "expect": ["json_len:truth.json:items"], "why": "夹具"}]}
+    if ec is not None:
+        doc["entry_contract"] = ec
+    cp = tmp_path / "claims.json"
+    cp.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    return tmp_path, cp
+
+
+OK_ENTRY = "## S200 · 齐栏条目\n- 决策：做 A\n- 证据：见 `x.py`\n"
+OLD_ENTRY = "## S100 · 老条目\n- 决策：x\n"
+
+
+def test_entry_contract_real_repo_passes_and_is_reported():
+    """真仓：账目契约在跑（摘要里看得见闸门与栏位），且 S180+ 条目齐栏。"""
+    got = _run()
+    assert got.returncode == 0 and "entry>=180" in got.stdout, got.stdout
+
+
+def test_entry_contract_canary_missing_evidence_is_red(tmp_path):
+    """金丝雀红：新条目只写归因、没有证据 ⇒ 必红并点名条目号。"""
+    root, cp = _entry_fixture(
+        tmp_path, OK_ENTRY + "\n## S999 · 只写归因\n- 决策：一句话\n- 备注：根因是它。\n", EC)
+    got = _run("--root", str(root), "--claims", str(cp))
+    assert got.returncode == 1 and "S999" in got.stdout and "证据：" in got.stdout, got.stdout
+    assert "S200" not in got.stdout, "齐栏条目不得被牵连"
+
+
+def test_entry_contract_grandfathers_history(tmp_path):
+    """棘轮钉现状：min_session 之前的条目缺证据也不红（历史不追溯）。"""
+    root, cp = _entry_fixture(tmp_path, OLD_ENTRY + "\n" + OK_ENTRY, EC)
+    got = _run("--root", str(root), "--claims", str(cp))
+    assert got.returncode == 0, got.stdout
+
+
+def test_entry_contract_fail_closed_states(tmp_path):
+    """契约缺失 / require 空 / min_session 不是整数 / 账目里一条条目都没有 ⇒ 四种都红。"""
+    root, cp = _entry_fixture(tmp_path, OK_ENTRY, ec=None)
+    assert _run("--root", str(root), "--claims", str(cp)).returncode == 1, "缺 entry_contract 必红"
+    for bad_ec in ({"file": "spec/ROUNDLOG.md", "require": [], "min_session": 180},
+                   {"file": "spec/ROUNDLOG.md", "require": ["决策："], "min_session": "180"},
+                   {"file": "spec/ROUNDLOG.md", "require": ["决策："]}):
+        root2, cp2 = _entry_fixture(tmp_path / f"c{abs(hash(str(bad_ec))) % 9999}",
+                                    OK_ENTRY, bad_ec)
+        got = _run("--root", str(root2), "--claims", str(cp2))
+        assert got.returncode == 1 and "登记表不健康" in got.stdout, (bad_ec, got.stdout)
+    root3, cp3 = _entry_fixture(tmp_path / "noentry", "（这里没有条目）\n", EC)
+    got3 = _run("--root", str(root3), "--claims", str(cp3))
+    assert got3.returncode == 1 and "账没了" in got3.stdout, got3.stdout
+
+
+def test_entry_contract_missing_file_is_red(tmp_path):
+    """契约指向的账目文件不存在 ⇒ 红（契约指向空气）。"""
+    root, cp = _entry_fixture(tmp_path, OK_ENTRY, EC)
+    (root / "spec" / "ROUNDLOG.md").unlink()
+    got = _run("--root", str(root), "--claims", str(cp))
+    assert got.returncode == 1 and "账目不在" in got.stdout, got.stdout

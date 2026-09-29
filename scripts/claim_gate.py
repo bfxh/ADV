@@ -158,6 +158,46 @@ def load_claims(path: pathlib.Path) -> list[dict]:
     return claims
 
 
+def load_entry_contract(path: pathlib.Path) -> dict:
+    """账目格式契约（第二族判据）：`entry_contract` = {file, require[], min_session}。
+
+    治的是「**把解释变成终点**」的结构等价物——条目只写归因、不附证据/决策。
+    口径是**棘轮钉现状**：`min_session` 之前的条目祖父化（历史不追溯），之后必须齐栏。
+    """
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"登记表不可读/坏 JSON: {exc}") from exc
+    ec = doc.get("entry_contract") if isinstance(doc, dict) else None
+    if not isinstance(ec, dict) or not ec.get("file") \
+            or not isinstance(ec.get("require"), list) or not ec["require"] \
+            or not isinstance(ec.get("min_session"), int):
+        raise ValueError("entry_contract 缺失/字段不全（file/require[]/min_session 必填）"
+                         "——账目契约被清空即失效（占位即红）")
+    return ec
+
+
+def entry_violations(root: pathlib.Path, ec: dict) -> list[str]:
+    """按契约扫账目：`## S<编号> ·` 分块，编号 ≥ min_session 的条目必须齐 `require` 各栏。"""
+    fp = root / ec["file"]
+    if not fp.is_file():
+        return [f"账目不在（{ec['file']}）——契约指向空气？"]
+    blocks = re.split(r"\n(?=## S\d+ · )", fp.read_text(encoding="utf-8", errors="replace"))
+    entries = [b for b in blocks if b.startswith("## S")]
+    if not entries:
+        return [f"{ec['file']} 里一条 `## S<编号> ·` 都没有——账没了（读完即失效）"]
+    bad: list[str] = []
+    for b in entries:
+        m = re.match(r"## S(\d+) ·", b)
+        if not m or int(m.group(1)) < ec["min_session"]:
+            continue
+        missing = [f for f in ec["require"] if f not in b]
+        if missing:
+            bad.append(f"{ec['file']} S{m.group(1)}: 缺 {' / '.join(missing)}"
+                       f"（≥S{ec['min_session']} 的条目必须齐栏）")
+    return bad
+
+
 def violations(root: pathlib.Path, claims: list[dict]) -> list[str]:
     """逐条复算 → 不一致/找不到都记一条（含真值，便于一眼对账）。"""
     bad: list[str] = []
@@ -192,14 +232,16 @@ def main(argv: list[str]) -> int:
     cpath = pathlib.Path(a.claims).resolve() if a.claims else root / "spec" / "claim-checks.json"
     try:
         claims = load_claims(cpath)
+        ec = load_entry_contract(cpath)
     except ValueError as exc:
         print(f"CLAIM-GATE FAIL 登记表不健康：{exc}")
         return 1
-    bad = violations(root, claims)
+    bad = violations(root, claims) + entry_violations(root, ec)
     for line in bad:
         print(f"  ✗ {line}")
     print(f"CLAIM-GATE {'OK' if not bad else 'FAIL'} claims={len(claims)} "
-          f"mismatch={len(bad)} 登记表={cpath.name}")
+          f"entry>={ec['min_session']} 栏位={len(ec['require'])} mismatch={len(bad)} "
+          f"登记表={cpath.name}")
     return 1 if bad else 0
 
 
