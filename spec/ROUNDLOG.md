@@ -1658,3 +1658,25 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   - **真语料误报抽样账**（`bench/s191_save_rules_probe.py`，VoxelForge 快照 32 文件）：候选锚点 12 行 → 报 3 行（写 1 + 读 2），**逐行读码 3/3 为真**——`V3_25:1421 std::fs::write("save.ron", ...)`（生产路径 `save_load_system`）、`V3_25:1437 ron::from_str::<SaveData>(&text)`（同函数、无版本门）、`V3_24:216`（同形态但在 `#[cfg(test)]` 里 ⇒ 自动带"测试代码，降级"）；未报的 9 行里 8 行是模块库 RON 解析（非存档语料）、1 类是 `OpenOptions`（已写进边界）。**样本小（32 文件），不当泛化结论**
   - 版本锁步 2.91.0×4（server.py / Cargo.toml / Cargo.lock / README 头）+ 11 个 exe 重建 ⇒ `EXE_TAG ok=11 drift=0`、`SCHEMA_BAD 0`、86 工具；`cargo clippy -- -D warnings` 零告警；`cargo fmt` 本仓无门（存量本就 fmt-dirty，按仓内手写风格）
 - ⚠️ 边界：①`OpenOptions::new().create(true).truncate(true).open(p)` 组合式打开**未覆盖**；②语言面只有 Rust（C#/GDScript/Python 在判定档队列第 5 项）；③不做跨函数数据流（"写在哪里原子"要靠 taint 域，不是这条）；④规则只报 clue，治理动作留给人（G1 同精神）；⑤Mimosa 深度审计本轮仍未跑通，**不宣称项目安全**
+
+## S191 补 · PR #108 的 CI 红（覆盖率档）：**测试临时目录只靠 nanos 区分 ⇒ 撞车**；判据加"不靠时钟粒度"一条
+- 项目：ADV｜时间：2026-09-29T19:20
+- 现象：PR #108 的 `gates` 里 **coverage-gate 红**——`cargo llvm-cov` 的 `cargo test --tests` 对
+  `--test save_rules_test` 报 `test failed`（rc=101）；而同一提交的 `rust` job（普通 `cargo test`）
+  **绿**。本地 gnu 工具链建不了 profiler runtime、MSVC 缺 link.exe ⇒ **覆盖率跑本机复现不了**
+  （与 `coverage_gate.py` docstring 记的老限制一致）。
+- 根因（机制 + 仓内惯例两条证据）：我的 `TempDir::new` 给**所有 15 个测试都用同一个 tag `"one"`**，
+  唯一性**只靠 `SystemTime::now().as_nanos()`**——Windows 上系统时钟粒度可以很粗，插桩（llvm-cov
+  `--cfg=coverage`）又把各测试挤到一起 ⇒ 两个测试落进**同一个临时目录**、互相覆盖夹具 ⇒ 断言看到
+  别人的语料。仓内惯例本来就是**每个测试用不同 tag**（`bug_test.rs` 的 `"core"/"dyn"/"match"/…`、
+  `secrets_test.rs` 的 `"rules"/"ph"/"trunc"`、`sem_test.rs` 的 `"cjk"/"pydefs"/…`）——我漏了这条。
+- 修法（两条都做）：①tag 按测试区分（`"nonatomic"/"atomic"/"rename"/"load"/…`）；②`TempDir::new`
+  加**进程内 `AtomicUsize` 计数**，不再靠时钟粒度。**判据补一条** `temp_dirs_never_collide`
+  （同 tag 连取两个目录必须不同）。
+- 证据（金丝雀证机制，不只证结论）：把 `TempDir::new` 改成**恒定目录名**（模拟粗时钟撞车）⇒
+  **11/16 测试当场红**（`FAILED ... panicked at tests\save_rules_test.rs:90`），与 CI 症状同形；
+  还原后 16/16 绿、clippy 零告警。
+- ⚠️ 另一条产品级教训（**不搭车修，另案**）：`coverage_gate.py` 失败时只打印 cargo 输出**最后 300
+  字符**，恰好把 panic 行截掉 ⇒ 我拿不到真因、只能靠推理与金丝雀反推。**"FAIL 不静默"目前只做到
+  "不静默地说失败"，没做到"说清为什么失败"**——该把上下文放宽（另开 PR 引用本处）。
+- 边界：覆盖率门本身仍只在 CI 可跑（本机限制未变）；Mimosa 深度审计本轮仍未跑通，不宣称项目安全。
