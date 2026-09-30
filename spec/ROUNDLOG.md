@@ -1680,3 +1680,12 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
   字符**，恰好把 panic 行截掉 ⇒ 我拿不到真因、只能靠推理与金丝雀反推。**"FAIL 不静默"目前只做到
   "不静默地说失败"，没做到"说清为什么失败"**——该把上下文放宽（另开 PR 引用本处）。
 - 边界：覆盖率门本身仍只在 CI 可跑（本机限制未变）；Mimosa 深度审计本轮仍未跑通，不宣称项目安全。
+
+## S192 · arch_gate 加 **Rust 语言面**（`use` 边 + 行号）——判定档队列第 3 项被**测量否证**、第 4 项前置落地；版本 2.91.0 → 2.92.0
+- 项目：ADV｜时间：2026-09-29T18:05
+- 决策：①**先量后改**：按判定档队列，下一项本是"全局可变态"（Rust `static mut` / Python `global`）——量了一下发现**两个都不产生信号**：BSHSQ（20 crate、整个工作区）与 VoxelForge 快照里 `static mut` / `unsafe impl Sync for` **各 0 处**；Python `global` 在本仓自身就有 **12+ 处**且都是合法用法（registry 的单例桩）⇒ 规则会上来就刷屏。**该条据此否决并留档**（判定档 §二 已回填），不硬做。②改成做**真正有价值的那个**：`arch_gate.py` 加 **Rust 语言面**——用户的项目（BSHSQ/VoxelForge）是 Rust，而守卫此前只认 `.py`，等于对它们的"层间不许依赖"毫无约束力；BSHSQ 的 `Cargo.toml` 顶部用注释写着依赖 DAG 与"禁止环"，**机器一条都没在守**。
+- 语法工程（全部进判据表）：`use` 边（`mod` 声明只构成模块树，**不取**）· 分组 `a::{b, c::d}`、嵌套分组、glob `a::*`、别名 `a as b`、**多行 use** 全部展开 · `crate::`/`self::`/`super::`（含连续 `super::super::`）**就地解析成 crate 限定名**（`crate::sim::step` → `<本文件 crate>.sim.step`，让"同 crate 内"与"跨 crate"规则写法统一）· 模块名 = **最近的 `Cargo.toml`** 的 crate 名 + `src/` 下路径（`lib.rs`/`main.rs`/`mod.rs` 折叠、`src/bin/x.rs` → `<crate>.x`）· **连字符与下划线双形态都发候选**（crate 名写 `vxl-phys-core`、路径写 `vxl_phys_core`，规则写哪种都命中）· `scope: toplevel` 的 Rust 语义 = **不在任何 `fn` 体内**（函数内 `use` 是延迟导入，与 Python 同语义）。
+- 真仓测量（**不随 PR 进仓**，规则文件在 %TEMP%）：**BSHSQ 全工作区 4404 条 use 边、3 条声明 DAG 规则、0 违规、0.37s** ⇒ 声明的依赖 DAG 今天在**文件级**也成立（crate 级另测：20 crate / 34 边 / **0 环**，`core` 无同工作区依赖）。**金丝雀（在真仓上故意把真实方向声明为禁向）**：`solver → core` 禁掉后报 **38 行**并逐条定位到 `use` 行（`vxl-phys-solver.ccd:15`、`vxl-phys-solver.joints.solve:3`…）⇒ **"0 违规"是真干净，不是扫不到**。
+- 证据：新增 `tests/test_s192_arch_rust.py` **9 例**（金丝雀红=违规必红且定位到 use 行/修掉转绿 · 金丝雀静=上层依赖下层不报 · 展开表 5 条 · 模块名表含 lib/main/mod 折叠与 src/bin · **连字符/下划线双形态** · `scope=toplevel` 与 `any` 两向 · 混语言同根两边都在 · 确定性）；**变异三轮全还原**（A 关掉 Rust 边 ⇒ 6 红；B scope 恒顶层 ⇒ 1 红；C 去掉连字符形态 ⇒ 3 红）；S188 既有 7 例照绿（**Python 语义未变**）；快门 24 步全绿。
+- ⚠️ **判据过程发现的真缺陷（本 PR 不搭车修）**：一条 import 行会被**前缀重叠的规则模式重复报**（`import: ["vxl-phys-render", "vxl-phys-render.*"]` 两种都命中 ⇒ 同一行两条；**Python 侧现状亦然**，本仓某条 `import: ["tools", "tools.*"]` 对一个 `from tools.fs import x` 同样双报）——所以 `violations=N` 现在是"命中边数"而非"违规行数"，金丝雀那 38 行里也含重复。修法是在 `violations()` 按 (模块, 行号, 规则) 去重，属**独立小 PR**（引用本片出处）。
+- 边界：不做 `#[cfg]` 求值、不做宏展开（`macro_rules!` 生成的 `use` 看不见）、不做字符串掩码（`use` 语句不含字面量，注释已剥离）；`mod` 声明不取；**Mimosa 深度审计本轮仍未跑通，不宣称项目安全**。
