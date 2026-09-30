@@ -58,11 +58,11 @@
   {
    "round": "复审六（主张可复算/守卫精度/编译账 期；S190-S199 合并后）",
    "date": "2026-09-30",
-   "copy": "Mimosa deep 扫描（本机 MCP，deep，static_only_no_runtime_execution / verdictEffect=none）scanId=scan-2026-09-30T13-45-52.517Z-49b9e47c918f；**46 条未逐条定罪**，抽样分诊三类：①path-traversal 34 条集中在 bench/ 与门禁脚手架（路径来自本机操作者/夹具，非不可信输入面）②知识库/文档文本命中（如 vulnkb.py 里描述 pickle/yaml 的文本）③已挂 __authorized 授权门的调试器语义（ide_debug 表达式求值）；⇒ 记档待逐条分诊，不宣称安全",
+   "copy": "Mimosa deep 扫描（本机 MCP，deep，static_only_no_runtime_execution / verdictEffect=none）scanId=scan-2026-09-30T13-45-52.517Z-49b9e47c918f；**46 条未逐条定罪**，抽样分诊三类：①path-traversal 34 条集中在 bench/ 与门禁脚手架（路径来自本机操作者/夹具，非不可信输入面）②知识库/文档文本命中（如 vulnkb.py 里描述 pickle/yaml 的文本）③已挂 __authorized 授权门的调试器语义（ide_debug 表达式求值）；⇒ 记档待逐条分诊，不宣称安全；**锚修正（S199 补）**：原记 f74a2d2（分支上被 amend 掉的提交 ⇒ 合入主干后成 ghost，主干 core 的 audit-freshness 门当场红）⇒ 改为**主干可达的合并提交**；扫描对象与 22fe6ee 同树（账本/表两文件为登记时写入）",
    "seal": "sha256:7d861f5b",
    "findings": 46,
    "verdict": "inconclusive",
-   "head": "f74a2d2"
+   "head": "22fe6ee"
   }
  ]
 }
