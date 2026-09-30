@@ -245,6 +245,32 @@ def t_repo_map(rec):
     return (r.get("ok") and "solo" in blob), "符号地图含 solo"
 
 
+def t_save_rules_fire(rec):
+    """S191 存档区两条规则：违例夹具 ⇒ 经**工具面真路径**两条都要报出来。"""
+    p = _w("sv/main.rs",
+           'fn s(d: String) {\n    std::fs::write("save.ron", d).unwrap();\n}\n'
+           'fn l(t: &str) {\n    let x: SaveData = ron::from_str(t).unwrap();\n}\n')
+    r = rec.call("bug_scan", {"path": str(Path(p).parent)})
+    rules = {i.get("rule") for i in (r.get("result") or {}).get("issues", [])}
+    ok = bool(r.get("ok") and {"save_nonatomic_write", "save_load_no_version"} <= rules)
+    return ok, f"save_rules={sorted(x for x in rules if str(x).startswith('save_'))}"
+
+
+def t_save_rules_quiet(rec):
+    """S191 金丝雀"静"的一头：中间路径 + rename（原子写）、`format_version` 分支在场 ⇒
+    一条 `save_*` 都不许报——只测"能报"会放过"见谁都报"的假门。"""
+    p = _w("svok/main.rs",
+           'fn s(d: String, p: std::path::PathBuf) -> std::io::Result<()> {\n'
+           '    let t = p.with_extension("tmp");\n    std::fs::write(&t, d.as_bytes())?;\n'
+           '    std::fs::rename(&t, &p)\n}\n'
+           'fn l(t: &str) -> Option<SaveData> {\n    let r = ron::from_str::<SaveData>(t).ok()?;\n'
+           '    if r.format_version < CURRENT { return migrate(r); }\n    Some(up(r))\n}\n')
+    r = rec.call("bug_scan", {"path": str(Path(p).parent)})
+    hits = [i for i in (r.get("result") or {}).get("issues", [])
+            if str(i.get("rule", "")).startswith("save_")]
+    return bool(r.get("ok") and not hits), f"save_hits={len(hits)}"
+
+
 TASKS = [
     ("fs_roundtrip", "写读往返（授权→读回一致）", t_fs_roundtrip),
     ("bug_scan_except_pass", "静态扫描找到植入的 except_pass", t_bug_scan_except_pass),
@@ -259,6 +285,8 @@ TASKS = [
     ("dep_cycle", "依赖环检出", t_dep_cycle),
     ("xor_file", "文件扫描锁定异或密钥", t_xor_file),
     ("repo_map", "符号地图含 focus 定义", t_repo_map),
+    ("save_rules_fire", "S191 存档两规则：违例夹具两条都报（工具面真路径）", t_save_rules_fire),
+    ("save_rules_quiet", "S191 金丝雀静：原子写+版本门在场时 save_* 零命中", t_save_rules_quiet),
 ]
 
 
@@ -277,6 +305,24 @@ def run_all():
     return rows
 
 
+def _flag(row, base_row, chk):
+    """体量/回归标记（有基线才比）：` BLOAT` / ` REGRESS`。"""
+    if not (chk and base_row):
+        return ""
+    if row["chars"] > base_row.get("chars", 0) * 1.10:
+        return " BLOAT"
+    return "" if row["ok"] or not base_row.get("ok") else " REGRESS"
+
+
+def _print_rows(rows, base, chk):
+    """逐行打印 + 合计（S195 自 main 抽出，换文件行数额度）。"""
+    for r in rows:
+        print(f"{'PASS' if r['ok'] else 'FAIL'} {r['name']:22s} calls={r['calls']} err={r['errors']} "
+              f"chars={r['chars']} {r['ms']}ms {r['detail']}{_flag(r, base.get(r['name']), chk)}")
+    print(f"TOTAL tasks={len(rows)} calls={sum(r['calls'] for r in rows)} "
+          f"errors={sum(r['errors'] for r in rows)} chars={sum(r['chars'] for r in rows)}")
+
+
 def main(argv):
     rows = run_all()
     upd = "--update-baseline" in argv
@@ -284,21 +330,7 @@ def main(argv):
     base = {}
     if chk and BASELINE.is_file():
         base = (json.loads(BASELINE.read_text(encoding="utf-8")) or {}).get("tasks", {})
-    total_calls = sum(r["calls"] for r in rows)
-    total_chars = sum(r["chars"] for r in rows)
-    total_err = sum(r["errors"] for r in rows)
-    for r in rows:
-        b = base.get(r["name"])
-        flag = ""
-        if chk and b:
-            if r["chars"] > b.get("chars", 0) * 1.10:
-                flag = " BLOAT"
-            if not r["ok"] and b.get("ok"):
-                flag = " REGRESS"
-        print(f"{'PASS' if r['ok'] else 'FAIL'} {r['name']:22s} calls={r['calls']} "
-              f"err={r['errors']} chars={r['chars']} {r['ms']}ms {r['detail']}{flag}")
-    print(f"TOTAL tasks={len(rows)} calls={total_calls} errors={total_err} "
-          f"chars={total_chars}")
+    _print_rows(rows, base, chk)
     if upd:
         BASELINE.write_text(json.dumps(
             {"note": "S144 任务级 evals 基线（--update-baseline 生成；check 判红="

@@ -423,13 +423,21 @@ appaudit.rs，S98 逐一核账）。
 | 语言 | 注入 | 路径 | 并发 | 资源 | 逻辑 | 物理引擎陷阱 | 秘密/凭据 |
 |---|---|---|---|---|---|---|---|
 | Python | ✅ `eval_exec`（裸 Call eval/exec/compile；ast_scan 调用面）；✅ 真污点 source→sink **跨函数/跨文件**（S128：全扫描集唯一名连边 + nameres 调用图名解析[别名/模块属性]，链证据 origin；同名多义跳过计数——浅数据流非字段敏感，见行外注）；✅ **S131 八规则**（`py_shell_true` `pickle_loads` `yaml_unsafe_load` `weak_hash_password` `sql_concat` `mktemp_race` `zip_extractall` `except_pass`——模式层，配 KB 条目）；⚠️ getattr/importlib 动态面 | ⚠️ 需数据流（输入→join→open）；本仓以运行时沙盒钳制为防线 | ⚠️ 运行时状态（GIL 掩盖、asyncio 竞态） | ⚠️ 未关句柄/无界增长需数据流 | ✅ `bare_except` `undefined_name` `redefined_import`（含导入遮蔽内建）`syntax_error`；generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number`；code_review complexity/TODO | —（不承载） | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
-| Rust | ⚠️ 无动态执行面；命令拼接（process::Command）需数据流 | ⚠️ 同左 | ⚠️ Send/Sync 编译器管；数据竞争需 miri/loom 等运行时 | ⬜ 低（无泄漏检测；unsafe 面 ast_scan 有信号） | ✅ `unwrap` `expect` `panic` `unreachable` `todo_unimplemented` `as_cast` `indexing`（indexing 含 `[x as usize]` 形态；clue 全量上报是设计）；ast_scan rust 结构信号 + rust_reach（prod/test_only/unreferenced 分级） | ✅ `bevy_phys_manual_support_force` `bevy_phys_static_with_velocity` `bevy_phys_locked_axes_bits`（+5 条 bevy API 规则：old_system/old_startup/event_iter/text_old/query_single） | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
+| Rust | ⚠️ 无动态执行面；命令拼接（process::Command）需数据流 | ⚠️ 同左 | ⚠️ Send/Sync 编译器管；数据竞争需 miri/loom 等运行时 | ⬜ 低（无泄漏检测；unsafe 面 ast_scan 有信号） | ✅ `unwrap` `expect` `panic` `unreachable` `todo_unimplemented` `as_cast` `indexing`（indexing 含 `[x as usize]` 形态；clue 全量上报是设计）；**S191 存档区两条**：`save_nonatomic_write`（直写存档路径，目标不是临时/中间文件）`save_load_no_version`（解析存档语料，所在函数无版本门）；ast_scan rust 结构信号 + rust_reach（prod/test_only/unreferenced 分级） | ✅ `bevy_phys_manual_support_force` `bevy_phys_static_with_velocity` `bevy_phys_locked_axes_bits`（+5 条 bevy API 规则：old_system/old_startup/event_iter/text_old/query_single） | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
 | GDScript | ⬜ 中（`Expression.parse`/`load()` 动态面） | ⚠️ 需数据流 | ⚠️ 运行时状态 | ⬜ 低 | ✅ std_check `placeholder`/`magic_number`（magic 语言门含 gdscript）；ui_check godot 死按钮（`ui_pattern`） | ⬜ 低（未踩坑） | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
 | C# | ⬜ 中（`Process.Start`/`Activator`） | ⚠️ 需数据流 | ⚠️ 运行时状态（async 竞态） | ⬜ 低 | ✅ std_check `placeholder`（**magic_number 语言门不含 csharp**）；ui_check unity 死按钮（`ui_pattern`） | ⬜ 低 | ⬜ 低 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
 | JS/TS | ✅ generic `eval_exec`（eval/exec/execSync；ast_scan 词法掩码 `new Function`，成员 `.exec(` 排除）；code_review security 透镜（innerHTML/SQL 拼接等模式） | ⚠️ 需数据流 | ⚠️ 事件循环竞态（运行时） | ⬜ 低 | ✅ generic `assert_always_true` `equal_float`；std_check `placeholder`/`magic_number` | —（不承载） | ✅ appaudit `private_key_block`(definite) `api_key_sk` `github_pat` `aws_access_key` `secret_by_key`(clue)——面向 app 快照审计，非通用仓扫 | <!-- naming:allow（文档示例/历史乱码行，编码修复另案） -->
 | 其他识别语言（Go/Dart/Lua/Java/Kotlin/PHP/Ruby/Swift/C/C++） | ⬜ 低 | ⚠️ 需数据流 | ⚠️ 运行时状态 | ⬜ 低 | ✅ generic `assert_always_true`/`equal_float`（Go 另有 magic_number 语言门）；其余 ⬜ | ⬜ 低 | ⬜ 低 |
 
 **行外注**：
+- **S191 存档区两条**（`rust/src/bug/save.rs`，判定档街区 10）：判据是**写点/解析点自身**
+  + 所在函数——`save_nonatomic_write` 看"目标是不是临时/中间路径"（抑制只看写点，**不**做
+  "函数里有没有 rename"的推断：原子写的落盘目标是 scratch 路径，本就不含存档 token；
+  "直写存档 + 无关 rename"反而会被误静——该推断实测已否掉）；`save_load_no_version`
+  看"所在函数有没有 version/schema/migrat/compat"。两条都只报 clue。边界：`OpenOptions`
+  组合式打开、C#/GDScript/Python 语言面、跨函数数据流**都没做**；误报抽样账见
+  `bench/s191_save_rules_probe.py`（VoxelForge 快照 32 文件：候选锚点 12 行 → 报 3 行，
+  逐行读码 3/3 为真；样本小，别当泛化结论）。
 - appaudit 另有 JS 危险面 6 规则：`eval_call` `new_function` `child_process`
   `open_external` `auto_updater` `protocol_register`——面向 Electron 快照审计。
 - `rust_taint_scan` 的 definite/clue 是**可达性分级**（入口形参=definite、helper

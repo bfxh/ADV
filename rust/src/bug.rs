@@ -119,15 +119,9 @@ pub fn bug_scan(root: &str, max_files: usize) -> Value {
         bump(&mut by_sev, i.sev.unwrap_or("info"));
     }
     // 稳定排序（Rust sort_by 稳定 = Python list.sort）：severity 缺失落 info 档
-    let rank = |s: Option<&str>| match s {
-        Some("high") => 0usize,
-        Some("med") => 1,
-        Some("low") => 2,
-        _ => 3,
-    };
     issues.sort_by(|a, b| {
-        rank(a.sev)
-            .cmp(&rank(b.sev))
+        sev_rank(a.sev)
+            .cmp(&sev_rank(b.sev))
             .then_with(|| a.file.cmp(&b.file))
             .then_with(|| a.line.cmp(&b.line))
     });
@@ -149,11 +143,22 @@ pub fn bug_scan(root: &str, max_files: usize) -> Value {
 // ---------- Python 迷你 AST 规则 ----------
 
 
+/// severity 排序键（缺省/未知落 info 档）——S191 从 `bug_scan` 内联闭包提出（换文件行数额度）。
+fn sev_rank(s: Option<&str>) -> usize {
+    match s {
+        Some("high") => 0usize,
+        Some("med") => 1,
+        Some("low") => 2,
+        _ => 3,
+    }
+}
+
 // ── S168：按域拆出的子模块（子目录 bug/）
 mod py;
 mod rust;
 mod phys;
 mod generic;
+mod save;
 pub(crate) use self::{py::*, rust::*, phys::*, generic::*};   // S168：子模块条目再导出（子模块 use super::* 即可见）
 
 /// S153：单文件扫描（原循环体逐字搬入）。返回 (issues, 是否计入 files_scanned)。
@@ -164,11 +169,15 @@ pub(crate) fn scan_one(fp: &str) -> (Vec<Issue>, bool) {
     }
     // OSError 仍占名额（与 Python 先计数后打开一致）
     let Some(src) = read_text(Path::new(fp)) else { return (Vec::new(), true) };
-    let issues = match lang {
+    let mut issues = match lang {
         "python" => scan_python(&src, fp),
         "rust" => scan_rust(&src, fp),
         _ => scan_generic(&src, fp),
     };
+    if lang == "rust" {
+        // S191 存档区两条（非原子写 / 读无版本门）：Rust 语言面，随语言分派在此接线
+        issues.extend(save::save_rules(&src, fp));
+    }
     (issues, true)
 }
 
