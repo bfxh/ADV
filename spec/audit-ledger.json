@@ -54,6 +54,15 @@
    "findings": 400,
    "verdict": "inconclusive",
    "head": "b5ae2ce"
+  },
+  {
+   "round": "复审六（主张可复算/守卫精度/编译账 期；S190-S199 合并后）",
+   "date": "2026-09-30",
+   "copy": "Mimosa deep 扫描（本机 MCP，deep，static_only_no_runtime_execution / verdictEffect=none）scanId=scan-2026-09-30T13-45-52.517Z-49b9e47c918f；**46 条未逐条定罪**，抽样分诊三类：①path-traversal 34 条集中在 bench/ 与门禁脚手架（路径来自本机操作者/夹具，非不可信输入面）②知识库/文档文本命中（如 vulnkb.py 里描述 pickle/yaml 的文本）③已挂 __authorized 授权门的调试器语义（ide_debug 表达式求值）；⇒ 记档待逐条分诊，不宣称安全",
+   "seal": "sha256:7d861f5b",
+   "findings": 46,
+   "verdict": "inconclusive",
+   "head": "f74a2d2"
   }
  ]
 }

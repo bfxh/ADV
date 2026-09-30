@@ -31,7 +31,7 @@ def test_tool_evals_green():
     assert cp.returncode == 0, f"评测红:\n{cp.stdout}\n{cp.stderr}"
     assert "TOOL-EVALS OK" in cp.stdout
     assert "failed=[]" not in cp.stdout          # OK 路径不出现 failed 清单
-    assert "TOTAL tasks=13" in cp.stdout
+    assert "TOTAL tasks=15" in cp.stdout   # S195：+2 条（存档两规则：fire / quiet）
 
 
 def test_baseline_in_registry():

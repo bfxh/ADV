@@ -28,3 +28,4 @@ extend-exclude = [
 "Ue" = "Ue"           # 高熵测试密钥串片段（…nT8yUe）
 "unparseable" = "unparseable"  # 合法英文拼法（typos 词典只认 unparsable——误报）
 "appliable" = "appliable"      # swe_p3/UPGRADE 的输出列名（历史报告同口径；改=动输出契约/失真历史）
+"sav" = "sav"                  # S191 存档规则的 token 子串（覆盖 save/.sav/SaveData——故意取前缀）

@@ -114,6 +114,11 @@
   "max_fn_lines": 93,
   "max_type_members": 0
  },
+ "bench/s191_save_rules_probe.py": {
+  "file_lines": 86,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
  "bench/s94_perf.py": {
   "file_lines": 233,
   "max_fn_lines": 68,
@@ -145,8 +150,8 @@
   "max_type_members": 0
  },
  "bench/tool_evals.py": {
-  "file_lines": 325,
-  "max_fn_lines": 38,
+  "file_lines": 357,
+  "max_fn_lines": 24,
   "max_type_members": 2
  },
  "bench/unified_report.py": {
@@ -335,8 +340,8 @@
   "max_type_members": 0
  },
  "rust/src/bug.rs": {
-  "file_lines": 212,
-  "max_fn_lines": 48,
+  "file_lines": 221,
+  "max_fn_lines": 42,
   "max_type_members": 1
  },
  "rust/src/bug/generic.rs": {
@@ -358,6 +363,11 @@
   "file_lines": 429,
   "max_fn_lines": 102,
   "max_type_members": 0
+ },
+ "rust/src/bug/save.rs": {
+  "file_lines": 329,
+  "max_fn_lines": 31,
+  "max_type_members": 2
  },
  "rust/src/deadcode.rs": {
   "file_lines": 298,
@@ -594,6 +604,11 @@
   "max_fn_lines": 17,
   "max_type_members": 2
  },
+ "rust/tests/save_rules_test.rs": {
+  "file_lines": 256,
+  "max_fn_lines": 35,
+  "max_type_members": 2
+ },
  "rust/tests/scan_test.rs": {
   "file_lines": 288,
   "max_fn_lines": 25,
@@ -620,8 +635,8 @@
   "max_type_members": 0
  },
  "scripts/arch_gate.py": {
-  "file_lines": 159,
-  "max_fn_lines": 25,
+  "file_lines": 346,
+  "max_fn_lines": 32,
   "max_type_members": 0
  },
  "scripts/attack_gate.py": {
@@ -665,8 +680,8 @@
   "max_type_members": 0
  },
  "scripts/coverage_gate.py": {
-  "file_lines": 125,
-  "max_fn_lines": 22,
+  "file_lines": 136,
+  "max_fn_lines": 21,
   "max_type_members": 0
  },
  "scripts/deps_lock.py": {
@@ -1244,9 +1259,29 @@
   "max_fn_lines": 19,
   "max_type_members": 0
  },
+ "tests/test_s191_save_rules.py": {
+  "file_lines": 86,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s192_arch_rust.py": {
+  "file_lines": 175,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "tests/test_s193_coverage_ctx.py": {
+  "file_lines": 102,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
  "tests/test_s194_claim_gate.py": {
   "file_lines": 221,
   "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "tests/test_s195_eval_tasks.py": {
+  "file_lines": 55,
+  "max_fn_lines": 14,
   "max_type_members": 0
  },
  "tests/test_s195_guard_gate.py": {
