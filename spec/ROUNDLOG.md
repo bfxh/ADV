@@ -1689,3 +1689,22 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 证据：新增 `tests/test_s192_arch_rust.py` **9 例**（金丝雀红=违规必红且定位到 use 行/修掉转绿 · 金丝雀静=上层依赖下层不报 · 展开表 5 条 · 模块名表含 lib/main/mod 折叠与 src/bin · **连字符/下划线双形态** · `scope=toplevel` 与 `any` 两向 · 混语言同根两边都在 · 确定性）；**变异三轮全还原**（A 关掉 Rust 边 ⇒ 6 红；B scope 恒顶层 ⇒ 1 红；C 去掉连字符形态 ⇒ 3 红）；S188 既有 7 例照绿（**Python 语义未变**）；快门 24 步全绿。
 - ⚠️ **判据过程发现的真缺陷（本 PR 不搭车修）**：一条 import 行会被**前缀重叠的规则模式重复报**（`import: ["vxl-phys-render", "vxl-phys-render.*"]` 两种都命中 ⇒ 同一行两条；**Python 侧现状亦然**，本仓某条 `import: ["tools", "tools.*"]` 对一个 `from tools.fs import x` 同样双报）——所以 `violations=N` 现在是"命中边数"而非"违规行数"，金丝雀那 38 行里也含重复。修法是在 `violations()` 按 (模块, 行号, 规则) 去重，属**独立小 PR**（引用本片出处）。
 - 边界：不做 `#[cfg]` 求值、不做宏展开（`macro_rules!` 生成的 `use` 看不见）、不做字符串掩码（`use` 语句不含字面量，注释已剥离）；`mod` 声明不取；**Mimosa 深度审计本轮仍未跑通，不宣称项目安全**。
+
+HEAD
+## S193 · 覆盖率门失败取证（另案，出处 #108）：**"不静默"要能说清为什么**，不只是说失败
+- 项目：ADV｜时间：2026-09-29T20:40
+- 决策：修 #108 施工中实测到的那条诊断缺陷（已按 PR 纪律记档出处、不搭车）：`scripts/coverage_gate.py`
+  在 llvm-cov 失败时只打印 cargo 输出的**最后 300 字符**——CI 那次恰好把 `panicked at …` 截掉，
+  于是"FAIL 不静默"只做到"说失败"，真因只能靠金丝雀反推。**门是仪器；仪器报错却不说清楚，等于
+  仪器失效**（本仓 T7 一族）。改法：`_failure_context()` **按行**取证——先点名 `panicked at` /
+  `error` / `test failed` 行（最多 4 条），再附尾部若干行（去重保序、总长 2000 字符内）。
+- 证据：新增 `tests/test_s193_coverage_ctx.py` **6 例**——**金丝雀**（夹具把 panic 行放在尾部 300
+  字符之外 ⇒ 断言异常文本里必须有它，旧口径必然丢）· 无关键词时回落尾部行 · 成功路径仍解析两种
+  形状（扁平 `line_percent` / 嵌套 `data[0].totals.lines.percent`）不改行为 · 坏 JSON / 缺字段
+  仍抛且带原文头部（**不许静默返回 0**）· 取证拼接确定性 · argv 列表 + `shell=False` 契约。
+  **本机实跑演示**：新消息在本地那次 `profiler_builtins` 失败里直接给出了 `error[E0463]` 与
+  "could not compile `unified-rx-rs` (lib test)"——旧口径只会给一截编译命令行。
+- god 棘轮：新逻辑挤在**最长函数** `main`（22 行）上 ⇒ 抽出 `_write_baseline`（22→21）换额度，
+  文件 125→136（≤10% 放行，**合法交换**）；**不 `--write-baseline`**。
+- 边界：本机仍**跑不了** llvm-cov（gnu 无 profiler runtime、msvc 缺 link.exe ⇒ 门在本地永远 SKIP，
+  测量在 CI）；本轮**未跑** Mimosa 深度审计——"项目安全"仍无证据。

@@ -28,7 +28,7 @@ BASELINE = pathlib.Path(__file__).resolve().parent.parent / "spec" / "coverage-b
 
 
 def measure() -> float:
-    """跑 llvm-cov 返回 line_percent；任何失败上抛 RuntimeError（不静默）。"""
+    """跑 llvm-cov 返回 line_percent；任何失败上抛 RuntimeError（不静默，且**附取证**）。"""
     if shutil.which("cargo") is None:
         raise RuntimeError("cargo 不可用——覆盖率门需要 Rust 工具链（CI 自带）")
     tc = os.environ.get("UNIFIED_RX_COV_TOOLCHAIN", "")
@@ -40,15 +40,21 @@ def measure() -> float:
                        errors="replace", shell=False, timeout=1800)
     if p.returncode != 0:
         raise RuntimeError(f"llvm-cov 测量失败 rc={p.returncode}："
-                           f"{(p.stderr or '')[-300:]}")
+                           f"{_failure_context(p.stdout, p.stderr)}")
     try:
         data = json.loads(p.stdout)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"llvm-cov 输出不是 JSON（{e}）：{p.stdout[:200]}") from e
-    lp = _extract_line_percent(data)
-    if lp is None:
+    if (lp := _extract_line_percent(data)) is None:
         raise RuntimeError(f"llvm-cov 输出缺行覆盖率字段（形状见下）：{p.stdout[:200]}")
     return float(lp)
+
+
+def _failure_context(out: str | None, err: str | None, limit: int = 12) -> str:
+    """失败取证：点名 panic/error 行 + 尾巴（按行）——首版只截 300 字符，恰好截掉 `panicked at …`（S191 补 实测）。"""
+    ls = [s.strip() for s in f"{err or ''}\n{out or ''}".splitlines() if s.strip()]
+    named = [s for s in ls if "panicked at" in s or "error" in s or "test failed" in s]
+    return " | ".join(dict.fromkeys(named[-4:] + ls[-limit:]))[-2000:]
 
 
 def _extract_line_percent(data):
@@ -96,6 +102,17 @@ def evaluate(value: float, baseline: float | None) -> tuple[bool, str]:
     return True, f"覆盖率 {value:.2f}% ≈ 基线 {baseline:.2f}%"
 
 
+def _write_baseline(value: float) -> int:
+    """入册/收紧基线（只准升由 evaluate 保证）。"""
+    BASELINE.parent.mkdir(parents=True, exist_ok=True)
+    BASELINE.write_text(json.dumps(
+        {"_doc": "Rust 行覆盖率基线（scripts/coverage_gate.py）：只准升，不许降。",
+         "line_percent": round(value, 2)}, ensure_ascii=False, indent=1) + "\n",
+        encoding="utf-8")
+    print(f"COVERAGE-GATE 已写基线 {value:.2f}%")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write-baseline", action="store_true")
@@ -107,13 +124,7 @@ def main() -> int:
         print(f"FAIL coverage-gate {e}")
         return 1
     if a.write_baseline:
-        BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        BASELINE.write_text(json.dumps(
-            {"_doc": "Rust 行覆盖率基线（scripts/coverage_gate.py）：只准升，不许降。",
-             "line_percent": round(value, 2)}, ensure_ascii=False, indent=1) + "\n",
-            encoding="utf-8")
-        print(f"COVERAGE-GATE 已写基线 {value:.2f}%")
-        return 0
+        return _write_baseline(value)
     ok, why = evaluate(value, baseline)
     print(f"COVERAGE-GATE line={value:.2f}% 基线="
           f"{'未记' if baseline is None else f'{baseline:.2f}%'} ⇒ {why}")
