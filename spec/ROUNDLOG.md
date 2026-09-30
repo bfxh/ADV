@@ -1638,6 +1638,59 @@ S124 的 core.yml 推上去了但**从未完整跑绿过**（首跑在 EXE_TAG �
 - 证据：新增 `tests/test_s189_mutate.py` **8 例**：金丝雀两头（有测试的变异必杀且不混进存活名单 / 无测试的必活，score∈(0,1)，三类齐）· **选测不丢**（杀手测试用 importlib 动态导入绕过静态闭包 ⇒ 必须落 `selection_missed` 而非真存活——两条的分界线就是这条判据）· **恢复安全**（全仓 sha256 逐字节一致 + 无 .mutbak 残留）· cap 确定性（两跑全 dict 相等）· 未跟踪文件全文件可变异 · 无变更如实空 · 残留 .mutbak 清扫进 degraded · CLI JSON 一种形态；**变异金丝雀**（把"真正改写"变空操作 ⇒ 两判据当场红）后已还原；判据自身还抓到我的夹具设计错误（只 touch 一行 ⇒ 变更行交集下只剩 2 候选——引擎对、我错）；三连跑 8/8 稳定；ruff/mypy/dupe/typos 全绿；taint 基线入册 subprocess.run（why 已填）；**版本不动**（不随功能 PR bump，免与 #105 的 2.90.0 撞文本冲突；exe 按本分支 2.89.0 重建对齐，`EXE_TAG ok=11 drift=0`）
 - ⚠️ 边界：①MCP 工具面**本片未挂**（引擎+CLI 先行；挂 tool 要动 toolmeta/工具计数/README 多处，属下一片）；②"历史数据预测存活突变体"记档不追（需跨次运行语料）；③Rust 侧突变记档（性能瓶颈时再 Rust 化）；④Mimosa 深度审计本轮仍未跑，**不宣称项目安全**
 
+## S190 · 游戏 bug 十五街区判定档（用户清单：扫描器对准这些；他的项目不许有这些 bug）——判定 + 检测归属；未动代码
+- 项目：ADV｜时间：2026-09-29T14:30
+- 决策：用户给 15 个"代码城街区"游戏 bug 分类，两条指令：①他的项目（含 BSHSQ）不许有这些 bug；②本仓扫描器要针对这些来扫。按判定档口径先做**检测归属**（不假装静态能测一切）：✅已有 3 条（bug_scan 浮点比较 / Rust 所有权+Send-Sync 天然强门 / ui_check 三引擎死按钮族）· ✅吸收 5 条（arch 规则族——双权威/一帧延迟/权威唯一的项目级治理；全局可变态；**存档非原子写**——与本仓 hub_ledger 末行截断教训同源；存档无版本检查；每帧分配启发式）· 🟡 有界 7 条 · 🏃 运行时记档 9 条（穿透/抖动/滑步/橡皮筋/时钟/死锁/音频——归各项目自身运行时判据，BSHSQ 测量协议是先例，**本仓不假装静态能测**）
+- 总纲（对应用户"总结一句"）：静态管"结构错了必出事"（权威/生命周期/存档/全局态/数值比较），运行时判据管"跑起来才看得见"（时序/手感/抖动）；"换人继承动量"同源类 = 项目侧 arch 规则 + 池/状态机规则——**本仓出模板，项目各自声明**
+- 证据：`spec/GAME-BUG-TAXONOMY.md`（§零盘点 8 行防重复造 + §一 15 街区逐条判定 + §二 队列 6 项 + §三 红线——**判据先于规则：每条新扫描规则必须带金丝雀（注入必红样本先验红再上线），启发式另带误报抽样账**）；纯文档，无代码 / 无版本变动；排队首 = 存档区两条 Rust 规则（非原子写 / 无版本检查）
+
+## S191 · 存档区两条规则进 bug_scan（判定档队列首项）：非原子写 / 读无版本门——**判据两轮变异金丝雀；真语料 3/3 为真**；版本 2.90.0 → 2.91.0
+- 项目：ADV｜时间：2026-09-29T16:10
+- 决策：①判定档 `spec/GAME-BUG-TAXONOMY.md` §二 队列第 2 项（街区 10 存档/序列化的"吸收"两条），也是用户口径"我的项目不许有这些 bug"的**第一条静态抓手**；②**新文件 `rust/src/bug/save.rs`**（同类件集中到新文件，`bug.rs` 只加 `mod save;` + 分派处 3 行）；③**结构在掩码上、词法在原文上**：括号配平/函数体范围走既有 `astscan::mask_rust`（字符串与注释被换成等长空格 ⇒ 字面量里的括号骗不到配平，且与原文逐字符对齐），存档/版本 token 在原文上找（`"save.ron"`、`with_extension("tmp")` 都在字面量里）；④**能力只实现一次**：掩码器与 `fn_re_search` 复用 astscan 的（`pub(crate) use` 已导出），不另写第二个 Rust 词法器
+- ⭐**判据抓到的三件事（都进判据/留档，不是"顺手改"）**：
+  - ①**我原设计的"原子写抑制"被否掉**：先写的是"命中点在函数体里看不到 rename/persist/sync_all/tempfile/atomic 就报"，变异金丝雀（把抑制函数改成恒 false）却只打死 1 条测试 ⇒ 追下去发现两条真相：(a) 真正的原子写**落盘目标是 scratch 路径**（不含存档 token），根本走不到这条分支；(b) 反过来"直写存档 + 无关 rename"会被**误静**。⇒ 抑制口径改成**只看写点自身**（目标是不是临时/中间路径），并把这条负面结论写进模块 doc 与留档测试 `direct_write_plus_unrelated_rename_still_reports`
+  - ②**误报抽样账当场抓出真缺陷**：`bench/s191_save_rules_probe.py` 首跑把 `indices.extend_from_slice(...)` 列为候选 —— 锚点 `from_slice` 被 `extend_from_slice` 吞进去也能命中（**缺左词边界**）。修法 `left_boundary`（前一字符不是词字符），并把该类做成留档测试 `extended_name_is_not_a_call_anchor`。**这是"先量后改"的又一次兑现：单元测试没覆盖的假阳性类，抽样账第一个跑就撞上了**
+  - ③消息漂移被测试当场拦下：重设计后我把 msg 里的"非原子"删了，判据立刻红（断言含"非原子"）——判据不是空转的
+- 证据：
+  - **Rust 契约 15 例**（`rust/tests/save_rules_test.rs`：断言**行号**不只断言"有命中"；金丝雀两头=违背必报/原子写与版本门必静；左词边界；turbofish 与空白两种调用形态；注释与字面量里的锚点不报；`#[cfg(test)]` 与 `/tests/` 路径两条降级通道；.py 不开火；确定性）
+  - **变异金丝雀三轮**（A 规则变空操作 ⇒ 7 红；B 抑制恒 false ⇒ 版本门那例红；C 存档过滤放空 ⇒ 3 红；D 临时过滤去掉 ⇒ 2 红），**全部一次全还原**并逐字复核文件内无残留
+  - **端到端 3 例**（`tests/test_s191_save_rules.py`：只经 `registry.call("bug_scan")` ⇒ 走 exe 真路径，S187 教训）
+  - **真语料误报抽样账**（`bench/s191_save_rules_probe.py`，VoxelForge 快照 32 文件）：候选锚点 12 行 → 报 3 行（写 1 + 读 2），**逐行读码 3/3 为真**——`V3_25:1421 std::fs::write("save.ron", ...)`（生产路径 `save_load_system`）、`V3_25:1437 ron::from_str::<SaveData>(&text)`（同函数、无版本门）、`V3_24:216`（同形态但在 `#[cfg(test)]` 里 ⇒ 自动带"测试代码，降级"）；未报的 9 行里 8 行是模块库 RON 解析（非存档语料）、1 类是 `OpenOptions`（已写进边界）。**样本小（32 文件），不当泛化结论**
+  - 版本锁步 2.91.0×4（server.py / Cargo.toml / Cargo.lock / README 头）+ 11 个 exe 重建 ⇒ `EXE_TAG ok=11 drift=0`、`SCHEMA_BAD 0`、86 工具；`cargo clippy -- -D warnings` 零告警；`cargo fmt` 本仓无门（存量本就 fmt-dirty，按仓内手写风格）
+- ⚠️ 边界：①`OpenOptions::new().create(true).truncate(true).open(p)` 组合式打开**未覆盖**；②语言面只有 Rust（C#/GDScript/Python 在判定档队列第 5 项）；③不做跨函数数据流（"写在哪里原子"要靠 taint 域，不是这条）；④规则只报 clue，治理动作留给人（G1 同精神）；⑤Mimosa 深度审计本轮仍未跑通，**不宣称项目安全**
+
+## S191 补 · PR #108 的 CI 红（覆盖率档）：**测试临时目录只靠 nanos 区分 ⇒ 撞车**；判据加"不靠时钟粒度"一条
+- 项目：ADV｜时间：2026-09-29T19:20
+- 现象：PR #108 的 `gates` 里 **coverage-gate 红**——`cargo llvm-cov` 的 `cargo test --tests` 对
+  `--test save_rules_test` 报 `test failed`（rc=101）；而同一提交的 `rust` job（普通 `cargo test`）
+  **绿**。本地 gnu 工具链建不了 profiler runtime、MSVC 缺 link.exe ⇒ **覆盖率跑本机复现不了**
+  （与 `coverage_gate.py` docstring 记的老限制一致）。
+- 根因（机制 + 仓内惯例两条证据）：我的 `TempDir::new` 给**所有 15 个测试都用同一个 tag `"one"`**，
+  唯一性**只靠 `SystemTime::now().as_nanos()`**——Windows 上系统时钟粒度可以很粗，插桩（llvm-cov
+  `--cfg=coverage`）又把各测试挤到一起 ⇒ 两个测试落进**同一个临时目录**、互相覆盖夹具 ⇒ 断言看到
+  别人的语料。仓内惯例本来就是**每个测试用不同 tag**（`bug_test.rs` 的 `"core"/"dyn"/"match"/…`、
+  `secrets_test.rs` 的 `"rules"/"ph"/"trunc"`、`sem_test.rs` 的 `"cjk"/"pydefs"/…`）——我漏了这条。
+- 修法（两条都做）：①tag 按测试区分（`"nonatomic"/"atomic"/"rename"/"load"/…`）；②`TempDir::new`
+  加**进程内 `AtomicUsize` 计数**，不再靠时钟粒度。**判据补一条** `temp_dirs_never_collide`
+  （同 tag 连取两个目录必须不同）。
+- 证据（金丝雀证机制，不只证结论）：把 `TempDir::new` 改成**恒定目录名**（模拟粗时钟撞车）⇒
+  **11/16 测试当场红**（`FAILED ... panicked at tests\save_rules_test.rs:90`），与 CI 症状同形；
+  还原后 16/16 绿、clippy 零告警。
+- ⚠️ 另一条产品级教训（**不搭车修，另案**）：`coverage_gate.py` 失败时只打印 cargo 输出**最后 300
+  字符**，恰好把 panic 行截掉 ⇒ 我拿不到真因、只能靠推理与金丝雀反推。**"FAIL 不静默"目前只做到
+  "不静默地说失败"，没做到"说清为什么失败"**——该把上下文放宽（另开 PR 引用本处）。
+- 边界：覆盖率门本身仍只在 CI 可跑（本机限制未变）；Mimosa 深度审计本轮仍未跑通，不宣称项目安全。
+
+## S192 · arch_gate 加 **Rust 语言面**（`use` 边 + 行号）——判定档队列第 3 项被**测量否证**、第 4 项前置落地；版本 2.91.0 → 2.92.0
+- 项目：ADV｜时间：2026-09-29T18:05
+- 决策：①**先量后改**：按判定档队列，下一项本是"全局可变态"（Rust `static mut` / Python `global`）——量了一下发现**两个都不产生信号**：BSHSQ（20 crate、整个工作区）与 VoxelForge 快照里 `static mut` / `unsafe impl Sync for` **各 0 处**；Python `global` 在本仓自身就有 **12+ 处**且都是合法用法（registry 的单例桩）⇒ 规则会上来就刷屏。**该条据此否决并留档**（判定档 §二 已回填），不硬做。②改成做**真正有价值的那个**：`arch_gate.py` 加 **Rust 语言面**——用户的项目（BSHSQ/VoxelForge）是 Rust，而守卫此前只认 `.py`，等于对它们的"层间不许依赖"毫无约束力；BSHSQ 的 `Cargo.toml` 顶部用注释写着依赖 DAG 与"禁止环"，**机器一条都没在守**。
+- 语法工程（全部进判据表）：`use` 边（`mod` 声明只构成模块树，**不取**）· 分组 `a::{b, c::d}`、嵌套分组、glob `a::*`、别名 `a as b`、**多行 use** 全部展开 · `crate::`/`self::`/`super::`（含连续 `super::super::`）**就地解析成 crate 限定名**（`crate::sim::step` → `<本文件 crate>.sim.step`，让"同 crate 内"与"跨 crate"规则写法统一）· 模块名 = **最近的 `Cargo.toml`** 的 crate 名 + `src/` 下路径（`lib.rs`/`main.rs`/`mod.rs` 折叠、`src/bin/x.rs` → `<crate>.x`）· **连字符与下划线双形态都发候选**（crate 名写 `vxl-phys-core`、路径写 `vxl_phys_core`，规则写哪种都命中）· `scope: toplevel` 的 Rust 语义 = **不在任何 `fn` 体内**（函数内 `use` 是延迟导入，与 Python 同语义）。
+- 真仓测量（**不随 PR 进仓**，规则文件在 %TEMP%）：**BSHSQ 全工作区 4404 条 use 边、3 条声明 DAG 规则、0 违规、0.37s** ⇒ 声明的依赖 DAG 今天在**文件级**也成立（crate 级另测：20 crate / 34 边 / **0 环**，`core` 无同工作区依赖）。**金丝雀（在真仓上故意把真实方向声明为禁向）**：`solver → core` 禁掉后报 **38 行**并逐条定位到 `use` 行（`vxl-phys-solver.ccd:15`、`vxl-phys-solver.joints.solve:3`…）⇒ **"0 违规"是真干净，不是扫不到**。
+- 证据：新增 `tests/test_s192_arch_rust.py` **9 例**（金丝雀红=违规必红且定位到 use 行/修掉转绿 · 金丝雀静=上层依赖下层不报 · 展开表 5 条 · 模块名表含 lib/main/mod 折叠与 src/bin · **连字符/下划线双形态** · `scope=toplevel` 与 `any` 两向 · 混语言同根两边都在 · 确定性）；**变异三轮全还原**（A 关掉 Rust 边 ⇒ 6 红；B scope 恒顶层 ⇒ 1 红；C 去掉连字符形态 ⇒ 3 红）；S188 既有 7 例照绿（**Python 语义未变**）；快门 24 步全绿。
+- ⚠️ **判据过程发现的真缺陷（本 PR 不搭车修）**：一条 import 行会被**前缀重叠的规则模式重复报**（`import: ["vxl-phys-render", "vxl-phys-render.*"]` 两种都命中 ⇒ 同一行两条；**Python 侧现状亦然**，本仓某条 `import: ["tools", "tools.*"]` 对一个 `from tools.fs import x` 同样双报）——所以 `violations=N` 现在是"命中边数"而非"违规行数"，金丝雀那 38 行里也含重复。修法是在 `violations()` 按 (模块, 行号, 规则) 去重，属**独立小 PR**（引用本片出处）。
+- 边界：不做 `#[cfg]` 求值、不做宏展开（`macro_rules!` 生成的 `use` 看不见）、不做字符串掩码（`use` 语句不含字面量，注释已剥离）；`mod` 声明不取；**Mimosa 深度审计本轮仍未跑通，不宣称项目安全**。
+
+HEAD
 ## S193 · 覆盖率门失败取证（另案，出处 #108）：**"不静默"要能说清为什么**，不只是说失败
 - 项目：ADV｜时间：2026-09-29T20:40
 - 决策：修 #108 施工中实测到的那条诊断缺陷（已按 PR 纪律记档出处、不搭车）：`scripts/coverage_gate.py`

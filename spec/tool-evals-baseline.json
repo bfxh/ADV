@@ -24,7 +24,7 @@
   "dead_code": {
    "ok": true,
    "calls": 1,
-   "chars": 489
+   "chars": 490
   },
   "callgraph": {
    "ok": true,
@@ -65,6 +65,16 @@
    "ok": true,
    "calls": 1,
    "chars": 256
+  },
+  "save_rules_fire": {
+   "ok": true,
+   "calls": 1,
+   "chars": 1135
+  },
+  "save_rules_quiet": {
+   "ok": true,
+   "calls": 1,
+   "chars": 169
   }
  }
 }
