@@ -7,7 +7,7 @@ import os
 import re
 
 from registry import list_tools, tool
-from tools.fs import _resolve as _fs_resolve
+from tools import guard_checks
 
 _CAPABILITIES = {
     "有": [
@@ -175,69 +175,33 @@ def capability_manifest(intent=None):
     return out
 
 
-@tool("hallucination_guard", "声明核查：file:line/符号/工具名 → verified/refuted/unverifiable", "guard",
+@tool("hallucination_guard", "声明核查：file:line/符号/工具名 → verified/refuted/unverifiable"
+      "（疑似才判：非工具主张/未覆盖扩展名如实进 skipped——不冤判、不静默丢）", "guard",
       {"type": "object",
        "properties": {
            "text": {"type": "string", "description": "AI 声明文本（含 file:line / 反引号符号）"},
-           "root": {"type": "string", "description": "仓库根目录（相对路径解析基准，可选）"},
+           "root": {"type": "string",
+                    "description": "仓库根目录（相对路径解析基准）。**讨论别的项目必须给**——"
+                                   "缺省用服务进程 cwd，会给出一整批假 refuted"},
        },
        "required": ["text"]})
 def hallucination_guard(text, root=None):
+    """三分支核查；判定件在 `tools/guard_checks.py`（S195 拆出并修四条精度缺陷：
+    P1 非工具主张不判 · P2 未覆盖扩展名不静默 · P3 行号下界 1 · P4 符号真查）。"""
     root = root or os.getcwd()
     tool_names = {t["name"] for t in list_tools()}
-    results = []
-
-    # 1. 工具名声明（反引号）
-    for m in re.finditer(r"`([a-z][a-z0-9_]{2,})`", text):
-        name = m.group(1)
-        if name in tool_names:
-            results.append({"decl": m.group(0), "kind": "tool", "status": "verified",
-                            "detail": f"工具存在: {name}"})
-        else:
-            results.append({"decl": m.group(0), "kind": "tool", "status": "refuted",
-                            "detail": f"工具不存在: {name}"})
-
-    # 2. file:line 声明
-    for m in re.finditer(r"([A-Za-z0-9_./\\-]+\.(?:py|rs|go|ts|js|gd|cs|dart|java|kt|rb|php))(?::(\d+))?", text):
-        fpath, lineno = m.group(1), m.group(2)
-        full = fpath if os.path.isabs(fpath) else os.path.join(root, fpath)
-        # S97：S88 沙盒纪律补漏——本工具读文件数行（读原语），此前未过沙盒，
-        # 可探测/读取沙盒外任意路径。钳制口径：沙盒外声明不读不判，落
-        # unverifiable（fail-closed；既不假 verified 也不冤判 refuted）。
-        try:
-            full = _fs_resolve(full)
-        except ValueError:
-            results.append({"decl": m.group(0), "kind": "file",
-                            "status": "unverifiable",
-                            "detail": "沙盒外路径，按纪律不读取不判定"})
-            continue
-        if os.path.isfile(full):
-            if lineno:
-                try:
-                    with open(full, encoding="utf-8", errors="replace") as f:
-                        n = sum(1 for _ in f)
-                    status = "verified" if int(lineno) <= n else "refuted"
-                    detail = f"文件存在，行号 {'在范围内' if status == 'verified' else f'越界（文件 {n} 行）'}"
-                except ValueError:
-                    status, detail = "unverifiable", "行号无法解析"
-            else:
-                status, detail = "verified", "文件存在"
-        else:
-            status, detail = "refuted", f"文件不存在: {full}"
-        results.append({"decl": m.group(0), "kind": "file", "status": status, "detail": detail})
-
-    # 3. 无验证的符号（反引号大写/驼峰，排除工具名）
-    for m in re.finditer(r"`([A-Z][A-Za-z0-9_]+)`", text):
-        sym = m.group(1)
-        results.append({"decl": m.group(0), "kind": "symbol", "status": "unverifiable",
-                        "detail": f"符号 '{sym}' 需在代码库中检索验证"})
-
+    tool_rows, skipped_tool = guard_checks.tool_decls(text, tool_names)
+    file_rows, unchecked_ext, outside = guard_checks.file_decls(text, root)
+    results = tool_rows + file_rows + guard_checks.symbol_decls(text, root)
     verified = sum(1 for r in results if r["status"] == "verified")
     refuted = sum(1 for r in results if r["status"] == "refuted")
     unverifiable = sum(1 for r in results if r["status"] == "unverifiable")
     return {
         "total": len(results), "verified": verified, "refuted": refuted,
         "unverifiable": unverifiable,
-        "结论": "存在被证伪声明（幻觉），必须纠正后才能引用" if refuted else "无被证伪声明",
+        "skipped": {"not_a_tool_claim": skipped_tool, "unchecked_ext": unchecked_ext,
+                    "sandbox_outside": outside},
+        "结论": (f"存在被证伪声明 {refuted} 条（见 results 里 status=refuted），纠正后才能引用"
+                 if refuted else "无被证伪声明"),
         "results": results[:50],
     }
