@@ -82,6 +82,12 @@ jobs:
         shell: pwsh
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
+          # S199：CI 编出来的 exe **只用于跑测试**（不发布）⇒ 用"测试档"：关 fat LTO、放开 codegen-units。
+          # 实测（本机冷编译）：24s → 6s（4×）；判据 = 用快档 exe 跑全量 pytest：1049 passed / 2 skipped
+          # （与常规档**同一结果**）⇒ 行为等价。发布档 [profile.release] 的 lto="fat"/cgu=1 **原样保留**
+          # ——那是发布产物的体积/内联取舍，与 CI 无关（详见 spec/BUILD-SPEED.md）。
+          CARGO_PROFILE_RELEASE_LTO: "false"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
         run: |
           cargo build --release --manifest-path rust/Cargo.toml
           $dst = Join-Path $env:TEMP 'rx-rs-target\release'
@@ -276,6 +282,12 @@ jobs:
         shell: pwsh
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
+          # S199：CI 编出来的 exe **只用于跑测试**（不发布）⇒ 用"测试档"：关 fat LTO、放开 codegen-units。
+          # 实测（本机冷编译）：24s → 6s（4×）；判据 = 用快档 exe 跑全量 pytest：1049 passed / 2 skipped
+          # （与常规档**同一结果**）⇒ 行为等价。发布档 [profile.release] 的 lto="fat"/cgu=1 **原样保留**
+          # ——那是发布产物的体积/内联取舍，与 CI 无关（详见 spec/BUILD-SPEED.md）。
+          CARGO_PROFILE_RELEASE_LTO: "false"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
         run: |
           cargo build --release --manifest-path rust/Cargo.toml
           $dst = Join-Path $env:TEMP 'rx-rs-target\release'
@@ -337,10 +349,13 @@ jobs:
       - name: cargo test（双绿纪律的 Rust 侧）
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
+          # S199：与本地门链同口径（debuginfo 不影响行为；CI 不需要调试信息 ⇒ 编得更快、产物更小）。
+          CARGO_PROFILE_DEV_DEBUG: "0"
         run: cargo test --manifest-path rust/Cargo.toml
       - name: cargo clippy（零告警红线）
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
+          CARGO_PROFILE_DEV_DEBUG: "0"
         run: cargo clippy --manifest-path rust/Cargo.toml -- -D warnings
 
   # ── ④ 高压语料（S163 补齐）：此前只在本地全门里跑。独立 job ⇒ 不占别人的墙钟；
@@ -383,6 +398,12 @@ jobs:
         shell: pwsh
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}\rust\target
+          # S199：CI 编出来的 exe **只用于跑测试**（不发布）⇒ 用"测试档"：关 fat LTO、放开 codegen-units。
+          # 实测（本机冷编译）：24s → 6s（4×）；判据 = 用快档 exe 跑全量 pytest：1049 passed / 2 skipped
+          # （与常规档**同一结果**）⇒ 行为等价。发布档 [profile.release] 的 lto="fat"/cgu=1 **原样保留**
+          # ——那是发布产物的体积/内联取舍，与 CI 无关（详见 spec/BUILD-SPEED.md）。
+          CARGO_PROFILE_RELEASE_LTO: "false"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
         run: |
           cargo build --release --manifest-path rust/Cargo.toml
           $dst = Join-Path $env:TEMP 'rx-rs-target\release'
@@ -419,7 +440,12 @@ jobs:
         run: cargo test --manifest-path rust/Cargo.toml
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/rx-target
+          # S199：与本地门链同口径（debuginfo 只影响回溯质量，不影响行为）——CI 不需要调试信息。
+          CARGO_PROFILE_DEV_DEBUG: "0"
       - name: cargo build --release（linux 产物可构建）
         run: cargo build --release --manifest-path rust/Cargo.toml
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/rx-target
+          # S199：这一步只验"linux 上编得出"，同样用测试档（关 fat LTO / 放开 cgu）。
+          CARGO_PROFILE_RELEASE_LTO: "false"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
