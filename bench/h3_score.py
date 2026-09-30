@@ -26,12 +26,16 @@ os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
 
 
 import l2_score  # noqa: E402
+from anchor_guard import (  # noqa: E402  # S198：入口校验锚在场（模块级禁用 require——tests/swe 会 import 本模块）
+    env_anchor,
+    require_anchor,
+)
 
 import registry  # noqa: E402
 import tools  # noqa: F401,E402
 
-YA_CLONE = r"D:\开发\audits\repos\yan-agent-src"
-VF3_ROOT = r"D:\开发\VoxelForge-V3"
+YA_CLONE = env_anchor("UNIFIED_RX_ANCHOR_YAN", r"D:\开发\audits\repos\yan-agent-src")
+VF3_ROOT = env_anchor("UNIFIED_RX_ANCHOR_VF3", r"D:\开发\VoxelForge-V3")
 
 # 现场可验证家族仅限与目标语言匹配者：VF3 是纯 Rust 仓，
 # JS/凭据域规则的命中语义已由合成金样单元测试锁定（tests/test_v2::test_scan_eval_exec…）。
@@ -95,6 +99,8 @@ def live_checks():
 
 
 def main():
+    require_anchor("vf3", VF3_ROOT)
+    require_anchor("yan-agent-src", YA_CLONE)
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()

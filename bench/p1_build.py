@@ -25,7 +25,12 @@ import tools  # noqa: E402,F401
 OUT = os.path.join(HERE, "bug_corpus.jsonl")
 REPOS = ["VoxelForge", "VoxelForge-V3"]
 FILE_RE = re.compile(r"\.(py|rs)$")
-DEV = r"D:\开发"
+from anchor_guard import (  # S198：缺锚 ⇒ ANCHOR-MISSING 退出，不量空气  # noqa: E402
+    env_anchor,
+    require_anchor,
+)
+
+DEV = env_anchor("UNIFIED_RX_ANCHOR_DEV", r"D:\开发")
 DEPTH = 120
 
 
@@ -91,6 +96,8 @@ def mine():
 
 
 def main():
+    require_anchor("dev-root", DEV)
+
     bugs = mine()
     by_fam = {}
     for b in bugs:

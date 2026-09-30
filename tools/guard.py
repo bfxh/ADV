@@ -3,8 +3,10 @@
 AI 声明事实核查（verified/refuted/unverifiable 三分级）——防 AI 编造
 file:line / 符号 / 工具名。这是"工具代替智能体"里最关键的护栏。
 """
+import difflib
 import os
 import re
+import time
 
 from registry import list_tools, tool
 from tools.fs import _resolve as _fs_resolve
@@ -53,7 +55,7 @@ _INTENTS = (
     (("列目录", "有哪些文件", "目录内容"), ("fs_list", "fs_stat")),
     (("文件信息", "多大", "mtime", "存在吗"), ("fs_stat",)),
     (("体检", "健康", "doctor"), ("project_health", "ide_doctor", "ide_multi_check")),
-    (("风险", "优先做", "排序"), ("risk_rank",)),
+    (("风险", "优先做", "排序"), ("ide_risk_rank",)),
     (("覆盖率", "coverage"), ("code_coverage",)),
     (("标准", "规范", "占位"), ("std_check",)),
     (("界面", "ui", "按钮", "空容器"), ("ui_check", "game_check")),
@@ -175,69 +177,206 @@ def capability_manifest(intent=None):
     return out
 
 
-@tool("hallucination_guard", "声明核查：file:line/符号/工具名 → verified/refuted/unverifiable", "guard",
-      {"type": "object",
-       "properties": {
-           "text": {"type": "string", "description": "AI 声明文本（含 file:line / 反引号符号）"},
-           "root": {"type": "string", "description": "仓库根目录（相对路径解析基准，可选）"},
-       },
-       "required": ["text"]})
-def hallucination_guard(text, root=None):
-    root = root or os.getcwd()
-    tool_names = {t["name"] for t in list_tools()}
-    results = []
+def _tool_claim(name, sorted_tool_names):
+    """反引号小写词按「在册闭集」判工具声明（确定性，无 LLM）。
 
-    # 1. 工具名声明（反引号）
+    S196 设计修正——只保留两条能立住的判据：
+    ① 精确在册 → verified（调用方处理）；
+    ② 与在册名近似拼写（difflib ratio ≥0.8：改名/笔误类幻觉）→ refuted。
+    形态规则（多段 snake_case 即疑似声明）**已退役**：328 份真实双臂答案实测，
+    它误杀 `build_terrain_collider`/`map_width`/`named_pipe` 这类代码标识符 712 次、
+    真工具幻觉命中 0 次——编码语境里反引号 snake_case 几乎总是被讨论的代码，
+    名称本身不携带「这是 ADV 工具声明」的信息。其余词一律落「未核查」（skipped
+    纪律：不静默，也不冤判）。已知边界：不在近邻半径内的凭空造名不判。
+    """
+    close = difflib.get_close_matches(name, sorted_tool_names, n=1, cutoff=0.8)
+    return close[0] if close else None
+
+
+def _check_tool_claims(text, tool_names, sorted_tool_names):
+    """分支1：反引号小写词。在册→verified、近邻拼写→refuted、其余→未核查。"""
+    results, unchecked = [], []
     for m in re.finditer(r"`([a-z][a-z0-9_]{2,})`", text):
         name = m.group(1)
         if name in tool_names:
             results.append({"decl": m.group(0), "kind": "tool", "status": "verified",
                             "detail": f"工具存在: {name}"})
-        else:
+            continue
+        close = _tool_claim(name, sorted_tool_names)
+        if close:
             results.append({"decl": m.group(0), "kind": "tool", "status": "refuted",
-                            "detail": f"工具不存在: {name}"})
+                            "detail": f"工具不存在: {name}（近似在册工具: {close}）"})
+        else:
+            unchecked.append(name)
+    return results, unchecked
 
-    # 2. file:line 声明
-    for m in re.finditer(r"([A-Za-z0-9_./\\-]+\.(?:py|rs|go|ts|js|gd|cs|dart|java|kt|rb|php))(?::(\d+))?", text):
+
+# P2：文件声明扩展名白名单。旧口径只有 12 种语言，md/json/toml/头文件等引用
+# 直接消失（连 unverifiable 都不落）——「漏判 0」是在盲区上成立的。白名单外的
+# `name.ext:NN` 引用现在如实计入「未核查」，不静默。
+_CLAIM_EXTS = ("py", "rs", "go", "ts", "tsx", "js", "jsx", "gd", "cs", "dart", "java",
+               "kt", "rb", "php", "cpp", "hpp", "cc", "c", "h", "md", "json", "toml",
+               "yaml", "yml", "vue", "swift", "lua")
+# 盘符前缀 `(?:[A-Za-z]:)?`：不带它时 "D:/x/y.py:12" 会被切成 "/x/y.py:12"
+# （冒号不在字符类里），Windows 绝对路径声明永远对不上根（金丝雀语料实测）。
+_FILE_DECL_RE = re.compile(
+    r"(?:[A-Za-z]:)?([A-Za-z0-9_./\\-]+\.(?:"
+    + "|".join(sorted(_CLAIM_EXTS, key=len, reverse=True)) + r"))(?::(\d+))?\b")
+_ANY_CITE_RE = re.compile(r"(?:[A-Za-z]:)?[A-Za-z0-9_./\\-]+\.([A-Za-z][A-Za-z0-9]{0,6}):\d+")
+
+_SYM_CAP = 30          # 单次调用最多真查的符号数
+_SYM_SCAN_BUDGET_S = 2.0
+_SYM_SKIP_DIRS = {".git", "node_modules", "__pycache__", "target", "dist", "build",
+                  ".venv", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+
+
+def _iter_text_files(root_full):
+    """扫描用生成器：白名单扩展名、≤512KB、跳垃圾目录，坏文件静默跳过。"""
+    for dirpath, dirs, files in os.walk(root_full):
+        dirs[:] = [d for d in dirs if d not in _SYM_SKIP_DIRS]
+        for fn in sorted(files):
+            if not any(fn.endswith("." + e) for e in _CLAIM_EXTS):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                if os.path.getsize(p) > 512 * 1024:
+                    continue
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    yield p, f.read()
+            except OSError:
+                continue
+
+
+def _scan_symbols(root_full, symbols):
+    """在 root（已过沙盒钳制）内做限定扫描：返回 {符号: 首次出现 loc 或 None}、扫描数、是否穷尽。"""
+    occ = dict.fromkeys(symbols)
+    scanned, complete = 0, True
+    deadline = time.monotonic() + _SYM_SCAN_BUDGET_S
+    for p, content in _iter_text_files(root_full):
+        scanned += 1
+        for s, cur in occ.items():
+            if cur:
+                continue
+            m = re.search(r"\b" + re.escape(s) + r"\b", content)
+            if m:
+                line = content.count("\n", 0, m.start()) + 1
+                occ[s] = f"{os.path.relpath(p, root_full)}:{line}"
+        if time.monotonic() > deadline:
+            complete = False
+            break
+    return occ, scanned, complete
+
+
+def _verdict_file(full, lineno):
+    if not os.path.isfile(full):
+        return "refuted", f"文件不存在: {full}"
+    if not lineno:
+        return "verified", "文件存在"
+    try:
+        with open(full, encoding="utf-8", errors="replace") as f:
+            n = sum(1 for _ in f)
+    except ValueError:
+        return "unverifiable", "行号无法解析"
+    # P3：行号从 1 起——旧口径 `:0` 因 0<=n 被假 verified
+    if 1 <= int(lineno) <= n:
+        return "verified", "文件存在，行号 在范围内"
+    return "refuted", f"文件存在，行号 越界（文件 {n} 行，行号须 1..{n}）"
+
+
+def _check_file_claims(text, root):
+    """分支2：file:line 声明。沙盒外不读不判（S97 fail-closed 口径不变）。"""
+    results = []
+    for m in _FILE_DECL_RE.finditer(text):
         fpath, lineno = m.group(1), m.group(2)
         full = fpath if os.path.isabs(fpath) else os.path.join(root, fpath)
-        # S97：S88 沙盒纪律补漏——本工具读文件数行（读原语），此前未过沙盒，
-        # 可探测/读取沙盒外任意路径。钳制口径：沙盒外声明不读不判，落
-        # unverifiable（fail-closed；既不假 verified 也不冤判 refuted）。
         try:
             full = _fs_resolve(full)
         except ValueError:
-            results.append({"decl": m.group(0), "kind": "file",
-                            "status": "unverifiable",
+            results.append({"decl": m.group(0), "kind": "file", "status": "unverifiable",
                             "detail": "沙盒外路径，按纪律不读取不判定"})
             continue
-        if os.path.isfile(full):
-            if lineno:
-                try:
-                    with open(full, encoding="utf-8", errors="replace") as f:
-                        n = sum(1 for _ in f)
-                    status = "verified" if int(lineno) <= n else "refuted"
-                    detail = f"文件存在，行号 {'在范围内' if status == 'verified' else f'越界（文件 {n} 行）'}"
-                except ValueError:
-                    status, detail = "unverifiable", "行号无法解析"
-            else:
-                status, detail = "verified", "文件存在"
-        else:
-            status, detail = "refuted", f"文件不存在: {full}"
+        status, detail = _verdict_file(full, lineno)
         results.append({"decl": m.group(0), "kind": "file", "status": status, "detail": detail})
+    return results
 
-    # 3. 无验证的符号（反引号大写/驼峰，排除工具名）
-    for m in re.finditer(r"`([A-Z][A-Za-z0-9_]+)`", text):
+
+def _symbol_scan_context(root, syms):
+    """分支3 前置：root 钳制 + 限定扫描。返回 ({符号: loc 或 None}, 扫描说明)。"""
+    if not syms:
+        return {}, None
+    try:
+        root_full = _fs_resolve(root)
+    except ValueError:
+        return {}, "root 在沙盒外，按纪律不扫描，符号不判定"
+    if not os.path.isdir(root_full):
+        return {}, f"root 不是目录（{root}），符号仅登记不扫描"
+    occ, scanned, complete = _scan_symbols(root_full, syms[:_SYM_CAP])
+    note = f"符号扫描 {scanned} 文件，" + ("已穷尽" if complete else "未穷尽（限时 2s）")
+    return occ, note
+
+
+def _check_symbol_claims(text, root):
+    """分支3：符号声明——真扫描给证据；缺席/外部符号不冤判，如实带扫描范围。"""
+    sym_matches = list(re.finditer(r"`([A-Z][A-Za-z0-9_]+)`", text))
+    syms = list(dict.fromkeys(m.group(1) for m in sym_matches))
+    occ, scan_note = _symbol_scan_context(root, syms)
+    results = []
+    for m in sym_matches:
         sym = m.group(1)
-        results.append({"decl": m.group(0), "kind": "symbol", "status": "unverifiable",
-                        "detail": f"符号 '{sym}' 需在代码库中检索验证"})
+        if not occ:
+            status, detail = "unverifiable", f"符号 '{sym}' 未扫描（{scan_note or '无可用 root'}）"
+        elif occ.get(sym):
+            status, detail = "verified", f"符号字符串在本仓出现（提及≠定义）: {occ[sym]}"
+        elif sym in occ:
+            status = "unverifiable"
+            detail = (f"本仓扫描未出现（{scan_note}）——外部符号属正常，"
+                      "若文本声称是本仓符号则疑似编造")
+        else:
+            status, detail = "unverifiable", f"符号 '{sym}' 未核查（超出单次上限 {_SYM_CAP}）"
+        results.append({"decl": m.group(0), "kind": "symbol", "status": status, "detail": detail})
+    return results, scan_note
+
+
+@tool("hallucination_guard", "声明核查：file:line/符号/工具名 → verified/refuted/unverifiable", "guard",
+      {"type": "object",
+       "properties": {
+           "text": {"type": "string", "description": "AI 声明文本（含 file:line / 反引号符号）"},
+           "root": {"type": "string", "description": "仓库根目录（相对路径解析基准；缺省=服务进程 cwd，跨仓必传）"},
+       },
+       "required": ["text"]})
+def hallucination_guard(text, root=None):
+    root = root or os.getcwd()
+    tool_names = {t["name"] for t in list_tools()}
+    results, unchecked_terms = _check_tool_claims(text, tool_names, sorted(tool_names))
+    results += _check_file_claims(text, root)
+    # 白名单外扩展名的带行号引用——不判，但如实计数（P2）
+    unchecked_cites = [m.group(0) for m in _ANY_CITE_RE.finditer(text)
+                       if m.group(1).lower() not in _CLAIM_EXTS]
+    sym_results, scan_note = _check_symbol_claims(text, root)
+    results += sym_results
 
     verified = sum(1 for r in results if r["status"] == "verified")
     refuted = sum(1 for r in results if r["status"] == "refuted")
     unverifiable = sum(1 for r in results if r["status"] == "unverifiable")
-    return {
+    unchecked_n = len(set(unchecked_terms)) + len(set(unchecked_cites))
+    conclusion = "存在被证伪声明（幻觉），必须纠正后才能引用" if refuted else "无被证伪声明"
+    if unchecked_n:
+        conclusion += f"；另有 {unchecked_n} 条不在核查面（见「未核查」，勿当作已验证）"
+    out = {
         "total": len(results), "verified": verified, "refuted": refuted,
         "unverifiable": unverifiable,
-        "结论": "存在被证伪声明（幻觉），必须纠正后才能引用" if refuted else "无被证伪声明",
+        "结论": conclusion,
         "results": results[:50],
+        # P6：root 回显——旧版不报解析基准，模型漏传 root 时整片误 refuted 无从发现
+        "根目录": root,
     }
+    if scan_note:
+        out["扫描"] = scan_note
+    if unchecked_terms or unchecked_cites:
+        out["未核查"] = {
+            "非声明小写词": {"条数": len(set(unchecked_terms)),
+                            "样例": sorted(set(unchecked_terms))[:10]},
+            "白名单外扩展名引用": {"条数": len(set(unchecked_cites)),
+                                  "样例": sorted(set(unchecked_cites))[:10]},
+        }
+    return out

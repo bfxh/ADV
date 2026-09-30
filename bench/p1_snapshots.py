@@ -11,7 +11,12 @@ import subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-DEV = r"D:\开发"
+from anchor_guard import (  # S198：缺锚 ⇒ ANCHOR-MISSING 退出，不量空气  # noqa: E402
+    env_anchor,
+    require_anchor,
+)
+
+DEV = env_anchor("UNIFIED_RX_ANCHOR_DEV", r"D:\开发")
 SNAP_DIR = os.path.join(HERE, "manual_snaps")
 OUT = os.path.join(HERE, "manual_snapshots.jsonl")
 SEED = 20260828
@@ -24,6 +29,8 @@ def git(repo, *args):
 
 
 def main():
+    require_anchor("dev-root", DEV)
+
     os.makedirs(SNAP_DIR, exist_ok=True)
     random.seed(SEED)
     corpus = [json.loads(l) for l in pathlib.Path(os.path.join(HERE, "bug_corpus.jsonl")).read_text(encoding="utf-8", errors="replace").splitlines() if l.strip()]

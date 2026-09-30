@@ -39,7 +39,12 @@ CORPUS = os.path.join(HERE, "l3_tasks.jsonl")
 RESULTS = os.path.join(HERE, "results", "l3")
 YAN_CONFIG = os.environ.get("YAN_CONFIG",
                             r"C:\Users\lbx13\AppData\Roaming\yan-agent\YanData\config.json")
-VF3_ROOT = r"D:\开发\VoxelForge-V3"
+from anchor_guard import (  # noqa: E402  # S198：入口校验锚在场（模块级禁用 require——tests/swe 会 import 本模块）
+    env_anchor,
+    require_anchor,
+)
+
+VF3_ROOT = env_anchor("UNIFIED_RX_ANCHOR_VF3", r"D:\开发\VoxelForge-V3")
 
 # B 臂只读证据子集（评测配置，如实在 manifest 里记录）
 ARM_B_TOOLS = ["code_search", "engine_query", "fs_list", "fs_read",
@@ -485,6 +490,8 @@ def main():
     # 触发 import 校验（tools 必须成功导入一次以完成注册）
     assert registry.tool_count() > 0
     if args.run:
+        # 真双臂执行必须有目标工作树；无参数的配置自检不依赖锚（CI dry-run 契约）
+        require_anchor("vf3", VF3_ROOT)
         run(args)
     elif args.judge:
         do_judge(args)

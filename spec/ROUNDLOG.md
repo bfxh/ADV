@@ -1708,3 +1708,147 @@ HEAD
   文件 125→136（≤10% 放行，**合法交换**）；**不 `--write-baseline`**。
 - 边界：本机仍**跑不了** llvm-cov（gnu 无 profiler runtime、msvc 缺 link.exe ⇒ 门在本地永远 SKIP，
   测量在 CI）；本轮**未跑** Mimosa 深度审计——"项目安全"仍无证据。
+
+HEAD
+## S194 · 「减少幻觉」第一片：**主张可复算门**（文档数字 ↔ 真值源）——四轮实测证明词表版不可判，只做可判的那一半
+- 项目：ADV｜时间：2026-09-29T22:10
+- 决策：用户口径「减少幻觉、也是审核、扫描器 CI CD 要自动检查这些——不要把过程变成东西 / 关系
+  变成属性 / 条件变成本质 / 局部变成总体 / 解释变成终点，还有其他的」。**先量后改**，四轮实测
+  （52 文件 / 8109 行）：①字面词表版 `过程→东西` 0 处、`代理当目标` 0 处、`局部→总体` 106 处
+  （绝大多数是真审计的正常表述）、`条件→本质` 的假阳性全来自"引用用户原话"；②改判"绑定缺失"后
+  R1 201 / R2 152 / R5 40，口径没对准仓内写法；③句级 + 锚集合对齐后 84 / 20 / 50 / 49，假阳性
+  仍主导；④只留**断言式**普遍化后剩 8 处——**全是该绝对化的政策不变量**（「扫描对象永远是复制品」
+  「永远不允许宣称项目安全」）。⇒ **造表述词表门 = 造假门**（本仓 T7 要防的东西），**不造**。
+- 落地（可判的那一半）：把「把过程变成东西」的结构等价物做成门——**当时的观察被固化成文档事实，
+  然后随代码漂移**。`scripts/claim_gate.py` + `spec/claim-checks.json`（数据声明式：加主张=加一行）：
+  每条 = 文档里的数字主张 ↔ 一个真值源；不一致 ⇒ 红，**主张找不到也红**（"账没了"与"账错了"同罪）；
+  fail-closed（登记表缺失/坏 JSON/空登记/缺字段 ⇒ 红）。真值源四种（全在仓内、零依赖、夹具可替换）：
+  `selftest:`（跑 `server.py --selftest` **真路径**，沙盒口径同 local_gate 的 selftest 步）·
+  `steps:`（ast 解析 `local_gate.STEPS` 数档位，不 import）· `count_re:` · `json_len:` ·
+  `profile:`（用 `registry.profile_from_env()` 自己的域集合算件数——**域清单不复制进门里**）
+- ⭐**门没白装：三处 README 陈旧数字当场对不上账**（都是"当时值被留成事实"的活标本）：
+  设计哲学「71 个工具」→ 实测 **86**；「门清单 34 项 / 本地门 18 步 / 速档 14 步」→ **31 步 /
+  快档 24 步**；「快门 6 步（4 秒级）/ 全门 9 步」→ **快档 24 步（~21 秒）/ 全档 28 步**。
+  （S188 记过"README 门计数陈旧"这笔账没人修，这次由门来收。）
+- ⭐**判据抓到我一个真 bug**：`steps:` 探针用 `ast.literal_eval` 整元组，第二项含变量 ⇒ 异常被吞成
+  档位 `"?"` ⇒ 计数悄悄变 0；门判红才发现。修法：只读**第三项**（档位是字符串字面量），并且
+  **读不出档位就抛**（不许按 0 计数），另补判据 `test_steps_probe_agrees_with_steps_constant`
+  与 `local_gate.STEPS` 逐档对拍。
+- ⭐**另一条被门抓到的施工纪律**：新建 `scripts/claim_gate.py` 时**还没有测试**，`hub-gate` 的
+  `impact-static` 当场红（`hub_impact` 如实返回空选测 + fallback=None）——"新增脚本没有任何测试
+  可达"这件事，仓里早有判据在守。
+- 证据：`tests/test_s194_claim_gate.py` **8 例**（真仓逐条复算绿 · 登记表指向的文件存在 ·
+  探针自洽 · 金丝雀红三种：**文档数字错**/**真值漂移**/**主张找不到** · 未知真值源红 ·
+  fail-closed 四态）；**变异两轮全还原**（复算变空操作 ⇒ 4 红；档位解析失效 ⇒ 2 红）；
+  `spec/CLAIM-INTEGRITY.md` 判定档（五类的可判等价形式 + 四轮数字 + 边界 + **我的自审清单 6 条**）；
+  接线三处：local_gate 快档一步（`claim-gate`）/ core.yml 显式 step / test_s145 步表锁步；
+  taint 基线入册 `scripts/claim_gate.py` 两条（`.read_text`×3 / `subprocess.run`×2，why 已填）。
+- 口径（本片定，写进判定档）：**ROUNDLOG 是带时间戳的当时值，不进可复算门**；活文档（README /
+  skills / spec 非日志）里的数字必须进——不然就是"过程变东西"的温床。
+- ⚠️ 已知未收的账（留档）：S191 条目里写「判据 15 例」，文件现为 **16 例**（后续加了
+  `temp_dirs_never_collide`）——它是**日志条目**（当时值），按上面口径不进可复算门；随链合并时
+  若顺手修，只改数字不动结论。另：本片**未跑** Mimosa 深度审计，**不宣称项目安全**。
+- **补（同片收尾，本片最有说服力的一笔）**：接线时往 `local_gate` 加了一步（`claim-gate`）⇒
+  上面"README 门清单 → 31 步 / 快档 24 步"**当轮就失效**：真值变 **32 / 25 / 29**，`claim-gate`
+  当场报红（`主张 [31, 24] ≠ 真值 [32, 25]`），先改文档才转绿。这演示了它的**预防性**——
+  不只收旧账：**任何一次改动都会让文档数字过期**，改代码与改文档必须同一轮。
+
+- **补 · 同片第二族判据已落地（账目格式契约，治「解释变终点」）**：同一支门（同一登记表的
+  `entry_contract`，**不新增门步**，故文档数字不再漂）：`## S<编号> ·` 分块，编号 ≥ `min_session`
+  （现 180）的条目必须齐「决策：」「证据：」，**之前的祖父化不追溯**。实测依据：119 条历史条目
+  `决策：` 87 / `证据：` 46（73 条缺证据，集中在早期 S83–S88），而 **S180+ 13 条 13/13 两栏齐**
+  ⇒ 这条纪律"今天已成立"、可直接钉。判据 +5 例（真仓跑通且在摘要可见闸门 `entry>=180` · 金丝雀红
+  且不牵连齐栏条目 · 祖父化不红 · fail-closed 四态 · 契约指向账目不存在也红）；**变异两轮**（契约
+  检查置空 ⇒ 1 红 / 祖父化失效 ⇒ 2 红）全还原。判定档 §五 队列第 1 项据此划掉。
+
+## S195 · 守卫判定金丝雀门（guard_gate）+ hallucination_guard P1-P6 修复——「判定形状」首次进硬门
+- 项目：ADV｜时间：2026-09-30T00:30
+- 决策：外部审计（2026-09-29）实测坐实 `hallucination_guard` 六件缺陷并同轮修复：P1 工具名分支
+  冤判普通小写词（`git`/`parser` 全 refuted⇒狼来了）改「疑似才判」（在册近似拼写/多段 snake_case）；
+  P2 扩展名白名单 12→27，白名单外 `x.ext:NN` 落「未核查」不静默；P3 `:0` 假 verified 改行号须 1..N；
+  P4 符号分支恒 unverifiable 接真扫描（限时/限数/沙盒钳制）；P5 H2 评测补 `refuted_precision` 并把
+  沙盒口径写进报告（评测态≠部署态入账）；P6 输出回显「根目录」。**门加强**：这类缺陷属「判定形状」
+  回归——claim_gate 管文档数字、H2 只管 kind==file 一致率，都不覆盖，故立第三族判据：真值语料逐项
+  复算（`spec/guard-corpus.json` 7 例 × 双模式 open/restricted），判定漂移即红，**多判一条也红**
+  （防新增误杀）、少判一条也红（防静默回归）；fail-closed：语料缺失/坏 JSON/空 modes/缺字段/非法
+  status 皆红。接线 local_gate 快档 +1 步、core.yml 同源一步。
+- 证据：金丝雀首跑即抓到**真缺陷**——文件正则不吃 Windows 盘符（`D:/x/y.py` 被切成 `/x/y.py`），
+  修 `_FILE_DECL_RE` 盘符前缀后 GUARD-GATE OK cases=7 modes=2；`tests/test_s195_guard_gate.py` 10 例
+  全绿（真仓绿 · 语料形状 3 kind×2 mode · 金丝雀必红四向：误杀复活/静默回归/钳制被拆/`:0` 复活 ·
+  fail-closed 四态）；P1-P4 回归测试 +3 例进 `tests/test_v2.py`（原始复现用例逐条转绿）；README 步数
+  32/25/29→33/26/30 与 `local_gate.STEPS` 复算一致（claim-gate 绿）；全量 pytest + selftest + lint/type
+  棘轮对账见当轮门链输出。
+
+## S196 · 工具声明判据改为「在册闭集」——形态规则退役（实测 712 误杀 / 0 真命中）+ 语料外部锚定
+- 项目：ADV｜时间：2026-09-30T01:10
+- 决策：S195 的 P1 修复（`git`/`parser` 不判、多段 snake_case 判疑似工具声明）只是把误杀面缩小：
+  拿 H2 同源真实双臂答案 **328 份**复测，形态规则 refuted **712 条全是代码标识符**
+  （`build_terrain_collider`/`map_width`/`named_pipe`/`file_path`…），近似拼写规则命中 **0**，
+  真工具引用 3 条判对。⇒ 名称形态不携带「这是 ADV 工具声明」的信息，规则不可救——工具分支
+  判据收缩为**闭集两条**：精确在册 → verified；difflib≥0.8 近邻（改名/笔误幻觉）→ refuted；
+  其余一律「未核查·非声明小写词」（如实上报，接受边界：近邻半径外的凭空造名不判）。
+  同时把 s195 金丝雀的期望**锚到外部观测**：新增 `code-ids-not-tool-claims` 条目，期望词
+  直接取自上面实测分布——不再由规则作者自证。符号 verified 措辞改准：「字符串在本仓出现
+  （提及≠定义）」。
+- 证据：复测脚本=bench/results/l3 全量 328 份答案过 `hallucination_guard`（沙盒 `'*'`，
+  改动前 refuted=712/near=0；改动后 refuted=**0**/verified=3/未核查=747，样例词表在案）；
+  `guard_gate` 复算绿（cases=8 modes=2）；金丝雀反向例改用 `build_chunk_mesh`「误杀复活 ⇒ 必红」
+  （tests/test_s195_guard_gate.py）；test_v2 守卫两例改判据期望（`fs_rea` 近邻 refuted 保覆盖）；
+  定点 17 测全绿。**自审入账**（CLAIM-INTEGRITY §四）：S195 语料与代码同一只手写下，把规则级
+  设计错误一起钉成了「正确行为」——判据时序独立性对**语料**同样成立，须锚规则之外的观测。
+
+## S197 · 名字账门（name-ledger）——claim-gate 的名字版：镜像面上的工具名 ↔ 在册闭集
+- 项目：ADV｜时间：2026-09-30T01:50
+- 决策：设计审计发现「数字↔真值源有账（claim-gate）、skills 文档名↔注册表有账（selftest
+  SKILLS_DOCS），但代码/README 里的**名字镜像面无账**」。实测坐实：`capability_manifest`
+  的 curated 路由第一候选 `risk_rank` 不在册（真名 `ide_risk_rank`）——防幻觉工具箱的路由
+  功能在线推荐假名。新门 `scripts/name_ledger_gate.py` 钉三面：`_INTENTS` 候选名、
+  `_CAPABILITIES` 下划线词元、README「## 工具面」章节反引号词元，全部 ⊆ 在册闭集；
+  合法非工具名走 `spec/name-ledger.json` 豁免（入册须填 why，占位被拦——同 taint-baseline
+  纪律）。真值源走子进程 `registry.list_tools()`（不 import 门内私有）；提取数下限防
+  "解析悄悄数 0"。顺手修 `_INTENTS` 的 `risk_rank` → `ide_risk_rank`。
+- 证据：建门前探针实测三面共 134 词元、不在册 2 项（`risk_rank`[INTENTS]、`hard`[README，
+  sys_steer 模式值，入豁免表]）；修复后门绿（names=134 在册=86 豁免=1）。
+  `tests/test_s197_name_ledger.py` 10 例（真仓绿 · 三面各塞假名必红且点名 · 豁免占位必红 ·
+  fail-closed：表缺失/坏 JSON/提取低于下限/闭集为空）；**变异自检**：判集比对置空 ⇒ 3 金丝雀
+  转红，还原全绿——门是判据不是装饰。接线 local_gate 快档 +1 步（README 步数由 claim-gate
+  复算逼平 34/27/31）、core.yml 同源一步（s145 锁）。
+
+## S198 · 测量锚账（bench-anchor gate）——量空气防线：仓外真值路径全入账，缺锚必 ANCHOR-MISSING
+- 项目：ADV｜时间：2026-09-30T02:30
+- 决策：H2/H3 的真值树（VF3、yan-agent 克隆）随盘迁移消失后，bench 脚本仍会"跑成功"——
+  truth 检查全 False、产出一版格式正常但无意义的数字。评测口径此前只建模了沙盒态，没建模
+  **锚可用性**。新门 `scripts/bench_anchor_gate.py` + 登记表 `spec/bench-anchors.json`：
+  ast 扫 `bench/*.py` 盘符路径常量（docstring 除外），未登记的外部引用 ⇒ 红（主判据防增量）；
+  state=present 目录必须存在；detached ⇒ 每个 consumer 必须经 `bench/anchor_guard.py` 的
+  `require_anchor` 走 ANCHOR-MISSING 退出码 2（env 可覆盖重指）；legacy ⇒ 退役脚手架只验文件在。
+  登记 4 锚（vf3/dev-root/yan-agent-src detached、adv-legacy 退役）+ 4 类机器局部路径豁免
+  （解释器/Temp/负例假盘 Z:/、WSL 换算根，各带 why）。EVAL §8 台账如实标注：H2/H3 数字=
+  当时时点值、当前不可复算；H1/H4 数据在仓内仍可复算。
+- 证据：门首跑即抓出 9 处未登记引用（4 类真锚 + 解释器/Temp/负例夹具/换算根），入账后
+  `BENCH-ANCHOR-GATE OK anchors=4 refs=21`；行为实测：本机缺 VF3，`bench/h2_guard_eval.py`
+  退出码 2 + stderr 点名 `ANCHOR-MISSING anchor=vf3`，env 覆盖实测可跑通目录校验；
+  8 个 consumer 全部改挂 `require_anchor`（py_compile 全过）；
+  `tests/test_s198_bench_anchors.py` 10 例（真仓绿 · 结构契约 · 必红四向：present 缺失/
+  detached 无出口/未登记引用/名实不符 · fail-closed 三态 · h2 真路径退出码 2）。
+  **同片当场踩坑并修**：`require_anchor` 初版放模块级，`tests/test_ab_runner.py` import bench 模块时被
+  SystemExit(2) 打死收集期（全量 pytest INTERNALERROR，`| tail -3` 管道吞退出码——「exit 0 假绿」又一例，
+  后台任务汇报以实读输出为准）。纪律入 `bench/anchor_guard.py` 头注：模块级常量用纯函数 `env_anchor`
+  （env 覆盖解析，无副作用），校验只放入口（main/__main__；vf3_battery 脚本体即入口，注明 import==run）。
+  回归锁 1 例：缺锚环境下 import ab_run/h2_guard_eval/h3_score/l3_anchor 必须安静通过
+  （tests/test_s198_bench_anchors.py，连同真路径退出码例共 11 例全过）。
+  **CI 侧返工（合入前 gates 步实测红）**：入口校验初版放 `main()` 首行，把 CI 的 dry-run 契约步
+  （无参数=配置自检，不需要真值树）也拦死——`ab_run.py` 红在 CI。返工：校验挪进
+  `if args.run:` 真执行分支；教训=「入口」要按执行模式划，不是按函数边界。双向锁测试 2 例
+  （无参必须 exit 0 / `--run` 缺锚必须 exit 2），s198 共 13 例。
+
+- 速览（本 session 收口，S195-S198 四片，2026-09-29~30）：
+  ① S195 守卫 P1-P6 修复 + guard-gate 金丝雀门；② S196 工具声明判据收缩为在册闭集
+  （形态规则退役，误杀面 712→0）；③ S197 name-ledger 名字账（三面 134 词元入账，
+  `risk_rank` 假名除名）；④ S198 bench-anchor 锚账（4 锚 21 引用，缺锚 ANCHOR-MISSING
+  退出码 2，EVAL 台账标注 H2/H3=时点值不可当前复算）。**终账**：快档 28 步
+  `LOCAL-GATE OK failed=[]`；全量 pytest **1096 passed + 2 skipped，0 error**（清掉
+  1176 个陈旧 basetemp 目录后的干净复跑——先前 1 个 FileExistsError 即残留碰撞，
+  非本仓缺陷）；新增测试 34 例（s195×10 · s197×10 · s198×11 · test_v2×3）；变异自检
+  两轮均抓到红（guard_gate 判据置空、name_ledger 比对置空）后还原。四片均未 commit
+  （本仓常态）；README 步数 35/28/32 由 claim-gate 复算钉住。

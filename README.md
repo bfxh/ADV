@@ -3,12 +3,12 @@
 **本地工具代替智能体体力活的平台** — 凡是 AI 要做的确定性体力活，全部下沉为本地工具；AI 只保留决策层。
 > 定位：**工具箱，不是智能体，不是内核**。MCP 只是通道，价值在"工具 + 工作流"的完整链路。
 > 七维"掌握"：**结构 / 语义 / 定位 / 探索 / 记忆 / 反馈 / 质量**
-> 设计哲学：**少而准**（71 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
+> 设计哲学：**少而准**（86 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）·
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 > 协作纪律：**一个 PR 一个功能**——过程发现的问题另开 PR 引用出处，依赖变更自成 PR 引用需求方，不搭车、不捆包（[spec/PR-DISCIPLINE.md](spec/PR-DISCIPLINE.md)）
-**当前 v2.92.0（S192）**：86 工具 / 15 域（core 档 54 件）；**平台层落地**——
+**当前 v2.92.0（S198）**：86 工具 / 15 域（core 档 54 件）；**平台层落地**——
 MCP 之外的第二协议通道（`server_web.py` + `console/`：团队网页面，与工具面**同一份能力层**）
 + **实时日志**（`/api/stream` SSE：**日志文件即总线**——跨进程且就是账上被哈希的那份；
 `read1` 真流式，判据"运行结束前可见"，实测 gap≈2 s）+ **防骗判据门**
@@ -35,14 +35,14 @@ Bootstrap 95% 区间 → 三态**（`pass` / `inconclusive` 噪声带不算真�
 方法形态/**S161 模型适配三件**：失败回包也是 JSON、错误带 `next`、`structuredContent`
 与文本同形…）——**首跑抓到真违约**：未知方法原先返回"工具级 isError 结果"（JSON-RPC
 客户端会当成功），已改为 `error{code:-32601}`。
-**门清单 34 项**：本地门 18 步（速档 14 步 ~8s）+ pytest 内 16 个门套件，CI 与本地同源。
+**门清单 35 步**：本地门 35 步（快档 28 步 ~21s）+ pytest 内门套件，CI 与本地同源。
 **自提交 PR 的双门**：**key 门**（明文红线：工作树 + 历史 diff 两路）与**路径门**
 （`scripts/path_gate.py`：无符号链接 / 文件名卫生 / ≤1MB / 无越界写路径 / 无软链接逃逸），
 两者都在 `.githooks/pre-commit` 的快门上（`core.hooksPath=.githooks` 已设）。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
-一条命令跑完与 CI **同一套脚本**的全部门禁——快门 6 步（secrets / self-attack /
-data-flow / toolface / tool-evals / selftest，**4 秒级**）与全门 9 步（+pytest 全量 +
+一条命令跑完与 CI **同一套脚本**的全部门禁——快档 28 步（secrets / self-attack /
+data-flow / toolface / tool-evals / selftest / guard-gate / name-ledger / bench-anchor …，**~21 秒级**）与全档 32 步（+pytest 全量 +
 cargo test + clippy）；`.githooks/` 版本化钩子（pre-commit 快门、pre-push 全门）经
 `git config core.hooksPath .githooks` 一次安装——**审核在本机即可完整跑完，CI 降格为
 镜像/备份**；本地门与 CI 不漂移（core.yml 出现的门脚本必须都在 local_gate 步骤里）

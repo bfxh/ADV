@@ -1,0 +1,184 @@
+{
+  "_doc": "守卫判定金丝雀语料（S195/S196，scripts/guard_gate.py 消费）。每条 case = 一段 AI 声明文本 + 逐项真值判定：kind/status/关键 detail + 未核查计数。判据的外部锚：真值不来自规则作者的断言——fixture 行数与在册工具闭集是结构事实，`code-ids-not-tool-claims` 的期望词取自 bench/results/l3 328 份真实双臂答案的实测分布（S196：形态规则在那批数据上误杀代码标识符 712 次、真工具幻觉命中 0 次 ⇒ 规则退役）。为什么存在：H2 管 kind=file 一致率、claim_gate 管文档数字，守卫的判定形状（误杀/静默消失/钳制被拆/规则越权）两边都不覆盖；本语料逐条钉死——多判一条也红（新增误杀）、少判一条也红（静默回归）。教训在案：语料若与代码同一只手写且不加外部锚，规则级设计错误会连语料一起错（S195 门当时拦不住 P1 残留）。双模式：open=评测口径，restricted=生产 fail-closed 口径。fixture 行数被精确引用，改 bench/fixtures/guard/ 必同步本表。tokens：@REPO=仓根（slash 形式），@FIXTURE=fixture 目录。",
+  "modes": [
+    {
+      "mode": "open",
+      "sandbox": "*",
+      "cases": [
+        {
+          "id": "words-not-tool-claims",
+          "root": "@FIXTURE",
+          "text": "跑 `git` 与 `parser` 两个词",
+          "items": [],
+          "unchecked_words": [
+            "git",
+            "parser"
+          ],
+          "unchecked_cites": []
+        },
+        {
+          "id": "tool-closed-set-only",
+          "root": "@FIXTURE",
+          "text": "调 `bug_scan`，假称 `fs_readss`；`not_a_tool_xyz` 不判（闭集外）",
+          "items": [
+            {
+              "decl": "`bug_scan`",
+              "kind": "tool",
+              "status": "verified",
+              "detail_contains": "工具存在"
+            },
+            {
+              "decl": "`fs_readss`",
+              "kind": "tool",
+              "status": "refuted",
+              "detail_contains": "近似在册工具"
+            }
+          ],
+          "unchecked_words": [
+            "not_a_tool_xyz"
+          ],
+          "unchecked_cites": []
+        },
+        {
+          "id": "code-ids-not-tool-claims",
+          "root": "@FIXTURE",
+          "text": "改 `build_terrain_collider` 与 `map_width`，经 `named_pipe` 传 `file_path`",
+          "items": [],
+          "unchecked_words": [
+            "build_terrain_collider",
+            "file_path",
+            "map_width",
+            "named_pipe"
+          ],
+          "unchecked_cites": []
+        },
+        {
+          "id": "file-line-bounds",
+          "root": "@FIXTURE",
+          "text": "见 alpha.py:0，alpha.py:8 与 alpha.py:9；cfg.toml:3 存在",
+          "items": [
+            {
+              "decl": "alpha.py:0",
+              "kind": "file",
+              "status": "refuted",
+              "detail_contains": "行号须 1..8"
+            },
+            {
+              "decl": "alpha.py:8",
+              "kind": "file",
+              "status": "verified",
+              "detail_contains": "在范围内"
+            },
+            {
+              "decl": "alpha.py:9",
+              "kind": "file",
+              "status": "refuted",
+              "detail_contains": "越界"
+            },
+            {
+              "decl": "cfg.toml:3",
+              "kind": "file",
+              "status": "verified",
+              "detail_contains": "在范围内"
+            }
+          ],
+          "unchecked_words": [],
+          "unchecked_cites": []
+        },
+        {
+          "id": "ext-whitelist-both-faces",
+          "root": "@FIXTURE",
+          "text": "notes.md 存在；ghost.py:1 不存在；logo.svg:2 与 cov-err.txt:1 不在核查面",
+          "items": [
+            {
+              "decl": "notes.md",
+              "kind": "file",
+              "status": "verified",
+              "detail_contains": "文件存在"
+            },
+            {
+              "decl": "ghost.py:1",
+              "kind": "file",
+              "status": "refuted",
+              "detail_contains": "文件不存在"
+            }
+          ],
+          "unchecked_words": [],
+          "unchecked_cites": [
+            "cov-err.txt:1",
+            "logo.svg:2"
+          ]
+        },
+        {
+          "id": "symbol-real-scan",
+          "root": "@FIXTURE",
+          "text": "`KernelAlpha` 在 alpha.py:4；`GhostZeta` 查无此名",
+          "items": [
+            {
+              "decl": "`KernelAlpha`",
+              "kind": "symbol",
+              "status": "verified",
+              "detail_contains": "alpha.py:4"
+            },
+            {
+              "decl": "alpha.py:4",
+              "kind": "file",
+              "status": "verified",
+              "detail_contains": "在范围内"
+            },
+            {
+              "decl": "`GhostZeta`",
+              "kind": "symbol",
+              "status": "unverifiable",
+              "detail_contains": "未出现"
+            }
+          ],
+          "unchecked_words": [],
+          "unchecked_cites": []
+        }
+      ]
+    },
+    {
+      "mode": "restricted",
+      "sandbox": "@FIXTURE",
+      "cases": [
+        {
+          "id": "sandbox-in-bounds-still-judged",
+          "root": "@FIXTURE",
+          "text": "沙盒内 alpha.py:2 正常判",
+          "items": [
+            {
+              "decl": "alpha.py:2",
+              "kind": "file",
+              "status": "verified",
+              "detail_contains": "在范围内"
+            }
+          ],
+          "unchecked_words": [],
+          "unchecked_cites": []
+        },
+        {
+          "id": "sandbox-out-fail-closed",
+          "root": "@REPO",
+          "text": "看 @REPO/README.md:12 应不读不判；`KernelAlpha` 不扫描",
+          "items": [
+            {
+              "decl": "@REPO/README.md:12",
+              "kind": "file",
+              "status": "unverifiable",
+              "detail_contains": "沙盒外"
+            },
+            {
+              "decl": "`KernelAlpha`",
+              "kind": "symbol",
+              "status": "unverifiable",
+              "detail_contains": "不扫描"
+            }
+          ],
+          "unchecked_words": [],
+          "unchecked_cites": []
+        }
+      ]
+    }
+  ]
+}

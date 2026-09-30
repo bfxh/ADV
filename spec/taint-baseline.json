@@ -62,6 +62,24 @@
    "why": "账本门自读两份**本仓内固定产物**（spec/audit-ledger.json 与 spec/HARDENING.md）；S169 为让金丝雀自带输入而把路径改成可用环境变量改向（未设即原路径），于是『env→路径→读文件』被判 definite。良性依据：① 读到的文本只做计数/正则比对，不进 shell/exec/eval，最坏后果只是判据失效；② 改向用的环境变量与既有的 UNIFIED_RX_AUDIT_MAX_DAYS/COMMITS 同一信任面（能设环境变量者本就能调阈值）；③ 非 MCP 工具面，只在仓的 gate/CI 里跑（S169 人工确认）"
   },
   {
+   "file": "scripts/bench_anchor_gate.py",
+   "sink": ".glob",
+   "count": 1,
+   "why": "门枚举 bench/*.py 源码做锚引用扫描——路径为仓内常量、只读、无用户输入（S198 人工确认）"
+  },
+  {
+   "file": "scripts/claim_gate.py",
+   "sink": ".read_text",
+   "count": 3,
+   "why": "S194 人工确认：读的是**它要复算的那几个文件**（登记表指向的文档与真值源），路径全来自 spec/claim-checks.json 的显式声明（仓内相对路径，非用户输入）"
+  },
+  {
+   "file": "scripts/claim_gate.py",
+   "sink": "subprocess.run",
+   "count": 2,
+   "why": "S194 人工确认：真值源只跑仓内自证命令——`server.py --selftest`（与 ci_gate 同口径：沙盒=ROOT、argv 列表、shell=False、固定超时）与 `python -c` 算 profile 件数；无外部输入"
+  },
+  {
    "file": "scripts/coverage_gate.py",
    "sink": "subprocess.run",
    "count": 1,
@@ -102,6 +120,12 @@
    "sink": "subprocess.run",
    "count": 1,
    "why": "本地审核门（S145）：以**固定 argv 列表**运行本仓门脚本（shell=False、无字符串拼接）；argv 形参即来源是已知模式，与 server.py 条目同族（S145 人工确认）"
+  },
+  {
+   "file": "scripts/name_ledger_gate.py",
+   "sink": "subprocess.run",
+   "count": 1,
+   "why": "真值源子进程：argv 固定列表 [sys.executable,'-X','utf8','-c',模块级字面量, root]，无 shell、snippet 不拼接输入（S197 人工确认）"
   },
   {
    "file": "scripts/perf_gate.py",

@@ -123,6 +123,24 @@ jobs:
       - name: Arch gate（架构守卫：分层禁向规则 × import 边）
         run: python -X utf8 scripts/arch_gate.py
 
+      # S194：主张可复算门（spec/claim-checks.json：文档里的数字主张 ↔ 真值源）。
+      # 治的是"把当时的观察固化成文档事实"——README 的 71 工具 / 18 步曾长期陈旧。
+      - name: Claim gate（主张可复算：文档数字 ↔ 真值源）
+        run: python -X utf8 scripts/claim_gate.py
+
+      # S195：守卫判定金丝雀（spec/guard-corpus.json：判定形状逐项复算）。
+      # claim_gate 管文档数字、H2 管文件一致率；工具名误杀/静默消失/钳制被拆归这道门。
+      - name: Guard canary gate（守卫判定金丝雀：真值语料逐项复算）
+        run: python -X utf8 scripts/guard_gate.py
+
+      # S197：名字账（claim-gate 的名字版）——路由意图表/能力清单/README 工具面 ↔ 在册闭集。
+      - name: Name ledger gate（镜像面上的工具名不在册且无豁免即红）
+        run: python -X utf8 scripts/name_ledger_gate.py
+
+      # S198：测量锚账——bench 的仓外路径必须登记；detached 锚的 consumer 必走 ANCHOR-MISSING 出口。
+      - name: Bench anchor gate（量空气防线：锚登记表 ↔ bench 路径引用名实相符）
+        run: python -X utf8 scripts/bench_anchor_gate.py
+
       - name: Deps-lock gate（S147：rust 依赖段恒空红线机器化）
         run: python -X utf8 scripts/deps_lock.py
 

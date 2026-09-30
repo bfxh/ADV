@@ -8,11 +8,18 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-VF3 = r"D:\开发\VoxelForge-V3"
+from anchor_guard import (  # S198：缺锚 ⇒ ANCHOR-MISSING 退出，不量空气  # noqa: E402
+    env_anchor,
+    require_anchor,
+)
+
+VF3 = env_anchor("UNIFIED_RX_ANCHOR_VF3", r"D:\开发\VoxelForge-V3")
 OUT = os.path.join(HERE, "results", "l3_env_anchor.json")
 
 
 def main():
+    require_anchor("vf3", VF3)
+
     if not os.path.isdir(os.path.join(VF3, ".git")):
         print("[SKIP] VoxelForge-V3 不在本地")
         return

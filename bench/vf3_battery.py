@@ -9,10 +9,13 @@ sys.path.insert(0, ".")
 # S97：bench 显式声明沙盒（与 s94_perf.py 同纪律）——被测工具已过沙盒门，
 # 裸 shell 下 fail-closed 会干扰测量。
 os.environ.setdefault("UNIFIED_RX_SANDBOX", "*")
-import registry  # noqa: E402
-import tools  # noqa: F401,E402
+from anchor_guard import env_anchor, require_anchor  # S198：缺锚 ⇒ ANCHOR-MISSING 退出，不量空气
 
-ROOT = r"D:\开发\VoxelForge-V3"
+import registry
+import tools  # noqa: F401
+
+ROOT = env_anchor("UNIFIED_RX_ANCHOR_VF3", r"D:\开发\VoxelForge-V3")
+require_anchor("vf3", ROOT)  # 入口即模块级（import==run）
 report = {"root": ROOT, "ts": int(time.time())}
 
 t0 = time.time()

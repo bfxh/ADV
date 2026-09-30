@@ -24,7 +24,12 @@ import tools  # noqa: E402,F401
 
 CORPUS = os.path.join(HERE, "bug_corpus.jsonl")
 OUT = os.path.join(HERE, "results", "p1_summary.json")
-DEV = r"D:\开发"
+from anchor_guard import (  # S198：缺锚 ⇒ ANCHOR-MISSING 退出，不量空气  # noqa: E402
+    env_anchor,
+    require_anchor,
+)
+
+DEV = env_anchor("UNIFIED_RX_ANCHOR_DEV", r"D:\开发")
 
 
 def scan_text(src, suffix):
@@ -63,6 +68,8 @@ def score(rows):
 
 
 def main():
+    require_anchor("dev-root", DEV)
+
     rows = []
     for line in pathlib.Path(CORPUS).read_text(encoding="utf-8", errors="replace").splitlines():
         if not line.strip():
