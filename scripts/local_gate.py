@@ -195,6 +195,11 @@ def main(argv):
     print(f"LOCAL-GATE {'OK' if not failed else 'FAIL'} steps={len(rows)} "
           f"skipped={skipped or '[]'} failed={failed} total={total:.1f}s")
     if failed:
+        # S199 防假绿三防：一键复现命令行（外层管道常把上文截掉）+ CI 下 ::error:: 注解
+        print(f"  复现：python -X utf8 scripts/local_gate.py --only {','.join(failed)}")
+        if os.environ.get("GITHUB_ACTIONS") == "1":
+            for n in failed:
+                print(f"::error::local-gate step failed: {n}（完整输出见落盘日志）")
         sys.exit(1)
     return 0
 

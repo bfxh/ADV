@@ -1853,6 +1853,24 @@ HEAD
   两轮均抓到红（guard_gate 判据置空、name_ledger 比对置空）后还原。四片均未 commit
   （本仓常态）；README 步数 35/28/32 由 claim-gate 复算钉住。
 
+## S199 · 账本可达性（ghost 不可放行）+ 门链防假绿三防——并行会话两坑入宪
+- 项目：ADV｜时间：2026-09-30T22:30
+- 决策：并行长会话收编 PR 时连续踩到两类坑，全部变成机器判据：
+  ① **audit-ledger ghost**——rebase/force-push 抹掉历史后，账本 head 指向不存在的
+  commit，旧口径把它归"过期"、`--allow-stale` 一并放行（完整性问题被当节奏问题），
+  三个 CI 步同根因红。新判据：凡登记 head 的条目必须 `git cat-file -e` 可达，
+  ghost 走形状/对账硬红、**不随 --allow-stale 豁免**；早期无 head 条目祖父化不追溯。
+  ② **管道假绿/静默跳段**——`cmd | tail` 吞真退出码、`&&` 链把后半段静默跳过，
+  本 session 内两次实锤。local_gate 红步起打印一键复现行（`--only a,b` 逗号列），
+  CI 环境（GITHUB_ACTIONS=1）追加逐步 `::error::` 注解。
+  ③ 顺带修 worktree 兼容：secrets_history 的 dump 落 `ROOT/.git`——linked worktree 里
+  那是文件不是目录，直接崩；改 `rev-parse --absolute-git-dir` 取真实 gitdir，
+  落在根外时把**本次自有临时目录**（不给整个 gitdir 开口子）显式加进沙盒白名单。
+- 证据：`tests/test_s199_audit_reachability.py` 6 例——真仓绿（既有 7 条 head 全部可达，
+  前 2 条无 head 走祖父化）· 篡 head ⇒ rc1 点名"不可达"且 `--allow-stale` 仍红 ·
+  local_gate FORCE_FAIL 复现行与 `::error::` 注解各 1 例；ghost 根因实锤见 CI run
+  36725078316（gates+pytest 3 红同因，STALE 文案点名 ghost commit）。快档 28 步 +
+  全量 pytest 复跑见本 PR CI。
 ## S200 · 交接卡门（handoff-gate）——「继续链」会话的交接上下文进仓内账：卡轮次↔ROUNDLOG、next 锚可达
 
 - 决策：zcode 会话 049206af 实锤——423 条消息的并行长会话全靠「继续」链推进，任务意图只活在
