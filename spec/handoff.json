@@ -5,12 +5,12 @@
   "branch": "feat/handoff-discipline",
   "now": "把「继续链交接」变成仓内硬账：spec/handoff.json + 门链 handoff-gate 步（滞后 >MAX_BEHIND 轮即黄红，ghost 轮次/ghost 锚不可 --allow-stale 放行）",
   "next": [
-    "合并本 PR（#121，S200）；合并后把本卡推进到合入后状态——改卡即过 handoff-gate（#120/S199 已合并，main=含账本可达性门）",
+    "cargo 三薄壳工具回灌 main：#93/#94 标 MERGED 但 main 无其合并记录、工具不在 main（详见 spec/ROUNDLOG.md S200 未决账）——三条分支 feat/cargo-audit / feat/cargo-machete / feat/cargo-semver-checks 是唯一副本，禁删；可搭仍 OPEN 的 #92 重做",
     "C 片待拍板：门步骤三表（scripts/local_gate.py 的 STEPS / .github/workflows/core.yml / README 步数行）数据化为新增 gates 账文件——治 core.yml/ROUNDLOG 多 PR 热区冲突（本片合并时 ROUNDLOG/god-baseline 又双处冲突，实锤再加一例）",
     "交接纪律扩展：审计账本 spec/audit-ledger.json 与 HARDENING 表已有可达性门（S199），下一片把「每轮必须留 next 锚」接进 spec/ROUNDLOG.md 的 entry_contract"
   ],
   "open": [
-    "版本头：v2.91.0（S198）→ S199/S200 合并时随各自 PR  bump，锁步三处见 spec/claim-checks.json",
-    "D:/KF/urx-w-auditgate 与 D:/KF/urx-w-handoff 两个 worktree 在 PR #120/本 PR 合并后 git worktree remove 收掉"
+    "分支删除判据修正（S200 未决账）：以 `git merge-base --is-ancestor` / `git cherry` 对当前 main 为准，GitHub PR 状态不可信（#93/#94 案例=账说合并了、历史里没有，与 ghost commit 同构）；fix/s195-guard-precision（#113 CLOSED）属可删草稿待口令",
+    "版本头：main=v2.92.0（server/Cargo/README 锁步，见 spec/claim-checks.json）；门片 S199/S200 未 bump，下一功能片随 PR 走 bump+cargo build --release 重建 EXE 的既定节奏；urx-w-auditgate/urx-w-handoff 两 worktree 已收"
   ]
 }

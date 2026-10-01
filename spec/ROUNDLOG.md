@@ -1886,3 +1886,14 @@ HEAD
 - 证据：门接成快档第 29 步；`tests/test_s200_handoff_gate.py` 10 例（真仓绿 · 卡形状 ·
   ghost 轮次/ghost 锚双向不可放行 · 裸文件名不算锚 · LAG 红可 --allow-stale · MAX_BEHIND env 可调 ·
   缺失/坏 JSON/缺字段/空 next 四态 fail-closed）。
+- 未决账（本 session 分支清理实查，2026-10-02，判据修正入宪）：删已合并残余分支时
+  发现 **PR 状态不可作删除判据**——GitHub 标 MERGED 的 #93（cargo-machete）/#94
+  （cargo-semver-checks），其 head（1e03c16/47b2744）**不是当前 main（591 提交）的祖先**，
+  main 历史里也没有这两条的合并记录，`git grep` 证实 cargo_audit/cargo_machete/
+  cargo_semver_checks 三个薄壳工具**不在 main**；与 S199 的 ghost commit 同构（账说合并了，
+  历史里没有）。三条本地+远端分支 `feat/cargo-{audit,machete,semver-checks}` 是该代码的
+  **唯一副本，禁删**，待重做回灌（#92 仍 OPEN 可搭）。新口径：**分支删除判据=
+  `git merge-base --is-ancestor` / `git cherry` 对当前 main，PR 状态仅供参考**；
+  `fix/s195-guard-precision`（#113 CLOSED）四条判据的进化版已经 21c20f8→#112 入 main，
+  属可删草稿，暂随本片保留待用户口令。wt-s95/feat/deps-redline-strict 已按树级核证
+  （磁盘整树与已合并 PR tip `git diff` 零差异）收掉。
