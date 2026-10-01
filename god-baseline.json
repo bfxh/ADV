@@ -165,7 +165,7 @@
   "max_type_members": 0
  },
  "conftest.py": {
-  "file_lines": 70,
+  "file_lines": 102,
   "max_fn_lines": 13,
   "max_type_members": 0
  },
@@ -685,8 +685,8 @@
   "max_type_members": 0
  },
  "scripts/deps_lock.py": {
-  "file_lines": 109,
-  "max_fn_lines": 11,
+  "file_lines": 100,
+  "max_fn_lines": 10,
   "max_type_members": 0
  },
  "scripts/dupe_gate.py": {
@@ -877,6 +877,11 @@
  "tests/test_bevy.py": {
   "file_lines": 125,
   "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "tests/test_deps_lock.py": {
+  "file_lines": 57,
+  "max_fn_lines": 9,
   "max_type_members": 0
  },
  "tests/test_game.py": {
