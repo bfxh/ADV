@@ -714,6 +714,11 @@
   "max_fn_lines": 29,
   "max_type_members": 0
  },
+ "scripts/handoff_gate.py": {
+  "file_lines": 118,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
  "scripts/hub_gate.py": {
   "file_lines": 620,
   "max_fn_lines": 46,
@@ -725,7 +730,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 207,
+  "file_lines": 209,
   "max_fn_lines": 51,
   "max_type_members": 0
  },
@@ -1312,6 +1317,11 @@
  "tests/test_s199_audit_reachability.py": {
   "file_lines": 83,
   "max_fn_lines": 10,
+  "max_type_members": 0
+ },
+ "tests/test_s200_handoff_gate.py": {
+  "file_lines": 143,
+  "max_fn_lines": 17,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {
