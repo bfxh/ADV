@@ -56,6 +56,8 @@ STEPS = [
      "名字账门（路由意图表/能力清单/README 工具面 ↔ 在册闭集；不在册且无豁免即红）"),
     ("bench-anchor", [PY, "-X", "utf8", "scripts/bench_anchor_gate.py"], "fast",
      "测量锚账（bench 仓外路径全入账；present 必存在、detached 必走 ANCHOR-MISSING 出口）"),
+    ("handoff-gate", [PY, "-X", "utf8", "scripts/handoff_gate.py"], "fast",
+     "交接卡账（卡轮次/锚可达=完整性红，--allow-stale 不豁免；轮次滞后=节奏黄可放行）"),
     ("self-attack", [PY, "-X", "utf8", "scripts/attack_gate.py"], "fast", "自攻门（巡航 clean）"),
     ("data-flow",   [PY, "-X", "utf8", "scripts/taint_gate.py"], "fast", "数据流门（taint 基线）"),
     ("secrets-history", [PY, "-X", "utf8", "scripts/secrets_history.py"], "fast", "历史 diff 明文红线"),

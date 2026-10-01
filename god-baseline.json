@@ -714,6 +714,11 @@
   "max_fn_lines": 29,
   "max_type_members": 0
  },
+ "scripts/handoff_gate.py": {
+  "file_lines": 118,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
  "scripts/hub_gate.py": {
   "file_lines": 620,
   "max_fn_lines": 46,
@@ -725,7 +730,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 202,
+  "file_lines": 204,
   "max_fn_lines": 46,
   "max_type_members": 0
  },
@@ -775,8 +780,8 @@
   "max_type_members": 0
  },
  "scripts/secrets_history.py": {
-  "file_lines": 190,
-  "max_fn_lines": 55,
+  "file_lines": 206,
+  "max_fn_lines": 52,
   "max_type_members": 0
  },
  "scripts/shard_plan.py": {
@@ -1306,6 +1311,11 @@
  },
  "tests/test_s198_bench_anchors.py": {
   "file_lines": 178,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "tests/test_s200_handoff_gate.py": {
+  "file_lines": 143,
   "max_fn_lines": 17,
   "max_type_members": 0
  },

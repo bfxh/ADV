@@ -141,6 +141,11 @@ jobs:
       - name: Bench anchor gate（量空气防线：锚登记表 ↔ bench 路径引用名实相符）
         run: python -X utf8 scripts/bench_anchor_gate.py
 
+      # S200：交接卡账——会话交接从 session sqlite 搬进仓内账（spec/handoff.json）。
+      # ghost 轮次/ghost 锚=完整性红（--allow-stale 不豁免）；轮次滞后=节奏黄可显式放行。
+      - name: Handoff gate（交接卡账：卡轮次 ↔ ROUNDLOG、next 锚可达）
+        run: python -X utf8 scripts/handoff_gate.py
+
       - name: Deps-lock gate（S147 加严：Cargo 恒空 / CI 依赖登记+钉版 / workflow 钉 sha）
         run: python -X utf8 scripts/deps_lock.py
 

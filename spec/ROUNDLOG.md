@@ -1852,3 +1852,19 @@ HEAD
   非本仓缺陷）；新增测试 34 例（s195×10 · s197×10 · s198×11 · test_v2×3）；变异自检
   两轮均抓到红（guard_gate 判据置空、name_ledger 比对置空）后还原。四片均未 commit
   （本仓常态）；README 步数 35/28/32 由 claim-gate 复算钉住。
+
+## S200 · 交接卡门（handoff-gate）——「继续链」会话的交接上下文进仓内账：卡轮次↔ROUNDLOG、next 锚可达
+
+- 决策：zcode 会话 049206af 实锤——423 条消息的并行长会话全靠「继续」链推进，任务意图只活在
+  session sqlite/artifacts 里，第三方重建必须考古。新增 `spec/handoff.json`（round/as_of/branch/
+  now/next/open）+ `scripts/handoff_gate.py`，把「在做什么/下一步锚/未决账」变成仓内硬账，接进
+  local_gate 快档与 CI。判据分两级（沿用 audit-ledger 的 S199 口径）：**完整性红不可放行**——
+  ghost 轮次（卡 round 未在 ROUNDLOG 记账）、ghost 锚（next/open 里带路径分隔符的仓内锚不存在，
+  与 ghost commit 同罪）；**节奏黄可显式放行**——卡滞后 ROUNDLOG 最新轮 > MAX_BEHIND（默认 1），
+  `--allow-stale` 豁免。fail-closed：卡缺失/坏 JSON/缺字段/next 为空即红。金丝雀走 env 自带输入
+  （`UNIFIED_RX_HANDOFF{,_LOG,_ROOT,_MAX_BEHIND}`，同 S199 实测教训：靠仓内状态的金丝雀会假绿）。
+  卡内锚只许指**当次提交即可达**的文件——指向本 PR 新建路径会在合并前 CI 自判红（本片首稿就踩中，
+  已改为指既成事实）。
+- 证据：门接成快档第 29 步；`tests/test_s200_handoff_gate.py` 10 例（真仓绿 · 卡形状 ·
+  ghost 轮次/ghost 锚双向不可放行 · 裸文件名不算锚 · LAG 红可 --allow-stale · MAX_BEHIND env 可调 ·
+  缺失/坏 JSON/缺字段/空 next 四态 fail-closed）。
