@@ -128,17 +128,33 @@ def classify(hits, lines, exempt):
     return bad, waived
 
 
+def _hist_tmp():
+    """本次 dump 的私有临时目录（S199 worktree 兼容）。
+
+    dump 落 git 目录内：它被所有扫描器天然排除——并发轮里其他步扫 ROOT 不会撞上
+    （首版落 %TEMP% 被沙盒拒绝、落仓内曾致 secrets 步 0.4s 假红）。linked worktree
+    里 ROOT/.git 是文件不是目录，故用 `rev-parse --absolute-git-dir` 取真实 gitdir；
+    若它落在 checkout 根外，像 conftest 放行 tmp 前缀那样，把**本次自有目录**显式
+    加进沙盒白名单（不给整个 gitdir 开口子）。finally 必删，不留痕。
+    """
+    gd = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--absolute-git-dir"],
+                        capture_output=True, text=True, encoding="utf-8",
+                        errors="replace", timeout=60, shell=False)
+    gitdir = (gd.stdout or "").strip() or str(ROOT / ".git")
+    tmp = Path(tempfile.mkdtemp(prefix=".urx-hist-", dir=gitdir)).resolve()
+    if ROOT.resolve() not in tmp.parents:
+        os.environ["UNIFIED_RX_SANDBOX"] = os.environ.get("UNIFIED_RX_SANDBOX", "") + ";" + str(tmp)
+    return tmp
+
+
 def main(argv):
     n = int(os.environ.get("UNIFIED_RX_HISTORY_N", "50"))
     for i, a in enumerate(argv):
         if a == "--n" and i + 1 < len(argv):
             n = int(argv[i + 1])
     diff, blocks, commits = keep_blocks(history_diff(n))
-    # dump 落**仓内**临时目录：沙盒(ROOT)语义不放宽（首版落 %TEMP% 被沙盒正确拒绝），
-    # 路径仍经 _dump_path 写前校验；finally 必删，不留痕。
-    # 落 .git/ 下：.git 被所有扫描器天然排除——并发轮里其他步扫 ROOT 不会撞上 dump
-    # （曾致 secrets 步 0.4s 假红）；沙盒(ROOT)语义不变，路径仍过 _dump_path 写前校验。
-    tmp = Path(tempfile.mkdtemp(prefix=".urx-hist-", dir=str(ROOT / ".git"))).resolve()
+    # dump 落**仓内**临时目录：沙盒(ROOT)语义不放宽，路径仍经 _dump_path 写前校验。
+    tmp = _hist_tmp()
     try:
         dump = _dump_path(tmp)
         dump.write_text(diff, encoding="utf-8")      # 后缀进 include 面
