@@ -1,10 +1,10 @@
 {
   "name": "adv",
   "version": "1.0.0",
-  "description": "ADV server for ZCode: 66-tool Python-stdlib MCP toolbox with Rust-accelerated scan/sketch/xor paths.",
+  "description": "ADV server for ZCode: 86-tool Python-stdlib MCP toolbox with Rust-accelerated scan/sketch/xor paths.",
   "description_i18n": {
-    "en": "ADV server for ZCode: 66-tool Python-stdlib MCP toolbox with Rust-accelerated scan/sketch/xor paths.",
-    "zh-CN": "把 ADV 服务器挂进 ZCode：66 个工具（纯 Python stdlib + Rust 加速的扫描/指纹/异或路径）。命令指向稳定版 D:\\rj\\MCP\\server.py，沙盒默认限 D:\\开发、D:\\rj\\MCP 与 ZCode 工作区。"
+    "en": "ADV server for ZCode: 86-tool Python-stdlib MCP toolbox with Rust-accelerated scan/sketch/xor paths.",
+    "zh-CN": "把 ADV 服务器挂进 ZCode：86 个工具（纯 Python stdlib + Rust 加速的扫描/指纹/异或路径）。命令指向稳定版 D:\\rj\\MCP\\server.py，沙盒默认限 D:\\KF、D:\\rj\\MCP 与 ZCode 工作区。"
   },
   "author": {
     "name": "ADV"
