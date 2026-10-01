@@ -5,8 +5,8 @@
   "branch": "feat/handoff-discipline",
   "now": "把「继续链交接」变成仓内硬账：spec/handoff.json + 门链 handoff-gate 步（滞后 >MAX_BEHIND 轮即黄红，ghost 轮次/ghost 锚不可 --allow-stale 放行）",
   "next": [
-    "跟进 PR #120（S199 账本可达性+防假绿）的 CI 与合并；合并后把本卡 round/branch 推进到合入后状态（改卡即过 handoff-gate）",
-    "C 片待拍板：门步骤三表（scripts/local_gate.py 的 STEPS / .github/workflows/core.yml / README 步数行）数据化为新增 gates 账文件——治 core.yml/ROUNDLOG 多 PR 热区冲突",
+    "合并本 PR（#121，S200）；合并后把本卡推进到合入后状态——改卡即过 handoff-gate（#120/S199 已合并，main=含账本可达性门）",
+    "C 片待拍板：门步骤三表（scripts/local_gate.py 的 STEPS / .github/workflows/core.yml / README 步数行）数据化为新增 gates 账文件——治 core.yml/ROUNDLOG 多 PR 热区冲突（本片合并时 ROUNDLOG/god-baseline 又双处冲突，实锤再加一例）",
     "交接纪律扩展：审计账本 spec/audit-ledger.json 与 HARDENING 表已有可达性门（S199），下一片把「每轮必须留 next 锚」接进 spec/ROUNDLOG.md 的 entry_contract"
   ],
   "open": [
