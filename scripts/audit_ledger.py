@@ -9,6 +9,9 @@
 3. **时效**：最新审计距今 ≤ MAX_DAYS（默认 14）且 head 之后的提交数
    ≤ MAX_COMMITS（默认 60）——超期/超距即红；`--allow-stale` 显式放行
    （用于"先推、随后补审计"的既定节奏）。
+4. **可达性（S199）**：凡登记了 head 的条目，该 commit 必须真实可达——
+   ghost（账指向被 rebase 抹掉的历史）属**完整性红**，`--allow-stale` 不豁免；
+   处置=改写历史后同日重锚账本（更新末条 head 或补记一次复审）。
 
 用法：python -X utf8 scripts/audit_ledger.py [--allow-stale]
 env：UNIFIED_RX_AUDIT_MAX_DAYS / UNIFIED_RX_AUDIT_MAX_COMMITS 覆盖阈值。
@@ -71,6 +74,17 @@ def check_table(entries):
     return bad
 
 
+def check_reachability(entries):
+    """登记过的每个 head 都必须可达（ghost=历史被改写后账本失联，S199 实测教训）。"""
+    bad = []
+    for e in entries:
+        head = (e.get("head") or "").strip()
+        if head and _git(["cat-file", "-e", head + "^{commit}"])[1] != 0:
+            bad.append(f"{e.get('round')}: head『{head}』不可达（ghost commit——"
+                       "改写历史后须重锚账本；--allow-stale 不豁免此类）")
+    return bad
+
+
 def check_freshness(entries):
     max_days = int(os.environ.get("UNIFIED_RX_AUDIT_MAX_DAYS", "14"))
     max_commits = int(os.environ.get("UNIFIED_RX_AUDIT_MAX_COMMITS", "60"))
@@ -94,7 +108,7 @@ def check_freshness(entries):
 
 def main(argv):
     entries = load()
-    bad = check_shape(entries) + check_table(entries)
+    bad = check_shape(entries) + check_table(entries) + check_reachability(entries)
     msgs, last, age, behind = check_freshness(entries)
     print(f"AUDIT-LEDGER 条数={len(entries)} 最新={last['round']}@{last['date']} "
           f"age={age}d behind={behind} head={last.get('head') or '-'}")
