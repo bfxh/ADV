@@ -3,7 +3,7 @@
   "round": "S214",
   "as_of": "2026-10-02",
   "branch": "perf/toolface-context-trim",
-  "now": "S213 vigilo 安全增量门已并入本链；S214 工具面零损失瘦身（sys_steer 删 pid/profile 旧参 -171c、__authorized 中央注入点压缩 -189c，全量 43,851→43,491c、核心 29,248→29,149c）。test_s148 三处迁到 target/preset 后端到端仍过。",
+  "now": "S213 vigilo 安全增量门；S214 工具面零损失瘦身（sys_steer 删旧参 -171c、__authorized 中央压缩 -189c，全量 43,851→43,491c、核心 29,248→29,149c）；S214-note 修 type-gate 子进程 GBK 静默假红（run_mypy env 置 PYTHONUTF8=1，修复前 rc=2/后 OK）。",
   "next": [
     "片 D-2（先量后改）：分析型工具的明细列表分页/摘要——#132 的尺合进去后就有了真数据。已知起点：`bug_scan` 单次回包 45,936 字符、其中 `issues` 一键占 45,369（98.8%）。判据是「信息不减」：首屏 top-N + 全量计数 + by_rule 分布 + cursor 取全量，配 A/B 实测（同一夹具改前/改后 result_bytes 与召回集等价）",
     "片 D-3：agent 级死循环熔断（现在有尺了）——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里本就自动跑，只差 agent 维度）",

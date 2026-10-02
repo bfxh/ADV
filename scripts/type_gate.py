@@ -39,10 +39,14 @@ def run_mypy(root: pathlib.Path, paths: list[str]) -> tuple[int, list[str]]:
             "mypy 不可用——本地 `python -m pip install mypy==2.3.1`，"
             "CI 由 .github/ci-requirements.txt 安装（缺工具不静默降级）")
     cache = os.path.join(os.environ.get("TEMP", "/tmp"), "urx-mypy-gate")
+    # 子 mypy 进程必须按 UTF-8 读 mypy.ini/源码：`-X utf8` 只作用于本门解释器，不导出到子进程，
+    # 于是 Windows GBK locale 下 configparser 读含中文注释的 mypy.ini 直接 UnicodeDecodeError（rc=2，
+    # 且诊断被过滤成 0 条——门在 gbk 机器上永远假红）。显式置 PYTHONUTF8=1 对齐全仓 -X utf8 约定。
+    env = {**os.environ, "PYTHONUTF8": "1"}
     p = subprocess.run([sys.executable, "-m", "mypy", "--no-error-summary",
                         "--no-incremental", "--cache-dir", cache, *paths],
                        capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", cwd=str(root))
+                       errors="replace", cwd=str(root), env=env)
     out = (p.stdout or "") + (p.stderr or "")
     if "No module named mypy" in out:
         raise RuntimeError("mypy 不可用（解释器里没有该模块）")
