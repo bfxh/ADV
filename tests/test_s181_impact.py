@@ -55,6 +55,28 @@ def test_unrelated_change_not_selected(repo):
     assert "tests/test_a.py" not in res["impacted_tests"]
 
 
+def test_conftest_change_selects_whole_subtree(repo):
+    """S211：conftest.py 不被任何测试 import，导入图里没有这条边——以前改了它
+    会选 0 个测试且不给理由（hub_gate 的 honest 判据在 CI 上把这个静默零结果抓红）。
+    现在的正确形状是"所在子树全量入选"。"""
+    (repo / "conftest.py").write_text("import os\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "conftest")
+    (repo / "conftest.py").write_text("import os\nimport sys\n", encoding="utf-8")
+    res = hub_impact.impact(base="HEAD")
+    assert "conftest.py" in res["changed"], res["changed"]
+    assert res["conftest_scopes"] == [""], res["conftest_scopes"]
+    assert set(res["impacted_tests"]) == {"tests/test_a.py", "tests/test_c.py"}, res["impacted_tests"]
+    assert res["scope_forced_tests"] == 2, res
+
+
+def test_global_scopes_are_directory_bounded():
+    """根 conftest = 全仓；`tests/conftest.py` 只罩 tests/；普通文件不产生作用域。"""
+    got = hub_impact._global_scopes(["conftest.py", "tests/conftest.py", "pkg/a.py",
+                                     "bench/fixtures/x/conftest.py"])
+    assert got == ["", "bench/fixtures/x", "tests"], got
+
+
 def test_committed_change_visible_from_base(repo):
     """已提交变更同样可见（base=HEAD~1）。"""
     (repo / "pkg" / "b.py").write_text("def helper():\n    return 7\n", encoding="utf-8")

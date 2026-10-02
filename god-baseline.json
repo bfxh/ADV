@@ -185,8 +185,8 @@
   "max_type_members": 0
  },
  "hub_impact.py": {
-  "file_lines": 154,
-  "max_fn_lines": 32,
+  "file_lines": 167,
+  "max_fn_lines": 37,
   "max_type_members": 0
  },
  "hub_ledger.py": {
@@ -1240,7 +1240,7 @@
   "max_type_members": 0
  },
  "tests/test_s181_impact.py": {
-  "file_lines": 89,
+  "file_lines": 111,
   "max_fn_lines": 19,
   "max_type_members": 0
  },
