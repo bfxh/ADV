@@ -295,7 +295,7 @@ def list_tools():
             if "__authorized" not in props:
                 props["__authorized"] = {
                     "type": "boolean",
-                    "description": "写/执行操作授权确认：必须显式传 true（防 AI 幻觉乱写）",
+                    "description": "写/执行授权：须显式传 true（防幻觉乱写）",
                 }
             if "__authorized" not in req:
                 req.append("__authorized")
