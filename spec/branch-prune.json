@@ -1,0 +1,518 @@
+{
+  "_doc": "分支删除台账（生成物）：判据 = git merge-base --is-ancestor <origin/分支> origin/main，即该 ref 全部内容已可从 main 到达 ⇒ 非唯一副本方可删；恢复命令 git branch <branch> <sha>。有 OPEN PR 的 head 一律不删（删了会牵连 PR）。",
+  "as_of": "2026-10-02",
+  "main": "9d4ce769317e4805e07dbc9947d7d1523b54fa50",
+  "counts": {
+    "dropped": 115,
+    "kept": 9
+  },
+  "dropped": [
+    {
+      "branch": "ci/dependabot",
+      "sha": "38b5b4d91e98ef6f74d3f07ba093855e07eff7eb"
+    },
+    {
+      "branch": "ci/pin-ci-requirements",
+      "sha": "4ccd8cecfc3cd01fae22a326ba5f916e5c8c6f24"
+    },
+    {
+      "branch": "ci/s193-coverage-diag",
+      "sha": "d3c3f7bb08cc061c5e45d3108a66372e0f98d6d0"
+    },
+    {
+      "branch": "ci/s199-test-profile",
+      "sha": "8049e69949a7bce3c99732d5fe5a2641b11d54a0"
+    },
+    {
+      "branch": "docs/cargo-stack-ledger-fix",
+      "sha": "888ef4add9ce303b3124840c7e42174b51ff9fd4"
+    },
+    {
+      "branch": "docs/orphan-copy-ledger",
+      "sha": "19dbe091d203b85a69274140d8a75068d7ce2888"
+    },
+    {
+      "branch": "docs/pr-discipline",
+      "sha": "8f5d787304542699d26685ee4f8ee35c7f70dce0"
+    },
+    {
+      "branch": "docs/s187-frontier-3",
+      "sha": "16c269a6fa7719d297fcb670680b2e3613ba7151"
+    },
+    {
+      "branch": "docs/s190-game-taxonomy",
+      "sha": "e57711bd6982fba7f2a4abdbf6c3cfd85d73d451"
+    },
+    {
+      "branch": "docs/s199-build-speed",
+      "sha": "738889cf459b7cf790a4947384aab347404808bc"
+    },
+    {
+      "branch": "feat/audit-ledger-reachability",
+      "sha": "036ec52b1eee3ea2b6f7f73550b089699b895c93"
+    },
+    {
+      "branch": "feat/handoff-discipline",
+      "sha": "6a0891cf6fe3de538ddaa763ebd253fc17b3dc18"
+    },
+    {
+      "branch": "feat/pytest-shards",
+      "sha": "1ff83c27ef20a730603ba5376659546b7ab45915"
+    },
+    {
+      "branch": "feat/s1-s2-security-pagination",
+      "sha": "e923cc873f2cdedaa1a0890d5cac6a9e37e61cf0"
+    },
+    {
+      "branch": "feat/s100",
+      "sha": "6382a0e49ac8beb14cf296333850544be11b5f5c"
+    },
+    {
+      "branch": "feat/s101",
+      "sha": "8d57ae838924396c4b968975116806cd9213699b"
+    },
+    {
+      "branch": "feat/s102",
+      "sha": "b1033efb9bd2bbd775bd6efee461d67b109ebbd2"
+    },
+    {
+      "branch": "feat/s102b",
+      "sha": "3d341037d63f8b2d15a22cddaf3d2e13da4072f2"
+    },
+    {
+      "branch": "feat/s103",
+      "sha": "c5f86a9e32c812aab42c3a977e4ba3f57c3e9ec9"
+    },
+    {
+      "branch": "feat/s104",
+      "sha": "d4fd192024a36de41a1abddb7158ebeeb345346e"
+    },
+    {
+      "branch": "feat/s105",
+      "sha": "2f500cd13e19b0e0d5ca49fd420a81fb4a5e19f6"
+    },
+    {
+      "branch": "feat/s106",
+      "sha": "c8bcb6d0718333193a8a7f8b2e03eac45be83c8d"
+    },
+    {
+      "branch": "feat/s107",
+      "sha": "01e08c229ffe91627df20de66fd052db747b46e7"
+    },
+    {
+      "branch": "feat/s108",
+      "sha": "907f76fe710a18b73deee95337d2759cf7599797"
+    },
+    {
+      "branch": "feat/s109",
+      "sha": "cd72f86ad009fbbc2ab3002ee9a7f2db8ba7e8e2"
+    },
+    {
+      "branch": "feat/s110",
+      "sha": "a921cd58224c256705aa3ac5c5c6ddde3eb26521"
+    },
+    {
+      "branch": "feat/s113",
+      "sha": "dbe64eb32b11b1a3f51003553c5ba3760cb62c7c"
+    },
+    {
+      "branch": "feat/s114",
+      "sha": "df073b060690573d7e7d86ba14a38f7d21ec6023"
+    },
+    {
+      "branch": "feat/s116",
+      "sha": "3bf77c0a873ba9f24f85ba3b3d24dce02e85edce"
+    },
+    {
+      "branch": "feat/s117",
+      "sha": "5549daa8b1b2c802db08439e6cede6e7177002f4"
+    },
+    {
+      "branch": "feat/s118",
+      "sha": "d735ee5ab8cb2dc30fb0568124e19a4a00088f97"
+    },
+    {
+      "branch": "feat/s119",
+      "sha": "c7b65fcdd78c4d32c9e891c8a1b2f50091711230"
+    },
+    {
+      "branch": "feat/s120",
+      "sha": "333dff370315adf6b29a4529576d2f869705ff88"
+    },
+    {
+      "branch": "feat/s121",
+      "sha": "340dff9299373ed9609d6b9d2b4cd16e9c28e819"
+    },
+    {
+      "branch": "feat/s122",
+      "sha": "31426da069b631cb0715afcbe05ea94104229fe4"
+    },
+    {
+      "branch": "feat/s123",
+      "sha": "ae9b6be9bc79932cd5a08d06b79502bed8e643f3"
+    },
+    {
+      "branch": "feat/s124",
+      "sha": "c5d1b4fd20087931f20f8128268da054714fb9d4"
+    },
+    {
+      "branch": "feat/s125",
+      "sha": "20a1e0c10ab8de8fbbd5f29c18f7c20147bf429d"
+    },
+    {
+      "branch": "feat/s125-ci",
+      "sha": "644573a85b55cbc251a81656c8fe6f4483e42133"
+    },
+    {
+      "branch": "feat/s125-ci2",
+      "sha": "0a6286abc408007b247b145ea59f3eb1508edc07"
+    },
+    {
+      "branch": "feat/s125-ci3",
+      "sha": "857fbdc8c814782048ebd37c1ef7c83f7a6e130d"
+    },
+    {
+      "branch": "feat/s125-ci4",
+      "sha": "a05cdf6b27a02dd4ebd1623f4f2857e86614cc8d"
+    },
+    {
+      "branch": "feat/s125-ci5",
+      "sha": "a62fcd592f70b6490c11db9b4bde8875b02553ec"
+    },
+    {
+      "branch": "feat/s125-ci6",
+      "sha": "27ec96804749c48f6f5164883feca2625e4c7d29"
+    },
+    {
+      "branch": "feat/s125-ci7",
+      "sha": "96e9c29fc71ad4b3caf171bb593831ef680f3d8b"
+    },
+    {
+      "branch": "feat/s125-ci8",
+      "sha": "a3fb5e49886ba4cd83641ca45e122b4450338616"
+    },
+    {
+      "branch": "feat/s125-docs",
+      "sha": "71f42d523e17966a3280dc7275b2be7a8bbb0149"
+    },
+    {
+      "branch": "feat/s126-docs",
+      "sha": "00f025475e7b2da5bdf946ea75338cfeb7e04c82"
+    },
+    {
+      "branch": "feat/s127-split",
+      "sha": "d0d25727d60398a1bd5555a45ac9550b5d4fa86c"
+    },
+    {
+      "branch": "feat/s128-taint-cross",
+      "sha": "f539068ccd6669f77871168d7cabb61557aa32bf"
+    },
+    {
+      "branch": "feat/s129-ide-upgrade",
+      "sha": "7d536f481ed066f3c18219fc650a858bde69be45"
+    },
+    {
+      "branch": "feat/s130-gpu-split",
+      "sha": "6ec9c73ba40cb1ec697c293c06c71647401b9839"
+    },
+    {
+      "branch": "feat/s131-rules-review",
+      "sha": "85977f456e2039cf7f7465c5086bf8e8fa75d925"
+    },
+    {
+      "branch": "feat/s132-review-fixes",
+      "sha": "80291b986cece02470ee8b1bda087182966fad9d"
+    },
+    {
+      "branch": "feat/s133-cruise",
+      "sha": "f1fb2647140caf2eb6b6be2d3796117028bd17cd"
+    },
+    {
+      "branch": "feat/s134-secrets-native",
+      "sha": "94072e21b00fb6628bce3ce4510aa74ca6d18d80"
+    },
+    {
+      "branch": "feat/s135-lib-policy-deadcode",
+      "sha": "f2594a81a8bc2864b41195558eb1d3cf4f109632"
+    },
+    {
+      "branch": "feat/s136-metrics-group",
+      "sha": "d08b8a3a472d9996f7ba3fe0e6da895ce71d6fee"
+    },
+    {
+      "branch": "feat/s137-audit-payoff",
+      "sha": "788ec57f52c25fdb0686a18bab011dbb3c489367"
+    },
+    {
+      "branch": "feat/s138-audit-mechanism",
+      "sha": "23dc1099288362ab4a0921a295132f9cf4c8c727"
+    },
+    {
+      "branch": "feat/s139-taint-gate",
+      "sha": "c0b918e8b2d58315420f35bf241e04dc651c49aa"
+    },
+    {
+      "branch": "feat/s187-stat-depth",
+      "sha": "35eafc06f7df4abf8ba1912fc7f4449235b9ed8e"
+    },
+    {
+      "branch": "feat/s188-arch-gate",
+      "sha": "02cc9726b300c7d078989edf542a416af0bb9a48"
+    },
+    {
+      "branch": "feat/s189-mutate",
+      "sha": "a691c0729789639f05bb3a77e20ec7596cfd801d"
+    },
+    {
+      "branch": "feat/s191-save-rules",
+      "sha": "8d0fd9466b8aae62e52f4575db865717ba657476"
+    },
+    {
+      "branch": "feat/s192-arch-rust",
+      "sha": "848f7c8115135835d3e6e7c9ad37592b6e638c2f"
+    },
+    {
+      "branch": "feat/s194-claim-gate",
+      "sha": "6dab190382280caed8f31128d33a8c84b3ee21b1"
+    },
+    {
+      "branch": "feat/s55-risky-tests",
+      "sha": "d9c99e99de2f34ffa6279a754374dce83df2c51f"
+    },
+    {
+      "branch": "feat/s56-ide-guards",
+      "sha": "82cb44038035722a722e220f4045d7365c82dbc4"
+    },
+    {
+      "branch": "feat/s57-ide-test",
+      "sha": "418bb4c9267bda34ebad5915c20d1295286f7f28"
+    },
+    {
+      "branch": "feat/s58-rename-impact",
+      "sha": "cf97de84623930234cdfa73b85c4051f93c10149"
+    },
+    {
+      "branch": "feat/s59-ide-doctor",
+      "sha": "670c38c4ea4665e5dd845e0aed054867187f6d62"
+    },
+    {
+      "branch": "feat/s60-dig",
+      "sha": "2f85cc0e447f1b3dbd2dd32c414bf7505bb4f7f3"
+    },
+    {
+      "branch": "feat/s61-hardening",
+      "sha": "b88593aecce4c11debbf7900cd2f88b4d9a7c66e"
+    },
+    {
+      "branch": "feat/s62-default-strict",
+      "sha": "4740a8a40d03e88293940156fff522929a3c6384"
+    },
+    {
+      "branch": "feat/s65-ide-upgrades",
+      "sha": "6b58dae67c8dbea8b2a539f85c523fe962170e94"
+    },
+    {
+      "branch": "feat/s66-read-doctor-diff",
+      "sha": "93b87780190eb40e26475b83078b345f8dd92b38"
+    },
+    {
+      "branch": "feat/s68-vscode-multi",
+      "sha": "40fc04c4ae0a9d9a88a61de4c8f5e60772f85059"
+    },
+    {
+      "branch": "feat/s69-autopilot",
+      "sha": "32cf3034d2ba6d30a04762505b3073afc19a2742"
+    },
+    {
+      "branch": "feat/s70-types-clamp",
+      "sha": "6cf22874a170056738e30eb6f0c8615377be04fd"
+    },
+    {
+      "branch": "feat/s71-persist-trend",
+      "sha": "b783e6d57d21c238e2116b71f3c87685953e601d"
+    },
+    {
+      "branch": "feat/s72",
+      "sha": "84034eb5288f3e6a58b24b9acb28d8ce1a2eaf09"
+    },
+    {
+      "branch": "feat/s72b",
+      "sha": "77297bf02ca29d6fc671112f0a35cd816bf6cf47"
+    },
+    {
+      "branch": "feat/s73",
+      "sha": "846280bac70b515b888d90311ca92c26b0cf160f"
+    },
+    {
+      "branch": "feat/s74",
+      "sha": "26c0a48a9a0bbefdd85d4d54ad14630222a8cdfa"
+    },
+    {
+      "branch": "feat/s75",
+      "sha": "202f5c578f56d8b5bcaee6575cf93647fca2d030"
+    },
+    {
+      "branch": "feat/s76",
+      "sha": "4e4f44588a72cc9da6c2500d0b5bd915cdef8ff1"
+    },
+    {
+      "branch": "feat/s77",
+      "sha": "f538052dce6b6410462c5c2637026a0d697f02c5"
+    },
+    {
+      "branch": "feat/s78",
+      "sha": "949287f22bb53cc50ea75e8a6d848e963b0ef7b0"
+    },
+    {
+      "branch": "feat/s79",
+      "sha": "a058b37db4ebc773ac1718877ae14311a21541d9"
+    },
+    {
+      "branch": "feat/s80",
+      "sha": "89ce457331dba0b3648cdbe069a9d22f95cd8740"
+    },
+    {
+      "branch": "feat/s81",
+      "sha": "7f9a581a5d5d8841adf0cc2a468df05ea50113cd"
+    },
+    {
+      "branch": "feat/s82",
+      "sha": "632f2cd25ad11e95c56298be0a7d92f120ed2ea1"
+    },
+    {
+      "branch": "feat/s83",
+      "sha": "4bf41b26625967c01cf5b8d3fd8b18ff01e0a49b"
+    },
+    {
+      "branch": "feat/s84",
+      "sha": "c551e9a8aaf8d3136d1ba34dd7cac2c062afc911"
+    },
+    {
+      "branch": "feat/s85",
+      "sha": "7612d0a36899b0351a49a57eb5ac328ca177ebf8"
+    },
+    {
+      "branch": "feat/s86",
+      "sha": "edb9171b4a4dcf321f53ebe65abf14190ff5ef3a"
+    },
+    {
+      "branch": "feat/s87",
+      "sha": "57fc6aec046f2db3a5eaa8ef425ab0db91ff6cb4"
+    },
+    {
+      "branch": "feat/s88",
+      "sha": "bdd68360e8aab4c66f9c5439b09cea62ed115bca"
+    },
+    {
+      "branch": "feat/s88b",
+      "sha": "9cb3df48407a2a549dd5ba97286a58d4b1fcfe96"
+    },
+    {
+      "branch": "feat/s89",
+      "sha": "f1dcb3643a4bd744ceb550a581ded14982c6dc0a"
+    },
+    {
+      "branch": "feat/s90",
+      "sha": "7c06f8add9e058df380420a30d2c3167b36e6af2"
+    },
+    {
+      "branch": "feat/s91",
+      "sha": "07125c2e7e3c43c2166fe190e9348296dd61bdb5"
+    },
+    {
+      "branch": "feat/s92",
+      "sha": "f61fd4ba20aa60c88dd4f7d0c924bc65fae74900"
+    },
+    {
+      "branch": "feat/s93",
+      "sha": "892d6cf38ab618e24b2eaa9d9a8ef7e2534efeb2"
+    },
+    {
+      "branch": "feat/s94",
+      "sha": "8292cbb0522079c73b2eab0be73aa404c0713d76"
+    },
+    {
+      "branch": "feat/s95",
+      "sha": "921ebb5cfbe49bc44494e130ba2303f785a3f211"
+    },
+    {
+      "branch": "feat/s96",
+      "sha": "567638beed047a4853b8934dc88217f46b00f2fb"
+    },
+    {
+      "branch": "feat/s97",
+      "sha": "1824e56a6541fba881eb224ed12622d32743c9ef"
+    },
+    {
+      "branch": "feat/s98",
+      "sha": "01abfd014fbe1e12bb0b386e9cef2ff146e50d1d"
+    },
+    {
+      "branch": "feat/s99",
+      "sha": "d2f9755e65d96c3b45a80765052a1a65ab081996"
+    },
+    {
+      "branch": "fix/s199-audit-head",
+      "sha": "f5ffd73bb43f8498503e7adf3891158a1484056a"
+    },
+    {
+      "branch": "fix/s63-cargo-workspace-count",
+      "sha": "b7db27637f229f56b290ba6d75edac8748938627"
+    },
+    {
+      "branch": "fix/s64-func-spans",
+      "sha": "5ffaddd5e0fbb6209d5419d1c1389350151483b2"
+    },
+    {
+      "branch": "fix/test-isolation-p0",
+      "sha": "fd88633b3482e5e0d001f2e36724c21795ad7421"
+    }
+  ],
+  "kept": [
+    {
+      "branch": "ci/strict-and-parallel",
+      "sha": "0c6823201822623ca2e912454dd81da929642d50",
+      "why": "not-in-main"
+    },
+    {
+      "branch": "ci/structure-gates",
+      "sha": "a5593f73a450367d3574012cccbf32bcaab0ce80",
+      "why": "not-in-main"
+    },
+    {
+      "branch": "docs/marketplace-adv-sync",
+      "sha": "0c206e7115e7d2957f2379db637e60fa8599b728",
+      "why": "not-in-main"
+    },
+    {
+      "branch": "feat/cargo-audit",
+      "sha": "f3716b5e6700612dd4c0ab0afdb491f7e4fffa82",
+      "why": "not-in-main"
+    },
+    {
+      "branch": "feat/cargo-machete",
+      "sha": "89b7fdf9d10656c5599462d7867ddc8ebce974f9",
+      "why": "not-in-main"
+    },
+    {
+      "branch": "feat/cargo-semver-checks",
+      "sha": "47b2744c7b74dbd76a710ab3380891186e33a81e",
+      "why": "not-in-main"
+    },
+    {
+      "branch": "feat/installer-scan",
+      "sha": "ebda12330ef502606553a9afc563c695055cdcc3",
+      "why": "not-in-main"
+    },
+    {
+      "branch": "feat/policy-rejections",
+      "sha": "e939a415f012146de5551bf5ec64700baef7b6d7",
+      "why": "not-in-main"
+    },
+    {
+      "branch": "fix/s195-guard-precision",
+      "sha": "ebd11fd11012dd802661898bca5f0a5c55147ac9",
+      "why": "not-in-main"
+    }
+  ]
+}

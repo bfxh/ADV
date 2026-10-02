@@ -1911,3 +1911,8 @@ HEAD
   （热区假红，与 C 片要治的「门步骤三表钉死数据」同族病）；改为从 `spec/handoff.json` 读 round
   再比对，该文件 10 例全绿（god 棘轮随之重钉：`god-baseline.json` 仅此一条 143→145）。本片含这 1 处测试断言修正，无新增门步、无产品面改动，按 S199/S200
   门片口径不 bump 版本。
+
+## S202 · 按 S201 判据清账：删 115 条内容已入 main 的远端旧分支，删除台账进仓内账（spec/branch-prune.json）
+- 项目：ADV｜时间：2026-10-02T09:45
+- 决策：分支堆积到 125 条，其中绝大多数 head 早已是 main 祖先——按 S200/S201 钉的判据（删除看 `git merge-base --is-ancestor` 对当前 main，PR 状态仅供参考）批量清掉。双重排除：① not-in-main 一律不删（cargo 三条是待落地的唯一副本、5 条有 OPEN PR、`ci/strict-and-parallel`/`fix/s195-guard-precision` 属待口令草稿）；② 有 OPEN PR 的 head 一律不删（删了牵连 PR）。台账以**文件**进仓（`spec/branch-prune.json`，记全 40 位 sha + 恢复命令 `git branch <name> <sha>`），核验在删除**之前**做完并落盘，符合「核验必须在删除前做完」的既有纪律。附带更正：本 session 早前口头报的「108 条」是眼估打印列表所得（混进了 `origin` 这个 HEAD 别名），实测为 **115 条**，按点名撤回口径更正。
+- 证据：删前逐条核 origin/* 124 条 + main：`--is-ancestor` 真 = 115、假 = 9；删除 push 走 pre-push 全档门，首跑被 typos 门拦下（台账首版记 7 位短 sha，其中两条的字母段被词典判成错词）⇒ **远端一条未删**，fail-closed 生效；改记全 40 位 sha 并按「生成物排除」原则把该台账加进 `_typos.toml` 的 extend-exclude（附理由）后放行。删后实测：`git ls-remote --heads origin | wc -l` = 10（main + 9 保留，算术 115+9+1=125 对账通过）；5 条 OPEN PR（#119/#96/#92/#91/#86）的 head 逐条 `ls-remote` 复查全在；本地同步删掉 2 条已合并分支（`git branch -d`，19dbe09/888ef4a）。
