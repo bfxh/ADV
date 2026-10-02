@@ -3,6 +3,7 @@
 
 不再把 _pytest_tmp 放仓库根（UPGRADE-A2）：夹具残留会污染 bug_scan 自扫与 git。
 """
+import faulthandler
 import os
 import tempfile
 
@@ -99,3 +100,59 @@ def _sanitize_git_env(monkeypatch):
     for k in list(os.environ):
         if k.startswith("GIT_") and k not in before:
             del os.environ[k]
+
+
+# S208：测试卡死护栏——纯 stdlib faulthandler，不引 pytest-timeout（零依赖红线）。
+# 没有它时，一条挂住的测试的默认结局是"整片静默耗到 local_gate 的 3600 秒上限"，现场全丢。
+# 两个实测踩出来的设计约束：
+#  1) 转储**不能打 stderr**：pytest 按测试捕获，测试最终通过时那段栈会被直接丢弃——而
+#     "很慢但还是过了"恰恰是最需要看它的时候（金丝雀第一版就是这么判红的）。所以落文件。
+#  2) **只转储不杀进程**：慢机器/负载高时的慢不等于回归（与计时门必须独占机器同一纪律）。
+# env：UNIFIED_RX_TEST_STALL_S（默认 180 秒，0=关）；UNIFIED_RX_TEST_STALL_LOG（转储文件）。
+_STALL_S = float(os.environ.get("UNIFIED_RX_TEST_STALL_S", "180") or 0)
+def _bounded_stall_log():
+    """转储文件只许落在临时目录下——env 能把路径指到任意位置，那就是一个"外部输入决定
+    写路径"的 sink（数据流门实测会点它）。越界就**关护栏并说出来**，不悄悄换个地方写。"""
+    raw = (os.environ.get("UNIFIED_RX_TEST_STALL_LOG") or "").strip()
+    if not raw:
+        return os.path.join(_TMP_BASE, "stall-dump.log"), ""
+    real = os.path.realpath(raw)
+    if os.path.commonpath([real, os.path.realpath(tempfile.gettempdir())]) !=             os.path.realpath(tempfile.gettempdir()):
+        return "", f"env 指定的转储路径不在临时目录内，已拒绝并关闭护栏：{raw}"
+    return real, ""
+
+
+_LOG_OR_WHY = _bounded_stall_log()
+_STALL_LOG = _LOG_OR_WHY[0]
+_STALL_DISABLED_WHY = _LOG_OR_WHY[1]
+_STALL_FH = None
+
+if _STALL_S > 0 and _STALL_LOG:
+    try:
+        if os.path.isfile(_STALL_LOG):
+            os.remove(_STALL_LOG)          # 不留上一轮的旧证据
+        # 长驻句柄：转储目标必须活到 session 结束，由 pytest_sessionfinish 关闭，
+        # 所以这里不能用 with（否则 hook 注册时句柄已关）。
+        _STALL_FH = open(_STALL_LOG, "a", encoding="utf-8")  # noqa: SIM115
+    except OSError as e:
+        _STALL_DISABLED_WHY = f"转储文件打不开（{_STALL_LOG}）：{e}"
+
+
+def pytest_report_header(config):
+    if _STALL_FH is not None:
+        return f"stall-watchdog: 单条测试超过 {_STALL_S:.0f}s 就把全部线程栈追加到 {_STALL_LOG}"
+    if _STALL_S > 0:
+        return f"stall-watchdog: 未启用——{_STALL_DISABLED_WHY}"
+    return "stall-watchdog: 已关闭（UNIFIED_RX_TEST_STALL_S=0）"
+
+
+if _STALL_FH is not None:
+    def pytest_runtest_setup(item):
+        faulthandler.dump_traceback_later(_STALL_S, repeat=True, file=_STALL_FH)
+
+    def pytest_runtest_teardown(item, nextitem):
+        faulthandler.cancel_dump_traceback_later()
+
+    def pytest_sessionfinish(session, exitstatus):
+        faulthandler.cancel_dump_traceback_later()
+        _STALL_FH.close()

@@ -156,24 +156,6 @@
    "sink": "subprocess.run",
    "count": 1,
    "why": "S173 质量-速度契约门：以固定 argv 调 git log（shell=False，无字符串拼接；读的是提交信息元数据，不进 shell/exec/eval）。与 lint/type/typos 各门同族（S173 人工确认）"
-  },
-  {
-   "file": "scripts/type_gate.py",
-   "sink": "subprocess.run",
-   "count": 1,
-   "why": "S171 类型门：以**固定 argv** 调 `python -m mypy`（shell=False，无字符串拼接）；cache 目录由 TEMP 派生 + 固定名。与 lint_gate/perf_gate 同族（S171 人工确认）"
-  },
-  {
-   "file": "scripts/vuln_hunt.py",
-   "sink": ".mkdir",
-   "count": 2,
-   "why": "S171 一键挖掘脚本：沙箱根/审计根由 --sandbox 派生（操作者本地提供，非远程输入）；隔离纪律要求克隆体就落在这两处，建目录是设计内行为"
-  },
-  {
-   "file": "scripts/vuln_hunt.py",
-   "sink": ".write_text",
-   "count": 1,
-   "why": "S171：审计报告落盘（--report 或沙箱内 reports/ 派生），内容是本脚本汇总的发现清单与封印，非外部输入拼装"
   }
  ]
 }

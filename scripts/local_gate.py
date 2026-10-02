@@ -114,13 +114,34 @@ def _child_env(step_name):
     return env
 
 
+def _step_budget_s():
+    """单步时间预算：默认 3600s 沿用既有宽松口径（不许拿慢当回归）；env 可压小，
+    用于演练这条超时路径本身（S208 的金丝雀就这么触发）。"""
+    raw = (os.environ.get("UNIFIED_RX_GATE_STEP_TIMEOUT_S") or "").strip()
+    try:
+        val = float(raw) if raw else 3600.0
+    except ValueError:
+        val = 3600.0
+    return val if val > 0 else 3600.0
+
+
 def _run_step(name, argv, force_fail=None):
     if force_fail == name:
         return False, 0.0, f"[自检注入] UNIFIED_RX_GATE_FORCE_FAIL={name}"
     t0 = time.time()
-    cp = subprocess.run(argv, cwd=ROOT, env=_child_env(name), shell=False,
-                        capture_output=True, text=True, encoding="utf-8",
-                        errors="replace", timeout=3600)
+    budget = _step_budget_s()
+    try:
+        cp = subprocess.run(argv, cwd=ROOT, env=_child_env(name), shell=False,
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=budget)
+    except subprocess.TimeoutExpired:
+        # S208：超时必须是**这一步判红**，不是让 TimeoutExpired 的 traceback 打断整条门链
+        # （实测原实现如此：一挂死就连后面几步都不跑了，等于把门自己拆掉）。
+        return False, time.time() - t0, (
+            f"TIMEOUT：步骤 {name} 超过预算 {budget:.0f}s 未返回，已终止该子进程。\n"
+            f"  复现：python -X utf8 scripts/local_gate.py --only {name}\n"
+            f"  卡在哪个测试：跑 pytest 时设 UNIFIED_RX_TEST_STALL_S（默认 180s），"
+            f"到点会转储全部线程栈（conftest 的 S208 护栏）。")
     out = (cp.stdout or "") + (("\n" + cp.stderr) if cp.stderr else "")
     return cp.returncode == 0, time.time() - t0, out
 
