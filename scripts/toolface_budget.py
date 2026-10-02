@@ -29,7 +29,10 @@ import registry  # noqa: E402
 import tools  # noqa: E402,F401
 
 # S143 摸底：38,119 字符 → 45,000 封顶（+18%）。抬帽需在 ROUNDLOG 写明理由。
-_DEFAULT_CAP = 45000
+# S204 抬帽 46,000：+cargo 三工具（attack 域）实测 45,873——先瘦身这三个工具自己的
+# 描述与 schema 说明（46,030→45,873，-157），余 873 是三个真新能力的净增；core 档
+# 零增长（attack 不在 _CORE_GROUPS，实测仍 29,248/30,000）。
+_DEFAULT_CAP = 46000
 
 
 def measure():

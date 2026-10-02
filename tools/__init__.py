@@ -14,6 +14,9 @@ from . import (
     attack,  # noqa: F401,E402  # S7 默认化：攻击面工具随包常驻
     bevy,  # noqa: F401,E402
     breaker,  # noqa: F401,E402  # S122：工具熔断（同工具+参数重复超限即断）
+    cargoaudit,  # Rust 依赖安全审计（RustSec/cargo-audit 薄壳；__all__ 已导出）
+    cargomachete,  # Rust 未使用依赖检测（cargo-machete 薄壳；__all__ 已导出）
+    cargosemver,  # Rust API 兼容检查（cargo-semver-checks 薄壳；__all__ 已导出）
     code_review,  # noqa: F401,E402  # S127：评审域自 scan.py 拆出（上帝对象 P0）
     engine,  # noqa: F401,E402
     filescan,  # noqa: F401,E402  # S115：文件扫描（签名/熵/哈希，GPU 加速熵）
@@ -56,6 +59,9 @@ __all__ = [
     "attack",
     "bevy",
     "breaker",
+    "cargoaudit",
+    "cargomachete",
+    "cargosemver",
     "code_review",
     "engine",
     "filescan",

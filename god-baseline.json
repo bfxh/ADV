@@ -815,7 +815,7 @@
   "max_type_members": 1
  },
  "scripts/toolface_budget.py": {
-  "file_lines": 85,
+  "file_lines": 88,
   "max_fn_lines": 20,
   "max_type_members": 0
  },
@@ -887,6 +887,21 @@
  "tests/test_bevy.py": {
   "file_lines": 125,
   "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "tests/test_cargoaudit.py": {
+  "file_lines": 111,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "tests/test_cargomachete.py": {
+  "file_lines": 68,
+  "max_fn_lines": 6,
+  "max_type_members": 0
+ },
+ "tests/test_cargosemver.py": {
+  "file_lines": 77,
+  "max_fn_lines": 7,
   "max_type_members": 0
  },
  "tests/test_deps_lock.py": {
@@ -1580,12 +1595,12 @@
   "max_type_members": 0
  },
  "toolmeta.py": {
-  "file_lines": 151,
+  "file_lines": 154,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
  "tools/__init__.py": {
-  "file_lines": 89,
+  "file_lines": 95,
   "max_fn_lines": 0,
   "max_type_members": 0
  },
@@ -1632,6 +1647,21 @@
  "tools/cache.py": {
   "file_lines": 219,
   "max_fn_lines": 39,
+  "max_type_members": 0
+ },
+ "tools/cargoaudit.py": {
+  "file_lines": 128,
+  "max_fn_lines": 45,
+  "max_type_members": 0
+ },
+ "tools/cargomachete.py": {
+  "file_lines": 100,
+  "max_fn_lines": 33,
+  "max_type_members": 0
+ },
+ "tools/cargosemver.py": {
+  "file_lines": 110,
+  "max_fn_lines": 41,
   "max_type_members": 0
  },
  "tools/code_review.py": {

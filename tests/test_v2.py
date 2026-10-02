@@ -22,7 +22,7 @@ def test_registry_tool_count():
     到 84、S180（+hub_propose）到 85、S181（+hub_impact 语义选测）到 86——仍在"少而准"
     区间（对照旧版 183）；再涨就该审"是不是又在堆噪音"。"""
     n = registry.tool_count()
-    assert 20 <= n <= 86, f"工具数 {n} 超出收敛范围"
+    assert 20 <= n <= 89, f"工具数 {n} 超出收敛范围"
 
 
 def test_registry_groups():
