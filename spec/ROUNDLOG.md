@@ -1886,3 +1886,16 @@ HEAD
 - 证据：门接成快档第 29 步；`tests/test_s200_handoff_gate.py` 10 例（真仓绿 · 卡形状 ·
   ghost 轮次/ghost 锚双向不可放行 · 裸文件名不算锚 · LAG 红可 --allow-stale · MAX_BEHIND env 可调 ·
   缺失/坏 JSON/缺字段/空 next 四态 fail-closed）。
+- 未决账（本 session 分支清理实查，2026-10-02；含一处错判当场更正）：清理"已合并残余
+  分支"时发现——GitHub 标 MERGED 的 #93（cargo-machete）/#94（cargo-semver-checks），
+  其 head（1e03c16/47b2744）**不是当前 main（591 提交）的祖先**，三个薄壳工具
+  （cargo_audit/cargo_machete/cargo_semver_checks）也不在 main。首版把这事定性为
+  "历史重写、与 S199 ghost commit 同构"——**错了，点名撤回**：真因是 **stacked PR 链**
+  （#92 base=main 仍 OPEN ← #93 base=feat/cargo-audit ← #94 base=feat/cargo-machete），
+  MERGED 指并入栈内上游分支、不是 main。代码零丢失（远端 tip f3716b5/89b7fdf/47b2744
+  完好）。可用结论仍成立两条：① **分支删除判据 = `git merge-base --is-ancestor` /
+  `git cherry` 对当前 main；"PR MERGED" ≠ 已入 main**（stacked 链尤其如此）；
+  ② 三条 cargo 分支是一整条链，#92 rebase 合并后三个工具会一起进 main，在那之前**不删**
+  （本轮所删 8 条均过 --merged 核实，无误删）。`fix/s195-guard-precision`（#113 CLOSED）
+  四条判据的进化版已经 21c20f8→#112 入 main，属可删草稿，待口令。wt-s95/
+  feat/deps-redline-strict 已按树级核证（磁盘整树与已合并 PR tip `git diff` 零差异）收掉。
