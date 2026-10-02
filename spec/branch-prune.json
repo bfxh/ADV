@@ -1,11 +1,13 @@
 {
   "_doc": "分支删除台账（生成物）：判据 = git merge-base --is-ancestor <origin/分支> origin/main，即该 ref 全部内容已可从 main 到达 ⇒ 非唯一副本方可删；恢复命令 git branch <branch> <sha>。有 OPEN PR 的 head 一律不删（删了会牵连 PR）。 第二批（drafts）用的是内容级核证：not-in-main 的分支不能靠 --is-ancestor 判，要看它提议的改动是否已在 main（squash 合并会让全部提交都不成为祖先）。",
   "as_of": "2026-10-02",
-  "main": "83791fda709b830d517b6ef6d4ac47af40a0f5d7",
+  "main": "8813e7ee75afbaa01f64b98d3da8ad8898a05c2e",
   "counts": {
-    "dropped_batch1_ancestor": 115,
-    "dropped_batch2_drafts": 2,
-    "kept": 7
+    "batch1_ancestor": 115,
+    "batch2_drafts": 2,
+    "batch3_cargo_stack": 3,
+    "kept": 4,
+    "remote_heads_after": 5
   },
   "dropped": [
     {
@@ -481,21 +483,6 @@
       "why": "not-in-main"
     },
     {
-      "branch": "feat/cargo-audit",
-      "sha": "f3716b5e6700612dd4c0ab0afdb491f7e4fffa82",
-      "why": "not-in-main"
-    },
-    {
-      "branch": "feat/cargo-machete",
-      "sha": "89b7fdf9d10656c5599462d7867ddc8ebce974f9",
-      "why": "not-in-main"
-    },
-    {
-      "branch": "feat/cargo-semver-checks",
-      "sha": "47b2744c7b74dbd76a710ab3380891186e33a81e",
-      "why": "not-in-main"
-    },
-    {
       "branch": "feat/installer-scan",
       "sha": "ebda12330ef502606553a9afc563c695055cdcc3",
       "why": "not-in-main"
@@ -521,5 +508,31 @@
       "verified": "四条判据的进化版在 main：tools/guard.py 的 `1 <= int(lineno) <= n`（P3）、_SYM_CAP/_scan_symbols（P4）、形态规则退役（P1）；tests/test_s195_guard_gate.py 四条反向金丝雀齐（误杀复活/盲区静默/:0/钳制）",
       "recover": "refs/pull/113/head（删前实测可达）"
     }
-  ]
+  ],
+  "batch3_cargo_stack": [
+    {
+      "branch": "feat/cargo-machete",
+      "remote_tip": "89b7fdf",
+      "state": "IN-MAIN（#126 的合并源）",
+      "criterion": "祖先法"
+    },
+    {
+      "branch": "feat/cargo-semver-checks",
+      "remote_tip": "47b2744",
+      "state": "IN-MAIN",
+      "criterion": "祖先法"
+    },
+    {
+      "branch": "feat/cargo-audit",
+      "remote_tip": "f3716b5",
+      "state": "not-in-main ⇒ 内容级核证后删",
+      "criterion": "与 main 仅差 10 行且全在 @tool 描述字符串内（S204 有意精简 157 字符），功能面零差；内容已由 #126 进 main。#92 关闭并留出处。"
+    }
+  ],
+  "local_tips_discarded": {
+    "feat/cargo-audit": "dc63e4e",
+    "feat/cargo-machete": "1e03c16",
+    "feat/cargo-semver-checks": "47b2744"
+  },
+  "note_local_stale": "本地这三条分支的 tip 落后于远端真 tip（audit/machete 各差 2 个提交），删的是本地旧值；远端真 tip 已逐条记在本账，且 refs/pull/{92,93,94}/head 删前实测可达。"
 }
