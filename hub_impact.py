@@ -119,6 +119,14 @@ def _selected_tests(forward: dict[str, set[str]], affected: set[str],
     return sorted(set(hit) | set(unknown)), unknown, tests
 
 
+def _global_scopes(changed: list[str]) -> list[str]:
+    """conftest.py 的生效面：它不在导入图里（测试不会 import 它），却对所在目录整棵
+    子树起作用。缺这条边时"改了根 conftest"会选出 0 个测试且不给理由——hub_gate 的
+    honest 判据抓的就是这个静默零结果（S211 在 CI 的 pytest 分片上实锤）。"""
+    return sorted({c.rsplit("/", 1)[0] if "/" in c else "" for c in changed
+                   if c.rsplit("/", 1)[-1] == "conftest.py"})
+
+
 def impact(base: str = "HEAD", prefix: str = "tests/") -> dict:
     """静态影响面：变更 → 波及文件 → 建议测试集（保守）+ 退化标记。"""
     root = repo_root()
@@ -136,16 +144,21 @@ def impact(base: str = "HEAD", prefix: str = "tests/") -> dict:
                 "impacted_files": [], "impacted_tests": []}
     affected = set(changed) | _closure(changed, reverse)
     selected, unknown, tests = _selected_tests(forward, affected, prefix)
+    scopes = _global_scopes(changed)
+    forced = [t for t in tests if any(not s or t.startswith(s + "/") for s in scopes)]
     return {
         "ok": True, "fallback": None, "base": base, "root": str(root),
         "changed": changed,
         "impacted_files": sorted(affected),
-        "impacted_tests": selected,
+        "impacted_tests": sorted(set(selected) | set(forced)),
         "conservative_included_unknown": unknown,
-        "skipped_tests": sorted(set(tests) - set(selected)),
+        "conftest_scopes": scopes,
+        "scope_forced_tests": len(forced),
+        "skipped_tests": sorted(set(tests) - set(selected) - set(forced)),
         "counts": {"files_scanned": n_files, "parse_failed": n_failed,
                    "changed": len(changed), "impacted": len(affected),
-                   "tests_total": len(tests), "tests_selected": len(selected)},
+                   "tests_total": len(tests),
+                   "tests_selected": len(set(selected) | set(forced))},
         "how_to_verify": [
             "全量对拍: python -m pytest tests/ -q   # 结论应与只跑 impacted_tests 一致（除 flaky）",
             "反向复核: 任一 impacted_tests 去掉后重跑，若出现新红即说明漏选（本模块的假实现会被抓）",
