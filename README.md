@@ -3,12 +3,12 @@
 **本地工具代替智能体体力活的平台** — 凡是 AI 要做的确定性体力活，全部下沉为本地工具；AI 只保留决策层。
 > 定位：**工具箱，不是智能体，不是内核**。MCP 只是通道，价值在"工具 + 工作流"的完整链路。
 > 七维"掌握"：**结构 / 语义 / 定位 / 探索 / 记忆 / 反馈 / 质量**
-> 设计哲学：**少而准**（86 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
+> 设计哲学：**少而准**（89 个工具，不用 183 个噪音）· **零依赖可跑**（纯 stdlib）·
 > **写文件通道必须可靠**（fs_write 带授权直传）· **单点接开源最强**（语义引擎/LSP 不自研）·
 > **库选型三问**（理念契合 > 版本前沿 > 省 token；本仓红线下的合法形态=探测薄壳，
 > 协助开发其他项目同此纪律——[spec/LIBRARY-POLICY.md](spec/LIBRARY-POLICY.md)）
 > 协作纪律：**一个 PR 一个功能**——过程发现的问题另开 PR 引用出处，依赖变更自成 PR 引用需求方，不搭车、不捆包（[spec/PR-DISCIPLINE.md](spec/PR-DISCIPLINE.md)）
-**当前 v2.92.0（S198）**：86 工具 / 15 域（core 档 54 件）；**平台层落地**——
+**当前 v2.93.0（S204）**：89 工具 / 15 域（core 档 54 件）；**平台层落地**——
 MCP 之外的第二协议通道（`server_web.py` + `console/`：团队网页面，与工具面**同一份能力层**）
 + **实时日志**（`/api/stream` SSE：**日志文件即总线**——跨进程且就是账上被哈希的那份；
 `read1` 真流式，判据"运行结束前可见"，实测 gap≈2 s）+ **防骗判据门**
@@ -83,14 +83,14 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 
 | | 旧 ADV | ADV（本仓） |
 |---|---|---|
-| 工具面 | 183（注入面 200+） | **86 个组合工具 / 15 域**（core 档 54 件） |
+| 工具面 | 183（注入面 200+） | **89 个组合工具 / 15 域**（core 档 54 件） |
 | server | 7462 行上帝文件 | 协议薄层 + tools/ 按域 |
 | 依赖 | mcp SDK + 多扩展 | **纯 stdlib 零依赖**（Rust 侧 `[dependencies]` 恒空） |
 | 写文件 | 授权剥离（写不了） | `__authorized` 直传，可控 |
 | 检索 | 5 套并行 | code_search 统一（可接 codegraph） |
 | 代码智能 | 手写 AST 文本规则 | 结构化扫描层 + **真 LSP 客户端** + 23 件 ide 工具 |
 
-## 工具面（15 域 · 86 工具）
+## 工具面（15 域 · 89 工具）
 
 | 域 | 工具 |
 |---|---|
@@ -105,7 +105,7 @@ shell=True→argv）；S125 `ide_callgraph` + CI 首绿（`SECRETS-GATE OK` / `C
 | ⚙️ ops (5) | `backup` `scan_log` `usage_stats` `session_burn`（S141：会话烧量监测）`lesson_stats` |
 | 🎮 game (2) | `game_check` `blender_verify` |
 | 🚀 engine (2) | `engine_status` `engine_query` |
-| 🕵️ attack (6) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航） — 自攻面常驻 |
+| 🕵️ attack (9) | `input_fuzz` `path_probe` `big_input` `rust_taint_scan` `auth_gate_sweep` `attack_cruise`（S133：全攻击面一键巡航）`cargo_audit`（Rust 依赖安全审计：RustSec 薄壳，需授权）`cargo_machete`（Rust 未使用依赖检测：cargo-machete 薄壳，需授权）`cargo_semver_checks`（Rust API 兼容检查：cargo-semver-checks 薄壳，需授权） — 自攻面常驻 |
 | 🧬 appaudit (3) | `app_audit` `app_clone` `app_clean` |
 | 🧰 meta (3) | `local_run` `process` `gpu_status` — 授权门控 / GPU 遥测 |
 | 🚀 hub (6) | `hub_status`（实例/版本/用户数/账本链/降级原因——不带病报绿）`hub_pipelines`（manifest 清单 + 非法条目如实列出）`hub_runs`（账本尾 N：判定/封条/指纹/**构建凭证**/独立复核指引）`hub_run`（**需授权**：独占护栏内顺序执行，原始日志落盘+哈希入账）`hub_propose`（**需授权，G1**：隔离工作树里跑白名单机械修复，只出 patch 与建议——永不改主树、永不提交/合并）`hub_impact`（**只读**：变更 → import 反向闭包 → 建议测试集，保守不漏；不可信即 fallback=full） — 平台层（[spec/HUB.md](spec/HUB.md)）：第二协议通道 + 团队网页面 + 提案流 + 语义选测，防骗判据见 §六；方向判定见 [spec/FRONTIER-CI.md](spec/FRONTIER-CI.md) |
