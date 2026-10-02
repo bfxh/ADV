@@ -23,7 +23,7 @@ def _run(mode, limit, ev, tmp_path, extra_env=None, window=300, cooldown=60):
     env.pop("ZCODE_BREAKER", None)
     if extra_env:
         env.update(extra_env)
-    cp = subprocess.run([sys.executable, str(HOOK), mode, str(limit), str(window), str(cooldown)],
+    cp = subprocess.run([sys.executable, "-X", "utf8", str(HOOK), mode, str(limit), str(window), str(cooldown)],
                         input=json.dumps(ev).encode("utf-8"), capture_output=True, env=env)
     return cp.returncode, (cp.stderr or b"").decode("utf-8", "replace"), \
         (cp.stdout or b"").decode("utf-8", "replace")
@@ -92,7 +92,7 @@ def test_garbage_stdin_passes(tmp_path):
     for var in ("TMPDIR", "TEMP", "TMP"):
         env[var] = str(tmp_path)
     env.pop("ZCODE_BREAKER", None)
-    cp = subprocess.run([sys.executable, str(HOOK), "pre", "1", "300", "60"],
+    cp = subprocess.run([sys.executable, "-X", "utf8", str(HOOK), "pre", "1", "300", "60"],
                         input=b"not json at all", capture_output=True, env=env)
     assert cp.returncode == 0
 

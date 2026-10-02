@@ -195,7 +195,7 @@ def test_no_stale_tool_count_assertions():
 def test_impact_check_runs_and_emits_json(tmp_path):
     """跨面检查器自检：能跑、末行是 JSON、六类面齐全。"""
     script = os.path.join(ROOT, "bench", "impact_check.py")
-    cp = subprocess.run([sys.executable, script, "tools/scan.py"],
+    cp = subprocess.run([sys.executable, "-X", "utf8", script, "tools/scan.py"],
                         capture_output=True, timeout=120, shell=False)
     out = (cp.stdout or b"").decode("utf-8", "replace").strip().splitlines()
     assert out, cp.stderr

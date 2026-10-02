@@ -2040,3 +2040,13 @@ HEAD
   可复位 · 冷却自恢复）；既有 27 breaker 测试全过（重构行为不变，stash 无关）；.spin 状态入
   reset/evict/snapshot/breaker_status；全量 pytest 1199 passed（带 PYTHONUTF8=1，绕开既有
   cp936 ambient flake——本会话第二例同类，非本片引入）。
+
+## S217 · 测试子进程 cp936 编码硬化（过程发现，单列）
+- 项目：ADV｜时间：2026-10-02
+- 决策：修既有脆弱——test_s122/test_s141/test_s113 spawn 子进程读中文输出，argv 没带 `-X utf8`，
+  本机 GBK locale 下子进程写 cp936、父 `.decode("utf-8")` 得 mojibake。之前全量"恰好绿"是因
+  别的用例进程级改了 `os.environ["PYTHONUTF8"]` 泄漏过来 ⇒ **顺序依赖**（单独跑即崩）。
+- 证据：AST 扫全 tests/ 定位 3 个 sys.executable spawn 且未强制 utf8/encoding 的点（s113/s122/s141）；
+  复现——隔离跑 s122+s141 无 PYTHONUTF8 → 5 红；修（argv 补 `-X","utf8`，对齐全仓 dominant 约定）后
+  隔离 25 绿；再**裸跑全量**（env -u PYTHONUTF8 -u PYTHONIOENCODING，无 -X utf8）→ **1199 passed / 0 failed**，
+  顺序无关性坐实。type-gate（S214-note）是生产码同类，本片是测试面同类收口。
