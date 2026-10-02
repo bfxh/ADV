@@ -1,16 +1,17 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S206",
+  "round": "S207",
   "as_of": "2026-10-02",
-  "branch": "feat/gates-drift-lock-bidirectional",
-  "now": "cargo 这条线全部收口：三工具经 #126 进 main（v2.93.0、89 工具），#92 关闭留出处，三条 feat/cargo-* 分支按判据删除（远端 head 8→5）；第三批记进 spec/branch-prune.json",
+  "branch": "feat/lsp-23-language-probe-table",
+  "now": "LSP 面：探测表 2→23 语言 + 会话 LRU 上限 6 + route() 三态诚实边界（v2.94.0）；剩余两件按用户点的方向排在后面：测试防卡死的看门狗、上下文预算门",
   "next": [
-    "剩余 4 条非 main 祖先分支逐个收口（见 spec/branch-prune.json 的 kept 栏）：#119 docs/marketplace-adv-sync（也是 D:/KF/unified-rx-mcp 那个 worktree 的当前分支）、#96 feat/policy-rejections、#91 feat/installer-scan、#86 ci/structure-gates",
-    "交接纪律扩展：把「每轮必须留 next 锚」接进 spec/ROUNDLOG.md 的 entry_contract（现由 spec/handoff.json + scripts/handoff_gate.py 管卡，账内锚仍靠自觉）",
-    "小待办（本次实测发现，未动）：scripts/type_gate.py 在 mypy rc=2（自身异常）时打印「诊断=0」，判红成立但失败信息误导——把 mypy 原始输出尾部带进 FAIL 行即可，配一条反假绿用例"
+    "测试防卡死（片 B）：conftest.py 里加纯 stdlib 的 per-test 看门狗（默认软超时 + 到点打印卡住线程栈并判红，不许靠挂死耗尽整片），并把 scripts/local_gate.py 的每步 timeout=3600 收到按档位分级——实测现状：唯一上界就是那 3600 秒",
+    "上下文预算门（片 C）：现有尺只各管一段——model_fit_gate.py 的 G2 管单次回包 ≤64KB 且溢出必须落盘，scripts/toolface_budget.py 管工具面 tokens（实测 45873/15350）。缺一道「宿主一次被喂的总量」门：工具面 + skills 文档面 + 回包上界 + 累计，fail-closed + 金丝雀，按 unified-rx-canary-gate 的接线序进快档与 CI",
+    "剩余 4 条非 main 祖先分支逐个收口（见 spec/branch-prune.json 的 kept 栏）：#119 docs/marketplace-adv-sync（也是 D:/KF/unified-rx-mcp 那个 worktree 的当前分支）、#96 feat/policy-rejections、#91 feat/installer-scan、#86 ci/structure-gates"
   ],
   "open": [
     "分支删除判据（S200→S201→S203 三轮打磨）：① 祖先法 `git merge-base --is-ancestor` 对当前 main 只能判「内容是否可达」，不能反判「有唯一副本」——**squash 合并会让分支全部提交永久不成祖先**（#84 实证：合并提交 c9a7bd6 单父）；② 「MERGED 但不在 main」两种成因：squash（已入，正常）vs stacked 链（#93/#94，未必入），分辨看合并提交单/双父；③ 兜底一律内容级核证（三点 diff 圈提议面 → 在 main 逐条找落点）；④ **范围**看 head 树文件清单实测，不能由祖先关系推；⑤ 删前核 `refs/pull/N/head` 是否仍可达（删分支 ≠ 丢历史），有 OPEN PR 的 head 不删",
-    "版本头：main=**v2.93.0**（#126 落 cargo 三工具时按既定节奏 bump：server.py / rust/Cargo.toml / README 三处锁步 + 11 个 exe 重建，selftest SCHEMA_BAD 0、EXE_TAG ok=11 drift=0）；工具面软帽 46000（实测 45873，理由见 scripts/toolface_budget.py 注释与 S204 账），core 档 30000 未动"
+    "版本头：main 待随本片推到 **v2.94.0**（server.py / rust/Cargo.toml / README 三处锁步 + 11 个 exe 重建，实测 SCHEMA_BAD 0、EXE_TAG ok=11 drift=0）；工具面软帽维持 46000（实测 45873→净减 4 字符，ide_lsp 描述折算后不升反降），core 档 29248/30000 未动",
+    "LSP 探测表的已知边界（别误读账面）：登记 23 种语言 ≠ 23 种可用——本机实测真探测到 6 种（rust/python/json/html/css/typescript），其余 17 种 detected=false 带安装 hint；TXT/LOG 故意不接（纯文本无 LS 概念）；并存会话上限 6（UNIFIED_RX_LSP_MAX_SESSIONS 可调），超出走 LRU 停旧进程"
   ]
 }

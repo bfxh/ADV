@@ -29,17 +29,113 @@ import sys
 import threading
 import time
 
+
+def _srv(label, env_key, default, hint, roots=()):
+    """登记一条语言服务器：探测命令（env 覆盖优先）+ 安装提示 + 工作区标记文件。
+
+    这是**探测表不是安装清单**——一台都不替你装；探测不到就如实报 detected=false 并给
+    hint（与 cargo_audit 等能力探测薄壳同一纪律）。语言键=服务器而非扩展名：clangd 同管
+    .c/.h/.cpp、typescript-language-server 同管 .js/.ts，免得同一项目为两个扩展名起两个进程。
+    """
+    def factory():
+        raw = (os.environ.get(env_key) or "").strip()
+        return raw.split() or list(default)
+    return {"label": label, "hint": hint, "roots": tuple(roots), "cmd": factory}
+
+
+# S207：2 语言 → 23 语言探测表（真实语料面：本仓 json 462/py 312/rs 95/md 60，D:\KF 全区 md 762）。
+NPM_EXTRACTED = "npm i -g vscode-langservers-extracted"
 _LSP_SERVERS = {
-    "rust": {
-        "label": "rust-analyzer",
-        "cmd": lambda: (os.environ.get("UNIFIED_RX_LSP_CMD_RUST") or "rust-analyzer").split(),
-    },
-    "python": {
-        "label": "pylsp",
-        "cmd": lambda: ([c for c in (os.environ.get("UNIFIED_RX_LSP_CMD_PYTHON") or "").split()]
-                        or [sys.executable, "-m", "pylsp"]),
-    },
+    "rust": _srv("rust-analyzer", "UNIFIED_RX_LSP_CMD_RUST", ["rust-analyzer"],
+                 "rustup component add rust-analyzer", ("Cargo.toml",)),
+    "python": _srv("pylsp", "UNIFIED_RX_LSP_CMD_PYTHON", [sys.executable, "-m", "pylsp"],
+                   "python -m pip install python-lsp-server",
+                   ("pyproject.toml", "setup.py", "requirements.txt")),
+    "json": _srv("vscode-json-language-server", "UNIFIED_RX_LSP_CMD_JSON",
+                 ["vscode-json-language-server", "--stdio"], NPM_EXTRACTED, ("package.json",)),
+    "yaml": _srv("yaml-language-server", "UNIFIED_RX_LSP_CMD_YAML",
+                 ["yaml-language-server", "--stdio"], "npm i -g yaml-language-server"),
+    "toml": _srv("taplo", "UNIFIED_RX_LSP_CMD_TOML", ["taplo", "lsp", "stdio"],
+                 "cargo install taplo --features lsp", ("Cargo.toml", "pyproject.toml")),
+    "markdown": _srv("markdown-language-server", "UNIFIED_RX_LSP_CMD_MARKDOWN",
+                     ["markdown-language-server", "--stdio"], "npm i -g markdown-language-server"),
+    "html": _srv("vscode-html-language-server", "UNIFIED_RX_LSP_CMD_HTML",
+                 ["vscode-html-language-server", "--stdio"], NPM_EXTRACTED),
+    "css": _srv("vscode-css-language-server", "UNIFIED_RX_LSP_CMD_CSS",
+                ["vscode-css-language-server", "--stdio"], NPM_EXTRACTED),
+    "typescript": _srv("typescript-language-server", "UNIFIED_RX_LSP_CMD_TYPESCRIPT",
+                       ["typescript-language-server", "--stdio"],
+                       "npm i -g typescript typescript-language-server",
+                       ("package.json", "tsconfig.json")),
+    "c_cpp": _srv("clangd", "UNIFIED_RX_LSP_CMD_C_CPP", ["clangd"],
+                  "winget install LLVM.clangd（需 compile_commands.json）",
+                  ("compile_commands.json", "CMakeLists.txt")),
+    "csharp": _srv("csharp-ls", "UNIFIED_RX_LSP_CMD_CSHARP", ["csharp-ls"],
+                  "dotnet tool install -g csharp-ls"),
+    "go": _srv("gopls", "UNIFIED_RX_LSP_CMD_GO", ["gopls"],
+              "go install golang.org/x/tools/gopls@latest", ("go.mod",)),
+    "java": _srv("jdtls", "UNIFIED_RX_LSP_CMD_JAVA", ["jdtls"],
+                "安装 eclipse.jdt.ls 后设 UNIFIED_RX_LSP_CMD_JAVA", ("pom.xml", "build.gradle")),
+    "kotlin": _srv("kotlin-language-server", "UNIFIED_RX_LSP_CMD_KOTLIN",
+                  ["kotlin-language-server"], "安装 kotlin-language-server 后设其 env 覆盖"),
+    "swift": _srv("sourcekit-lsp", "UNIFIED_RX_LSP_CMD_SWIFT", ["sourcekit-lsp"],
+                 "随 Swift toolchain/Xcode 提供", ("Package.swift",)),
+    "lua": _srv("lua-language-server", "UNIFIED_RX_LSP_CMD_LUA", ["lua-language-server"],
+               "choco install lua-language-server"),
+    "ruby": _srv("ruby-lsp", "UNIFIED_RX_LSP_CMD_RUBY", ["ruby-lsp"], "gem install ruby-lsp",
+               ("Gemfile",)),
+    "php": _srv("intelephense", "UNIFIED_RX_LSP_CMD_PHP", ["intelephense", "--stdio"],
+               "npm i -g intelephense", ("composer.json",)),
+    "dockerfile": _srv("docker-langserver", "UNIFIED_RX_LSP_CMD_DOCKERFILE",
+                      ["docker-langserver", "--stdio"],
+                      "npm i -g dockerfile-language-server-nodejs"),
+    "gdscript": _srv("godot --lsp", "UNIFIED_RX_LSP_CMD_GDSCRIPT",
+                    ["godot", "--headless", "--lsp", "--stdio"],
+                    "Godot 4 编辑器自带 LSP", ("project.godot",)),
+    "sql": _srv("sqls", "UNIFIED_RX_LSP_CMD_SQL", ["sqls"],
+               "go install github.com/sqls-server/sqls@latest"),
+    "graphql": _srv("graphql-lsp", "UNIFIED_RX_LSP_CMD_GRAPHQL", ["graphql-lsp", "server"],
+                   "npm i -g graphql-language-service-cli"),
+    "bash": _srv("bash-language-server", "UNIFIED_RX_LSP_CMD_BASH",
+                 ["bash-language-server", "start"], "npm i -g bash-language-server"),
 }
+
+# 无扩展名的文件名（Dockerfile 这类）——按 basename 命中，扩展名表做不到。
+_LANG_BY_NAME = {"dockerfile": "dockerfile", "containerfile": "dockerfile"}
+
+_LANG_BY_EXT = {
+    ".rs": "rust", ".py": "python", ".pyw": "python",
+    ".json": "json", ".jsonl": "json",
+    ".yaml": "yaml", ".yml": "yaml", ".toml": "toml",
+    ".md": "markdown", ".markdown": "markdown",
+    ".html": "html", ".htm": "html", ".xhtml": "html",
+    ".css": "css", ".scss": "css", ".less": "css",
+    ".ts": "typescript", ".tsx": "typescript", ".js": "typescript", ".jsx": "typescript",
+    ".mjs": "typescript", ".cjs": "typescript",
+    ".c": "c_cpp", ".h": "c_cpp", ".cpp": "c_cpp", ".cc": "c_cpp", ".cxx": "c_cpp", ".hpp": "c_cpp",
+    ".cs": "csharp", ".go": "go", ".java": "java", ".kt": "kotlin", ".kts": "kotlin",
+    ".swift": "swift", ".lua": "lua", ".rb": "ruby", ".php": "php", ".gd": "gdscript",
+    ".sql": "sql", ".graphql": "graphql", ".gql": "graphql",
+    ".sh": "bash", ".bash": "bash", ".zsh": "bash",
+}
+
+# 纯文本没有语言服务器概念（无语法/无符号）——不假装支持，直接指回文本面工具。
+_NO_LSP_BY_EXT = {".txt": "纯文本无语言服务器概念（无语法/符号面），走 fs_read / file_scan",
+                  ".text": "纯文本无语言服务器概念（无语法/符号面），走 fs_read / file_scan",
+                  ".log": "日志非源码语言，无 LS 服务器，走 fs_read / file_scan"}
+
+
+def _lang_for(path):
+    """路径 → 语言键：先看扩展名，再看无扩展名的文件名（Dockerfile）。"""
+    base = os.path.basename(path).lower()
+    ext = os.path.splitext(base)[1]
+    if ext in _LANG_BY_EXT:
+        return _LANG_BY_EXT[ext]
+    if base in _LANG_BY_NAME:
+        return _LANG_BY_NAME[base]
+    return None
+
+
 def _module_available(name):
     """`python -m <name>` 形态的模块可用性（S99：pylsp 未装时 exe=解释器本身
     会让 which/存在性检查假阳性——detected 必须验到模块层）。"""
@@ -66,6 +162,14 @@ def _detect_exe(spec):
 _IDLE_TTL_S = 600          # 空闲回收
 _INIT_TIMEOUT = 60         # 首次 initialize/index 上限
 _REQ_TIMEOUT = 45
+_MAX_SESSIONS = 6          # S207：并存服务器上限——探测表 23 种语言，全起就把机器内存压穿了
+
+
+def _session_cap():
+    """上限可按 env 调（大仓批量重命名时临时多开几个）；非法值退回默认，不静默放大。"""
+    raw = os.environ.get("UNIFIED_RX_LSP_MAX_SESSIONS", "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else _MAX_SESSIONS
+
 
 _HEADER_RE = re.compile(rb"Content-Length:\s*(\d+)\r\n", re.IGNORECASE)
 _MAX_FRAME_BYTES = 64 * 1024 * 1024   # S62：入站帧上限（服务器异常不撑爆内存）
@@ -332,6 +436,19 @@ _SESSIONS: dict[tuple, tuple] = {}
 _MGR_LOCK = threading.Lock()
 
 
+def _enforce_session_cap():
+    """LRU 淘汰（调用者须持 _MGR_LOCK）：起新会话前先停最久未用的那个。
+
+    上限存在的理由不是省内存数字好看：clangd/rust-analyzer/jdtls 这类冷索引能吃
+    数百 MB，23 种语言一起起来就把宿主压穿——那正是"卡死"的来源。
+    """
+    cap = _session_cap()
+    while len(_SESSIONS) >= cap:
+        victim_key, (victim,) = min(_SESSIONS.items(), key=lambda kv: kv[1][0].last_used)
+        victim.stop()
+        _SESSIONS.pop(victim_key, None)
+
+
 def _get_session(lang, root):
     key = (lang, root)
     entry = _SESSIONS.get(key)
@@ -345,6 +462,7 @@ def _get_session(lang, root):
         spec = _LSP_SERVERS.get(lang)
         if not spec:
             raise LookupError(f"语言 {lang} 未接线；可探测: {list(_LSP_SERVERS)}")
+        _enforce_session_cap()
         cmd = spec["cmd"]()
         sess = _Session(lang, cmd, root)
         sess.start()
@@ -368,7 +486,17 @@ def _resolve_in_sandbox(path):
         raise PermissionError(str(e))
 
 
-_LANG_BY_EXT = {".rs": "rust", ".py": "python"}
+def route(path):
+    """路径 → (语言键, 未命中说明)。命中不了时区分两种真值：纯文本本就没有 LS 概念，
+    与「探测表还没收录这个扩展名」——都如实报，既不假装支持也不给含糊错误。"""
+    lang = _lang_for(path)
+    if lang:
+        return lang, ""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in _NO_LSP_BY_EXT:
+        return None, _NO_LSP_BY_EXT[ext]
+    return None, (f"扩展名 {ext or os.path.basename(path)} 未收录；探测表现有 "
+                  f"{len(_LSP_SERVERS)} 种语言（ide_lsp action=status 可逐个看命中）")
 
 
 def _session_root(fp):
@@ -436,9 +564,9 @@ def validate_content(path, text, pump_s=4.0):
         real = _resolve_in_sandbox(path)
     except PermissionError as e:
         return {"error": str(e)}
-    lang = _LANG_BY_EXT.get(os.path.splitext(real)[1].lower())
+    lang, why = route(real)
     if not lang:
-        return {"error": f"validate 不支持扩展名 {os.path.splitext(real)[1]}"}
+        return {"error": f"validate: {why}"}
     try:
         sess = _get_session(lang, _session_root(real))
         sess.ensure_open(real)
