@@ -1895,7 +1895,14 @@ HEAD
   MERGED 指并入栈内上游分支、不是 main。代码零丢失（远端 tip f3716b5/89b7fdf/47b2744
   完好）。可用结论仍成立两条：① **分支删除判据 = `git merge-base --is-ancestor` /
   `git cherry` 对当前 main；"PR MERGED" ≠ 已入 main**（stacked 链尤其如此）；
-  ② 三条 cargo 分支是一整条链，#92 rebase 合并后三个工具会一起进 main，在那之前**不删**
+  ② 「三条 cargo 分支是一整条链，#92 rebase 合并后三个工具会一起进 main」——**这条也错了，
+  2026-10-02 复测点名撤回（见 S201）**：栈底不会自动回灌，三工具齐的内容在 #93 head
+  （89b7fdf），不在 #92 head（f3716b5）。仍成立的结论：三条分支在落地片合入 main 前**不删**
   （本轮所删 8 条均过 --merged 核实，无误删）。`fix/s195-guard-precision`（#113 CLOSED）
   四条判据的进化版已经 21c20f8→#112 入 main，属可删草稿，待口令。wt-s95/
   feat/deps-redline-strict 已按树级核证（磁盘整树与已合并 PR tip `git diff` 零差异）收掉。
+
+## S201 · cargo 薄壳工具落地范围复测：#92 head 只含 2 个工具、三工具齐在 #93 head——S200 未决账 ② 点名撤回
+- 项目：ADV｜时间：2026-10-02T08:23
+- 决策：触发点：#122 合并后照交接卡 next[0] 推进「#92 rebase 即三工具一起入 main」，实测坐实这条锚会把落地片引到只进 2 个工具的路径上，故先清账再动手。判据升级：stacked 链的**落地范围**不能靠祖先关系推——`--is-ancestor` 只证明「某提交的内容在该分支」，不证明下游分支后来的并入会回灌上游分支；范围要用 head 树的文件清单实测（`git ls-tree -r --name-only <tip> -- tools`）。据此定落地路径：从当前 main 切集成分支、按现行门口径（naming/lint/type/name-ledger/toolface/claim）重写三个工具的接线并随片补版本 bump + EXE 重建；三条 cargo 分支在合入前继续不删；用集成分支还是复用 #92/#93 待用户拍板。
+- 证据：2026-10-02 实测（origin/main=caacc89）：`git ls-tree -r --name-only f3716b5 -- tools` → cargoaudit.py + cargomachete.py（2 个，无 semver）；同法量 89b7fdf → audit + machete + cargosemver.py（3 个齐）；caacc89 的 tools/ 清单 grep cargo|semver|machete 零命中（三工具都不在 main）；`git merge-base --is-ancestor 89b7fdf f3716b5` 为假（NOT-ancestor）、`--is-ancestor 47b2744 89b7fdf` 为真（#94 只并进了 machete 分支）；`git rev-list --left-right --count` 对 origin/main → audit 93/3、machete 93/4。本片纯文档：handoff-gate / claim-gate / 快档 29 步复跑。

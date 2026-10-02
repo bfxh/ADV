@@ -1,16 +1,16 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S200",
-  "as_of": "2026-10-01",
-  "branch": "feat/handoff-discipline",
-  "now": "把「继续链交接」变成仓内硬账：spec/handoff.json + 门链 handoff-gate 步（滞后 >MAX_BEHIND 轮即黄红，ghost 轮次/ghost 锚不可 --allow-stale 放行）",
+  "round": "S201",
+  "as_of": "2026-10-02",
+  "branch": "docs/cargo-stack-ledger-fix",
+  "now": "把 cargo 三个薄壳工具的**落地范围**钉成实测账：S200 未决账 ②（「#92 rebase 合并后三工具一起进 main」）经 head 树清单复测证明为假，已在 spec/ROUNDLOG.md S201 点名撤回并给出实测数据；落地片路径待用户拍板",
   "next": [
-    "cargo 三薄壳工具进 main：#92/#93/#94 是 stacked 链（#93/#94 的 MERGED 指并入栈内上游分支，不在 main，详见 spec/ROUNDLOG.md S200 未决账）——#92 rebase 到 main 合并后三工具一起入；在那之前三条分支不删",
-    "C 片待拍板：门步骤三表（scripts/local_gate.py 的 STEPS / .github/workflows/core.yml / README 步数行）数据化为新增 gates 账文件——治 core.yml/ROUNDLOG 多 PR 热区冲突（本片合并时 ROUNDLOG/god-baseline 又双处冲突，实锤再加一例）",
+    "cargo 三薄壳工具落地片：三工具齐的内容在 feat/cargo-machete head（89b7fdf：audit+machete+semver），#92 head（f3716b5）只有 audit+machete 两个，main（caacc89）三者皆无——按 spec/ROUNDLOG.md S201 的实测清单落地：推荐从当前 main 切集成分支、按现行门口径重写三个工具的接线（registry / 名字账 / 工具面预算 / 版本 bump + EXE 重建），三条 cargo 分支在合入前不删；走集成分支还是复用 #92/#93 待用户口令",
+    "C 片待拍板：门步骤三表（scripts/local_gate.py 的 STEPS / .github/workflows/core.yml / README 步数行）数据化为新增 gates 账文件——治 core.yml/ROUNDLOG 多 PR 热区冲突（#121 合并时双冲突，#122 未再有热区冲突）",
     "交接纪律扩展：审计账本 spec/audit-ledger.json 与 HARDENING 表已有可达性门（S199），下一片把「每轮必须留 next 锚」接进 spec/ROUNDLOG.md 的 entry_contract"
   ],
   "open": [
-    "分支删除判据（S200 未决账）：以 `git merge-base --is-ancestor` / `git cherry` 对当前 main 为准——\"PR MERGED\" ≠ 已入 main（stacked 链案例 #93/#94；首版误判\"历史重写\"已在 ROUNDLOG 点名撤回）；fix/s195-guard-precision（#113 CLOSED）属可删草稿待口令",
-    "版本头：main=v2.92.0（server/Cargo/README 锁步，见 spec/claim-checks.json）；门片 S199/S200 未 bump，下一功能片随 PR 走 bump+cargo build --release 重建 EXE 的既定节奏；urx-w-auditgate/urx-w-handoff 两 worktree 已收"
+    "分支删除与落地范围判据（S200→S201 未决账，两次错判均已点名撤回）：删除看 `git merge-base --is-ancestor` / `git cherry` 对当前 main（\"PR MERGED\" ≠ 已入 main）；**范围看 head 树的文件清单实测**（`-- tools` 级 ls-tree），不能由祖先关系推——下游分支后来的并入不会回灌上游分支 head；fix/s195-guard-precision（#113 CLOSED）属可删草稿待口令",
+    "版本头：main=v2.92.0（server/Cargo/README 锁步，见 spec/claim-checks.json）；#122/S201 为纯文档片不 bump；cargo 落地片随 PR 走 bump + cargo build --release 重建 EXE 的既定节奏；urx-w-auditgate/urx-w-handoff 两 worktree 已收"
   ]
 }
