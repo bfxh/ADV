@@ -2050,3 +2050,32 @@ HEAD
   复现——隔离跑 s122+s141 无 PYTHONUTF8 → 5 红；修（argv 补 `-X","utf8`，对齐全仓 dominant 约定）后
   隔离 25 绿；再**裸跑全量**（env -u PYTHONUTF8 -u PYTHONIOENCODING，无 -X utf8）→ **1199 passed / 0 failed**，
   顺序无关性坐实。type-gate（S214-note）是生产码同类，本片是测试面同类收口。
+
+## S218 · 握手 0 留痕悬案破案（前提两处皆错）+ 活体部署漂移坐实
+- 项目：ADV｜时间：2026-10-02
+- 决策：交接卡悬案（"`~/.ADV/clients.jsonl` 实测 0 条握手留痕，而 mcp 流量 8,346 条"）
+  **两个前提都错，当场破案，悬案撤销**；真发现＝**活体部署漂移**（比悬案本身值钱），
+  修复路径三选一待拍板（见末条）。
+  ① 留痕一直在：宿主每会话正常 initialize 入册，查账却用了**新仓代码的默认落点**（`.ADV`），
+  而活体 server 是旧代码、写的还是改名前落点（`.unified-rx`）。 <!-- naming:allow（旧名为活体部署/路径的当时事实） -->
+  ② "mcp 流量"也是错账：8,346 来自 `~/.ADV/stats.jsonl` 的 src=mcp 计数，那本账里**没有宿主流量**；
+  宿主日常 MCP 调用落在旧账 `~/.unified-rx/stats.jsonl`。 <!-- naming:allow（旧名为活体部署/路径的当时事实） -->
+- 证据：
+  · `~/.unified-rx/clients.jsonl` 284 条（2026-09-16 起账，含 S146 归因字段）；2026-10-02 当天 5 条 <!-- naming:allow（旧名为活体部署/路径的当时事实） -->
+    （23:17:56–23:19:06，epoch 1790954276/1790954346，pid 23252/26724/28612/20556/26044，
+    client=zcode 0.16.9）＝宿主每会话正常握手。
+  · `~/.ADV/stats.jsonl` 的 src=mcp 按 agent 分桶（当日复算）：surface-gate 2,504
+    （自家 mcp_surface_gate 真握手探针）+ agent=null 7,217（门/测试的协议探针子进程），
+    零 agent=zcode ⇒ 新账无宿主流量；活体实验：本会话真调 capability_manifest，
+    旧账 +83 字节、新账零增长 ⇒ 宿主流量在旧账。
+  · 活体混合体直读：插件缓存 .mcp.json（2026-09-10）→ `D:\rj\MCP\server.py` v2.76.0
+    （文件 2026-09-20，S160 时代）+ tools/ 2026-09-09（48 文件 vs 仓 main 53）；
+    协议帽 2025-06-18 vs 宿主请求 2025-11-25（handshake 条目 requested/negotiated 直读）；
+    registry 无 S172 agent 归因（宿主调用 agent=null）；`D:\rj\MCP` 的 git origin 指向已不存在的
+    `D:\开发\unified-rx-mcp`（孤岛副本，无同步源）。 <!-- naming:allow（旧名为活体部署/路径的当时事实） -->
+- 真发现：**活体部署漂移**——ZCode 插件日常驾驶舱跑的是半新半旧混合体，
+  **S214 瘦身 / D-2 溢出 / D-3 熔断 / S217 全不在宿主**；`~/.ADV/stats.jsonl` 的 15 万条
+  日常增长是门禁/测试 embedded 流量，不是宿主流量。
+- 修复路径（待拍板——动的是日常驾驶舱，不擅动）：升级活体到仓 main。三选一：
+  (a) 插件缓存 .mcp.json 改指仓内 server.py（单源免同步）；(b) `D:\rj\MCP` 重指 origin 后快进；
+  (c) 维持现状只记账。任一路径都按改配置三件套（备份+等价+回滚）+ 核 EXE parity + 重启宿主生效。
