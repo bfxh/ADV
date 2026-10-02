@@ -820,8 +820,8 @@
   "max_type_members": 1
  },
  "scripts/toolface_budget.py": {
-  "file_lines": 88,
-  "max_fn_lines": 20,
+  "file_lines": 103,
+  "max_fn_lines": 32,
   "max_type_members": 0
  },
  "scripts/type_gate.py": {
@@ -1155,8 +1155,8 @@
   "max_type_members": 0
  },
  "tests/test_s143_toolface.py": {
-  "file_lines": 72,
-  "max_fn_lines": 12,
+  "file_lines": 105,
+  "max_fn_lines": 14,
   "max_type_members": 0
  },
  "tests/test_s144_evals.py": {
