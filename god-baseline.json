@@ -1374,6 +1374,11 @@
   "max_fn_lines": 13,
   "max_type_members": 0
  },
+ "tests/test_s216_loop_fuse.py": {
+  "file_lines": 91,
+  "max_fn_lines": 11,
+  "max_type_members": 2
+ },
  "tests/test_s29_fuzz.py": {
   "file_lines": 141,
   "max_fn_lines": 17,
@@ -1670,8 +1675,8 @@
   "max_type_members": 0
  },
  "tools/breaker.py": {
-  "file_lines": 379,
-  "max_fn_lines": 48,
+  "file_lines": 458,
+  "max_fn_lines": 40,
   "max_type_members": 0
  },
  "tools/burnwatch.py": {

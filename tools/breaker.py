@@ -46,6 +46,7 @@ _HISTORY: dict[str, list[float]] = {}      # key -> [ts...]（窗口内调用时
 _META: dict[str, dict] = {}         # key -> {"tool": name, "args": 摘要}（状态可读）
 _STREAK: dict[str, list] = {}       # key -> [result_hash, 连续相同次数]
 _TRIPPED: dict[str, tuple] = {}      # key -> (until_ts, reason)
+_TOOL_SPIN: dict[str, list] = {}    # tool -> [(ts, args摘要, result_hash)]  变参空转检测（S216）
 _MAX_KEYS = 4096   # 内存上限：超过就清最老的记录（熔断器不能自己变成内存泄漏）
 
 # S140 全局护栏状态（不分工具、不分参数——专收 per-key 拦不住的洪峰）
@@ -80,6 +81,11 @@ def _window():
 
 def _cooldown():
     return _env_int("UNIFIED_RX_BREAKER_COOLDOWN_S", 120)
+
+
+def _spin_limit():
+    """S216 变参空转阈：同工具窗口内**不同参数**产出同一结果达此数即断。0=off。"""
+    return _env_int0("UNIFIED_RX_BREAKER_SPIN_LIMIT", 12)
 
 
 def _env_int0(name, default):
@@ -187,6 +193,27 @@ def enabled():
     return os.environ.get("UNIFIED_RX_BREAKER", "on").strip().lower() not in ("off", "0", "false", "no")
 
 
+def _check_global_gate(now):
+    """S140 全局 QPM 闸：60s 内全部工具合计超阈 → 全局熔断。返回拒绝消息或 None。须持 _LOCK 调用。"""
+    global _GLOBAL_UNTIL, _GLOBAL_REASON
+    gq = _global_qpm()
+    if gq <= 0:
+        return None
+    gcut = now - 60.0
+    while _GLOBAL_HIST and _GLOBAL_HIST[0] < gcut:
+        _GLOBAL_HIST.pop(0)
+    _GLOBAL_HIST.append(now)
+    if now < _GLOBAL_UNTIL:
+        return _global_trip_msg(int(_GLOBAL_UNTIL - now) + 1)
+    if len(_GLOBAL_HIST) > gq:
+        _GLOBAL_UNTIL = now + _global_cooldown()
+        _GLOBAL_REASON = f"全部工具 60s 内合计调用 {len(_GLOBAL_HIST)} 次（>{gq}）"
+        _GLOBAL_HIST.clear()
+        _alarm("global_qpm", f"{_GLOBAL_REASON}，全局熔断 {_global_cooldown()}s")
+        return _global_trip_msg(_global_cooldown())
+    return None
+
+
 def _key(tool_name, args, cursor=None):
     try:
         payload = json.dumps({"tool": tool_name, "args": args, "cursor": cursor},
@@ -204,6 +231,32 @@ def _args_digest(args):
     return s[:160]
 
 
+def _spin_key(tool_name):
+    """工具级空转熔断的伪 key（与 per-(tool,args) 键并存，专拦变参穷举）。"""
+    return "spin:" + hashlib.sha256(tool_name.encode("utf-8", "replace")).hexdigest()[:16]
+
+
+def _spin_msg(tool_name, distinct):
+    return (f"BreakerOpen: 熔断——工具 {tool_name} 在 {_window()}s 内由 {distinct} 组**不同参数**"
+            f"反复返回完全相同的结果（变参空转，疑似智能体换参数穷举但不推进）。"
+            f"冷却 {_cooldown()}s 自动恢复，或 breaker_reset 复位；"
+            f"阈值 UNIFIED_RX_BREAKER_SPIN_LIMIT={_spin_limit()}（0=关）")
+
+
+def _check_spin(tool_name, now):
+    """S216 调用前门：该工具在空转冷却期内 → 返回拒绝消息；到期则清态放行。须持 _LOCK 调用。"""
+    spin = _TRIPPED.get(_spin_key(tool_name))
+    if not spin:
+        return None
+    until, reason = spin
+    if now < until:
+        return reason
+    _TRIPPED.pop(_spin_key(tool_name), None)
+    _META.pop(_spin_key(tool_name), None)
+    _TOOL_SPIN.pop(tool_name, None)
+    return None
+
+
 def _result_hash(result):
     try:
         s = json.dumps(result, ensure_ascii=False, sort_keys=True, default=str)
@@ -213,13 +266,15 @@ def _result_hash(result):
 
 
 def _evict_if_needed():
-    if len(_META) <= _MAX_KEYS:
-        return
-    for k in list(_META)[: len(_META) - _MAX_KEYS]:
-        _META.pop(k, None)
-        _HISTORY.pop(k, None)
-        _STREAK.pop(k, None)
-        _TRIPPED.pop(k, None)
+    if len(_META) > _MAX_KEYS:
+        for k in list(_META)[: len(_META) - _MAX_KEYS]:
+            _META.pop(k, None)
+            _HISTORY.pop(k, None)
+            _STREAK.pop(k, None)
+            _TRIPPED.pop(k, None)
+    if len(_TOOL_SPIN) > _MAX_KEYS:   # S216：空转态也不能自己涨成泄漏
+        for t in list(_TOOL_SPIN)[: len(_TOOL_SPIN) - _MAX_KEYS]:
+            _TOOL_SPIN.pop(t, None)
 
 
 def _trip_msg(key, tool_name, reason):
@@ -230,7 +285,6 @@ def _trip_msg(key, tool_name, reason):
 
 def check(tool_name, args, cursor=None):
     """调用前门：放行返回 None；熔断返回拒绝原因字符串（registry 转 ok:false）。"""
-    global _GLOBAL_UNTIL, _GLOBAL_REASON
     if not enabled() or tool_name in _EXEMPT:
         return None
     key = _key(tool_name, args, cursor)
@@ -239,21 +293,14 @@ def check(tool_name, args, cursor=None):
         # S140 全局闸：60s 内全部工具合计超 QPM → 全局熔断（洪峰期间持续续闸，
         # 洪峰停止后窗口自然滑空 → 自动恢复）。全局熔断期间不再累加日计数——
         # 被拒的调用不是消耗。
-        gq = _global_qpm()
-        if gq > 0:
-            gcut = now - 60.0
-            while _GLOBAL_HIST and _GLOBAL_HIST[0] < gcut:
-                _GLOBAL_HIST.pop(0)
-            _GLOBAL_HIST.append(now)
-            if now < _GLOBAL_UNTIL:
-                return _global_trip_msg(int(_GLOBAL_UNTIL - now) + 1)
-            if len(_GLOBAL_HIST) > gq:
-                _GLOBAL_UNTIL = now + _global_cooldown()
-                _GLOBAL_REASON = f"全部工具 60s 内合计调用 {len(_GLOBAL_HIST)} 次（>{gq}）"
-                _GLOBAL_HIST.clear()
-                _alarm("global_qpm", f"{_GLOBAL_REASON}，全局熔断 {_global_cooldown()}s")
-                return _global_trip_msg(_global_cooldown())
+        g_rej = _check_global_gate(now)
+        if g_rej:
+            return g_rej
         _daily_bump(now)
+        # S216 工具级空转闸：该工具被判定变参空转 → 冷却期内换任何参数都拒。
+        spin_rej = _check_spin(tool_name, now)
+        if spin_rej:
+            return spin_rej
         hit = _TRIPPED.get(key)
         if hit:
             until, reason = hit
@@ -299,6 +346,32 @@ def record(tool_name, args, result, cursor=None):
                 _evict_if_needed()
         else:
             _STREAK[key] = [rh, 1]
+        # S216 变参空转检测：同工具窗口内**不同参数**却反复产出**同一结果**达阈 → 工具级熔断。
+        # 这是 per-key（同参数）拦不住的"换参数穷举但不推进"循环——补上它与全局 QPM 之间的漏判带。
+        _detect_spin(tool_name, args, rh, now)
+
+
+def _detect_spin(tool_name, args, rh, now):
+    """S216：变参空转闸。须持 _LOCK 调用。同一工具窗口内多组**不同参数**产出**同一结果**
+    达 UNIFIED_RX_BREAKER_SPIN_LIMIT → 置工具级熔断（per-key 抓不到的换参数穷举循环）。"""
+    spin_at = _spin_limit()
+    spin_k = _spin_key(tool_name)
+    if spin_at <= 0 or spin_k in _TRIPPED:
+        return
+    rows = _TOOL_SPIN.setdefault(tool_name, [])
+    cut = now - _window()
+    while rows and rows[0][0] < cut:
+        rows.pop(0)
+    rows.append((now, _args_digest(args), rh))
+    by_hash: dict[str, set] = {}
+    for _, ad, h in rows:
+        by_hash.setdefault(h, set()).add(ad)
+    distinct = max((len(ads) for ads in by_hash.values()), default=0)
+    if distinct >= spin_at:
+        _TRIPPED[spin_k] = (now + _cooldown(), _spin_msg(tool_name, distinct))
+        _META[spin_k] = {"tool": tool_name, "args": f"{distinct} 组不同参数 → 同一结果"}
+        _TOOL_SPIN.pop(tool_name, None)
+        _evict_if_needed()
 
 
 def reset(tool_name=None):
@@ -310,8 +383,11 @@ def reset(tool_name=None):
     with _LOCK:
         if tool_name:
             keys = [k for k, m in _META.items() if m.get("tool") == tool_name]
+            keys.append(_spin_key(tool_name))          # S216：该工具的空转闸一并解
+            _TOOL_SPIN.pop(tool_name, None)
         else:
             keys = list(set(_META) | set(_TRIPPED) | set(_HISTORY) | set(_STREAK))
+            _TOOL_SPIN.clear()                          # S216：全清含空转态
         for k in keys:
             _META.pop(k, None)
             _HISTORY.pop(k, None)
@@ -340,7 +416,8 @@ def snapshot():
                      key=lambda x: -x["calls_in_window"])[:10]
         gq = _global_qpm()
         g_tripped = now < _GLOBAL_UNTIL
-        return {"enabled": enabled(), "limit": _limit(), "window_s": _window(),
+        return {"enabled": enabled(), "limit": _limit(), "spin_limit": _spin_limit(),
+                "window_s": _window(),
                 "cooldown_s": _cooldown(), "tracked_keys": len(_META),
                 "tripped": sorted(tripped, key=lambda x: -x["left_s"]),
                 "busiest": [t for t in top if t["calls_in_window"] > 1],
@@ -360,8 +437,10 @@ def snapshot():
 def breaker_status():
     st = snapshot()
     st["note"] = ("同一（工具+参数）在窗口内调用超过 limit 次 → 熔断并冷却；"
-                  "结果连续逐字节相同同样触发（空转）；全部工具 60s 合计超过 "
-                  "UNIFIED_RX_GLOBAL_QPM → 全局熔断（拦变参穷举/脚本洪峰）；"
+                  "结果连续逐字节相同同样触发（空转）；同一工具由**多组不同参数**反复返回"
+                  "完全相同的结果达 UNIFIED_RX_BREAKER_SPIN_LIMIT 次 → 工具级空转熔断"
+                  "（拦换参数穷举但不推进的 agent 循环，per-key 抓不到那种）；全部工具 60s 合计超过 "
+                  "UNIFIED_RX_GLOBAL_QPM → 全局熔断（拦脚本洪峰）；"
                   "当日调用达 UNIFIED_RX_DAILY_ALERT → alarms.jsonl 告警（不阻断）。"
                   "改参数/换目标即刻恢复，breaker_reset 可复位；"
                   "UNIFIED_RX_BREAKER=off 旁路。这是循环刹车，不是安全边界")
