@@ -5,3 +5,4 @@ pyflakes==4.0.0
 ruff==0.16.9
 mypy==2.3.1
 typos==1.50.2
+vigilo==0.3.4

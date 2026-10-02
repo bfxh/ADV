@@ -1966,3 +1966,21 @@ HEAD
 - 项目：ADV｜时间：2026-10-02T17:55
 - 决策：现象是自家门在 CI 判红（本地 3.14 全绿）：`test_stall_watchdog_dumps_where_it_hangs` 断言内层 `rc==0`，实际 rc=3221225477（0xC0000005）——内层进程直接崩，日志里那句 `Windows fatal exception: access violation` 栈顶指向 pytest 终端报告阶段。根因是 S208 我为了绕开"pytest 按测试捕获会丢弃通过用例的 stderr"而**自持了一个 Python 文本文件对象**给 faulthandler：看门狗线程与主线程并发进入同一个 Python 缓冲写对象、且句柄生命周期由我们持有，3.11 上就炸（3.14 侥幸不炸——这正是"只在一台机器/一个解释器上量过"的老毛病）。改成交**裸 fd**：`os.open` 的整数返回由 C 层直写、不经任何 Python 写对象，`sessionfinish` 里先 `cancel_dump_traceback_later()` 再 `os.close()`（反过来就会撞上在途写）。三条实锤依次把设计推到当前位置，别退回任何一版：① 写 `sys.stderr` → 被按测试捕获，过了就丢；② 写 `sys.__stderr__` → 实测**也不可见**（fd 捕获把 fd 2 整个 dup 走，原始对象写的还是那个 fd 号）；③ 写自持文件对象 → 3.11 AV。顺带记一次自我误判：我两次到 `%TEMP%\unified-rx-stall-dump.log` 找不到转储、以为护栏没触发，实际是本仓 conftest 把 `tempfile.tempdir` 定在 `Temp/unified-rx-pytest/` 下——**尺没坏，是我找错地方**。
 - 证据：本机 3.11 复现与验证（`py -3.11`，不是靠 3.14 推断）：`stall=1s` + 探针睡 3s → **rc=0、无 access violation**，转储文件 24,204 字符、含 `Timeout (0:00:01)!` + 线程栈且点名到 `bench/fixtures/stall_probe/test_stall_probe.py:12`；关档（`stall=0`）时头部如实写"已关闭"且不建文件。金丝雀 4 例 + 影响面 10 例 + taint 3 例合跑 14 passed；**全量 1175 passed / 2 skipped（209.8s）**；快档 29 步 LOCAL-GATE OK（28.7s，含 hub-gate——改的正是 conftest，S211 的作用域边在这里生效）。棘轮：conftest 159→170 行重钉；taint 新增 1 条 `.open` 许可（`why 继承 26 / 新占位 1` → 已填真理由：路径被 realpath+commonpath 钳制在临时目录内、mode 0o600、内容仅线程栈、env 来自操作者/CI），占位残留 0。
+
+## S213 · Vigilo 安全扫描增量门
+- 项目：ADV｜时间：2026-10-02
+- 决策：引入 vigilo（零配置 AST+数据流安全扫描器）作为增量门，基线棘轮——存量 402 条
+  入账，此后只拦新增。选 vigilo 而非 skylos：skylos 的 tree-sitter-dart-orchard 需 MSVC
+  编译（本机无），vigilo 纯 Python 装即用。
+- 证据：`scripts/vigilo_gate.py` 跑 `vigilo scan . --format json`，按 `rule:file:line:col`
+  建基线，`--write-baseline` 原子更新（mkstemp+os.replace）。接入门链：local_gate.py STEPS
+  +fast 档、core.yml gitleaks 之后（含 pip install vigilo==0.3.4 钉版）。
+  `tests/test_s213_vigilo_gate.py` 4 测试（基线在门绿 · 真在跑发现>0 · 假基线必红 · 写基线可更新）。
+  当场踩坑：测试文件自身 unused import（importlib）被 vigilo 抓到新增⇒门红，修掉后通过（门真在拦）。
+  接 CI 时补读 test_s145 反向锁「每个本地门步须在 core.yml 有落点」——加门不接 CI 会红，已同步。
+
+  · **CI 补装（#135 首推后 pytest job 红「vigilo 未安装」）**：test_s213 金丝雀 shellout 到
+    vigilo_gate.py，需 CI 的 pytest job 环境装有 vigilo；本地全局装了故漏测。修：`vigilo==0.3.4`
+    钉版进 `.github/ci-requirements.txt`（deps_lock R2 要求登记+钉版，同步在 LIBRARY-POLICY §六②
+    登记），core.yml 门步骤删掉冗余 inline pip install。教训：门脚本自带依赖时，其 pytest 金丝雀
+    在 CI 的可用性取决于 test-env 装没装，不能只在家用机全局装了就当 CI 也有。
