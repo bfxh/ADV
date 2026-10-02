@@ -2005,3 +2005,23 @@ HEAD
   复现/验证：修复前 `TYPE-GATE FAIL 诊断=0 rc=2`，修复后 `TYPE-GATE OK 0 error`。
   更正：早前把 selftest EXE drift 归为「既有环境问题」是错的——那是未合并 marketplace 分支
   （server.py=2.92.0）的产物；换 origin/main 基线（2.94.0，与磁盘 exe 一致）后 drift=0、CI-GATE OK。
+
+## S215 · 分析类回包「大列表长尾溢出」（片 D-2）
+- 项目：ADV｜时间：2026-10-02
+- 决策：先量后改，落在 **wire 层（server.tool_reply）不是工具函数**——因为 code_review/ops 经
+  `registry.call` 拿完整 dict（且对 `file` 做 `os.path.abspath`），在函数里截尾/相对化会连内部
+  消费方一起砍=真降质量。交接卡当初把它当"工具本地改"低估了。
+  设计：bug_scan 一次 ~46KB 恰卡整包溢出阈(48KB)下 ⇒ 全量 issues 塞进上下文。新增**次级通道**：
+  整包溢出未触发时，对超阈且条目>head_n 的列表字段只切**长尾**落盘（复用 spill.py + fs_read 取用），
+  保首屏 top-30 + 全量计数 + by_rule 内联。与整包溢出**互斥**（命中整包溢出走老路径落完整结果，
+  不插手 ⇒ test_s161 语义不破）。纯函数 `spill.compact_large_lists` 落 tools/spill.py。
+- 证据：
+  · 先量（真 bug_scan 全仓扫）：issues 占回包 98.4%；`file` 绝对路径占 issues 32.9%；单屏 20k 仅容 96/200 条。
+  · 改后：同一次扫 56,678→7,228 内联字节（**省 87%**）；head(30)+tail(170)==全量 200 **逐条等价 True**（信息不减）。
+  · 测试：`tests/test_s215_list_spill.py` 7 例（召回等价 · 体积降 · 短列表不动 · 未超字节阈不动 ·
+    无沙盒宁大勿丢 · wire tier2 切尾 · wire tier1 整包溢出优先于切尾）。
+  · `.urx-spill/` 加进 .gitignore（溢出文件含被扫内容，绝不入库）。
+  · 全量 pytest **1194 passed / 2 skipped / 0 failed**（须带 PYTHONUTF8=1）。
+  · **顺带坐实一处既有脆弱（非本片引入，未修）**：stash 掉本片后 test_s122/test_s141 仍 5 红——
+    插件钩子/session-guard 子进程 env 未强制 UTF-8，本机 cp936 下写中文→按 utf-8 解出 mojibake。
+    与 type_gate 同源。带 PYTHONUTF8=1 则 14 全绿。属「测试依赖 ambient 编码」的潜在 bug，记为后续候选。
