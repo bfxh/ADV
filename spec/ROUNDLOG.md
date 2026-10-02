@@ -2025,3 +2025,18 @@ HEAD
   · **顺带坐实一处既有脆弱（非本片引入，未修）**：stash 掉本片后 test_s122/test_s141 仍 5 红——
     插件钩子/session-guard 子进程 env 未强制 UTF-8，本机 cp936 下写中文→按 utf-8 解出 mojibake。
     与 type_gate 同源。带 PYTHONUTF8=1 则 14 全绿。属「测试依赖 ambient 编码」的潜在 bug，记为后续候选。
+
+## S216 · agent 变参空转熔断（片 D-3）
+- 项目：ADV｜时间：2026-10-02
+- 决策：先量推翻交接卡 D-3 原前提并**当场改口径**：原写"按 (attr/pid) 分组"，实测 `set_agent`
+  全仓仅在 initialize 调一处（server.py:252，一进程一 agent），breaker 计数是进程内存 ⇒ 加
+  attr/pid 到 key 是空转。真缺口是 **per-key 按(工具+参数)分组，换参数穷举但不推进的死循环从
+  per-key 与全局 QPM(3000/min) 之间的漏判带过去**。改为补一把按**工具**聚合的空转闸。
+- 设计：`record()` 累计同工具窗口内 (参数摘要, 结果 hash)；≥ UNIFIED_RX_BREAKER_SPIN_LIMIT(默认12)
+  组**不同参数**产出**逐字节相同结果** → 置工具级伪 key(`spin:<hash>`) 熔断，冷却内换任何参数都拒。
+  ambient 生效、不进面板；与 per-key/全局 QPM 三道闸互补。check/record 各自抽出 `_check_spin`/
+  `_detect_spin`/`_check_global_gate` 降复杂度（守 C901 棘轮）。
+- 证据：`tests/test_s216_loop_fuse.py` 5 金丝雀（真触发 · fan-out 结果各异不误伤 · 阈=0关 ·
+  可复位 · 冷却自恢复）；既有 27 breaker 测试全过（重构行为不变，stash 无关）；.spin 状态入
+  reset/evict/snapshot/breaker_status；全量 pytest 1199 passed（带 PYTHONUTF8=1，绕开既有
+  cp936 ambient flake——本会话第二例同类，非本片引入）。

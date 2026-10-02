@@ -1,13 +1,13 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S215",
+  "round": "S216",
   "as_of": "2026-10-02",
-  "branch": "feat/d2-analysis-list-spill",
-  "now": "S213 vigilo 门 / S214 工具面瘦身 / S214-note type-gate UTF-8 修复（三条 PR #135/#136/#137，CI 绿）；S215 片 D-2 完成：wire 层大列表长尾溢出（tool_reply 次级通道，与整包溢出互斥），全仓 bug_scan 56,678→7,228 内联字节(省87%)、head∪tail 逐条等价，7 金丝雀测试。全量 pytest 1194 passed（须 PYTHONUTF8=1）。",
+  "branch": "feat/d3-agent-loop-fuse",
+  "now": "S213 vigilo / S214 工具面瘦身 / S214-note type-gate UTF-8（#135/#136/#137，CI 绿）；S215 D-2 wire 大列表长尾溢出（省 87%、head∪tail 等价）；S216 D-3 agent 变参空转熔断（先量推翻 attr/pid 前提，改按工具聚合：多组不同参数产出同一结果达阈即断，补 per-key 与全局 QPM 之间漏判带）。全量 pytest 1199 passed。",
   "next": [
-    "片 D-3：agent 级死循环熔断——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里本就自动跑，只差 agent 维度）",
-    "既有脆弱（本片顺带坐实、未修）：test_s122/test_s141 的钩子子进程 env 未强制 UTF-8，本机 cp936 下写中文→按 utf-8 解出 mojibake（带 PYTHONUTF8=1 则全绿）。同 type_gate 类——修法：测试起子进程时 env 置 PYTHONUTF8=1。单列小 PR。",
-    "专测一条悬案：`~/.ADV/clients.jsonl` 实测 0 条握手留痕，而 mcp 流量 8,346 条——真跑一次 initialize 看是否落账，分辨是宿主没握手还是写入被测试抑制逻辑误伤"
+    "既有脆弱（本会话两度坐实、未修）：test_s122/test_s141 等测试起子进程未强制 UTF-8，本机 cp936 下中文输出 mojibake（带 PYTHONUTF8=1 全绿）。同 type_gate 类——修法：测试 subprocess env 置 PYTHONUTF8=1。单列小 PR 扫一遍所有 spawn 子进程读中文输出的测试。",
+    "专测一条悬案：`~/.ADV/clients.jsonl` 实测 0 条握手留痕，而 mcp 流量 8,346 条——真跑一次 initialize 看是否落账，分辨是宿主没握手还是写入被测试抑制逻辑误伤",
+    "D-3 后续可选：变参空转目前要求『结果逐字节相同』，若循环里结果微变（如时间戳）会漏判——待有真实误漏数据再收紧（先量，别过早加规则）"
   ],
   "open": [
     "分支删除判据（S200→S201→S203 三轮打磨）：① 祖先法 `git merge-base --is-ancestor` 对当前 main 只能判「内容是否可达」，不能反判「有唯一副本」——**squash 合并会让分支全部提交永久不成祖先**（#84 实证：合并提交 c9a7bd6 单父）；② 「MERGED 但不在 main」两种成因：squash（已入，正常）vs stacked 链（#93/#94，未必入），分辨看合并提交单/双父；③ 兜底一律内容级核证（三点 diff 圈提议面 → 在 main 逐条找落点）；④ **范围**看 head 树文件清单实测，不能由祖先关系推；⑤ 删前核 `refs/pull/N/head` 是否仍可达（删分支 ≠ 丢历史），有 OPEN PR 的 head 不删",
