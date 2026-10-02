@@ -1320,7 +1320,7 @@
   "max_type_members": 0
  },
  "tests/test_s200_handoff_gate.py": {
-  "file_lines": 143,
+  "file_lines": 145,
   "max_fn_lines": 17,
   "max_type_members": 0
  },

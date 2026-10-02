@@ -3,7 +3,7 @@
 由来（zcode 会话 049206af 实锤）：并行长会话靠「继续」链接续，交接上下文只活在
 session sqlite/artifacts 里——重建一次意图要翻 423 条消息做考古。本门把交接变成
 **仓内账**，锁四件事：
-1. **真仓绿**：卡 round=S200 已在 ROUNDLOG 记账、next 锚全可达；
+1. **真仓绿**：卡 round 已在 ROUNDLOG 记账、next 锚全可达（期望轮次取自卡，不钉字面值）；
 2. **完整性红不可放行**：ghost 轮次 / ghost 锚——`--allow-stale` 之后依旧红
    （同 audit-ledger 的 S199 ghost commit 口径）；
 3. **节奏黄可放行**：卡滞后 ROUNDLOG 最新轮 > MAX_BEHIND 判红，但 `--allow-stale`
@@ -60,9 +60,11 @@ def _card(**over: Any) -> dict[str, Any]:
 # ---------- 真仓 ----------
 
 def test_real_repo_green() -> None:
+    card = json.loads((ROOT / "spec" / "handoff.json").read_text(encoding="utf-8"))
     got = _run()
     assert got.returncode == 0, got.stdout + got.stderr
-    assert "HANDOFF-GATE OK round=S200" in got.stdout, got.stdout
+    # 轮次取自卡本身：推进轮次是这张卡的正常用法，钉死字面值会让每次交接都必红
+    assert f"HANDOFF-GATE OK round={card['round']}" in got.stdout, got.stdout
 
 
 def test_real_card_shape() -> None:
