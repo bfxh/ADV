@@ -39,6 +39,11 @@
   "max_fn_lines": 2,
   "max_type_members": 1
  },
+ "bench/fixtures/stall_probe/test_stall_probe.py": {
+  "file_lines": 13,
+  "max_fn_lines": 2,
+  "max_type_members": 0
+ },
  "bench/h2_guard_eval.py": {
   "file_lines": 124,
   "max_fn_lines": 40,
@@ -165,7 +170,7 @@
   "max_type_members": 0
  },
  "conftest.py": {
-  "file_lines": 102,
+  "file_lines": 159,
   "max_fn_lines": 13,
   "max_type_members": 0
  },
@@ -730,7 +735,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 209,
+  "file_lines": 230,
   "max_fn_lines": 51,
   "max_type_members": 0
  },
@@ -1342,6 +1347,11 @@
  "tests/test_s207_lsp_table.py": {
   "file_lines": 106,
   "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_s208_stall_watchdog.py": {
+  "file_lines": 75,
+  "max_fn_lines": 12,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {
