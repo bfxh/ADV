@@ -1,12 +1,12 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S214",
+  "round": "S215",
   "as_of": "2026-10-02",
-  "branch": "perf/toolface-context-trim",
-  "now": "S213 vigilo 安全增量门；S214 工具面零损失瘦身（sys_steer 删旧参 -171c、__authorized 中央压缩 -189c，全量 43,851→43,491c、核心 29,248→29,149c）；S214-note 修 type-gate 子进程 GBK 静默假红（run_mypy env 置 PYTHONUTF8=1，修复前 rc=2/后 OK）。",
+  "branch": "feat/d2-analysis-list-spill",
+  "now": "S213 vigilo 门 / S214 工具面瘦身 / S214-note type-gate UTF-8 修复（三条 PR #135/#136/#137，CI 绿）；S215 片 D-2 完成：wire 层大列表长尾溢出（tool_reply 次级通道，与整包溢出互斥），全仓 bug_scan 56,678→7,228 内联字节(省87%)、head∪tail 逐条等价，7 金丝雀测试。全量 pytest 1194 passed（须 PYTHONUTF8=1）。",
   "next": [
-    "片 D-2（先量后改）：分析型工具的明细列表分页/摘要——#132 的尺合进去后就有了真数据。已知起点：`bug_scan` 单次回包 45,936 字符、其中 `issues` 一键占 45,369（98.8%）。判据是「信息不减」：首屏 top-N + 全量计数 + by_rule 分布 + cursor 取全量，配 A/B 实测（同一夹具改前/改后 result_bytes 与召回集等价）",
-    "片 D-3：agent 级死循环熔断（现在有尺了）——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里本就自动跑，只差 agent 维度）",
+    "片 D-3：agent 级死循环熔断——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里本就自动跑，只差 agent 维度）",
+    "既有脆弱（本片顺带坐实、未修）：test_s122/test_s141 的钩子子进程 env 未强制 UTF-8，本机 cp936 下写中文→按 utf-8 解出 mojibake（带 PYTHONUTF8=1 则全绿）。同 type_gate 类——修法：测试起子进程时 env 置 PYTHONUTF8=1。单列小 PR。",
     "专测一条悬案：`~/.ADV/clients.jsonl` 实测 0 条握手留痕，而 mcp 流量 8,346 条——真跑一次 initialize 看是否落账，分辨是宿主没握手还是写入被测试抑制逻辑误伤"
   ],
   "open": [

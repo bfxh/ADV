@@ -17,3 +17,4 @@ tools/results/
 # Rust 构建产物
 rust/target/
 .urx-hist-*/
+.urx-spill/

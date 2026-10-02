@@ -67,3 +67,45 @@ def spill(payload: str, name: str):
         return path
     except OSError:
         return None
+
+
+# ---- S215（片 D-2）：分析类回包的「大列表长尾溢出」----
+# 旧行为是整包 >48KB 才整体落盘（bug_scan 一次 ~46KB 恰好卡在阈值下 ⇒ 全量 issues 塞进上下文）。
+# 这里只对**列表字段**动手：短列表原样、长列表保留首屏 head + 全量计数 + 分布，把**尾部**落盘，
+# 附 fs_read 取用命令——信息不减（尾部可整份取回），却把单次回包与命中总数解耦。
+_HEAD_DEFAULT = 30          # 首屏保留条目数
+_LIST_KB_DEFAULT = 12       # 单列表字段序列化超此阈值(KB)才考虑切尾
+
+
+def _json_bytes(x) -> int:
+    import json
+    return len(json.dumps(x, ensure_ascii=False).encode("utf-8"))
+
+
+def compact_large_lists(data, name, head_n=_HEAD_DEFAULT, thresh_bytes=_LIST_KB_DEFAULT * 1024):
+    """返回 (new_data, meta)：对 dict `data` 里超阈且长于 head_n 的列表字段切尾落盘。
+
+    - 不改原 `data`（浅拷贝替换命中的列表键）。
+    - `meta` 为落盘描述列表；无命中或**落盘失败** ⇒ meta=[] 且原样返回（绝不静默丢数据）。
+    - 只处理顶层 dict 的列表值（分析类回包 issues 在顶层；嵌套留待后续）。
+    """
+    if not isinstance(data, dict):
+        return data, []
+    import json
+    out = dict(data)
+    metas = []
+    for key, val in data.items():
+        if not isinstance(val, list) or len(val) <= head_n:
+            continue
+        if _json_bytes(val) <= thresh_bytes:
+            continue
+        head, tail = val[:head_n], val[head_n:]
+        path = spill(json.dumps(tail, ensure_ascii=False), f"{name}-{key}")
+        if not path:
+            continue  # 落盘不可用 ⇒ 这个字段保持全量内联（宁大勿丢）
+        out[key] = head
+        metas.append({"field": key, "kept": head_n, "total": len(val),
+                      "tail_path": path,
+                      "fetch": f'fs_read(path="{path}")'})
+    return (out, metas) if metas else (data, [])
+

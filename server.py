@@ -142,6 +142,19 @@ def tool_reply(msg_id, name, result):
         }}
         text = json.dumps(sc, ensure_ascii=False)                     # F1：散文 → JSON
     limit = _spill_limit()
+    if ok and not (limit and len(text.encode("utf-8")) > limit):
+        # S215（D-2）次级通道：未触发整包溢出，但某个列表字段过大（如 bug_scan 的 46KB
+        # 卡在 48KB 阈值下）⇒ 只切列表**长尾**落盘，保首屏+计数+分布内联。与整包溢出互斥：
+        # 命中整包溢出时走老路径（落盘**完整**结果），这里绝不插手。
+        from tools import spill as _spill
+        new_data, metas = _spill.compact_large_lists(result.get("result"), name)
+        if metas:
+            new_data = {**new_data, "_spilled_lists": metas}
+            sc = {"ok": True, "data": new_data}
+            if untrusted:
+                sc["trust"] = "untrusted"
+                sc["source"] = name
+            text = json.dumps(new_data, ensure_ascii=False)
     if limit and len(text.encode("utf-8")) > limit:
         from tools import spill as _spill
         path = _spill.spill(json.dumps(sc, ensure_ascii=False), name)

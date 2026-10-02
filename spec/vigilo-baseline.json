@@ -104,8 +104,8 @@
   "VIGILO-005:scripts\\usage_audit.py:52:25",
   "VIGILO-005:scripts\\usage_audit.py:86:25",
   "VIGILO-005:scripts\\vigilo_gate.py:61:26",
-  "VIGILO-005:server.py:206:13",
-  "VIGILO-005:server.py:369:13",
+  "VIGILO-005:server.py:219:13",
+  "VIGILO-005:server.py:382:13",
   "VIGILO-005:server_web.py:102:11",
   "VIGILO-005:tests\\test_bench_smoke.py:42:14",
   "VIGILO-005:tests\\test_ide_edit.py:100:9",
@@ -286,7 +286,7 @@
   "VIGILO-C03:scripts\\secrets_history.py:24:0",
   "VIGILO-C03:scripts\\taint_gate.py:24:0",
   "VIGILO-C03:scripts\\vuln_hunt.py:102:4",
-  "VIGILO-C03:server.py:518:12",
+  "VIGILO-C03:server.py:531:12",
   "VIGILO-C03:tests\\test_ab_runner.py:15:0",
   "VIGILO-C03:tests\\test_astscan.py:226:12",
   "VIGILO-C03:tests\\test_astscan.py:257:4",
@@ -342,6 +342,7 @@
   "VIGILO-C03:tests\\test_s191_save_rules.py:17:0",
   "VIGILO-C03:tests\\test_s195_eval_tasks.py:20:0",
   "VIGILO-C03:tests\\test_s210_reply_meter.py:28:0",
+  "VIGILO-C03:tests\\test_s215_list_spill.py:10:0",
   "VIGILO-C03:tests\\test_s29_fuzz.py:138:20",
   "VIGILO-C03:tests\\test_s29_fuzz.py:138:26",
   "VIGILO-C03:tests\\test_s29_fuzz.py:138:30",
@@ -412,7 +413,7 @@
   "VIGILO-C04:bench\\unified_report.py:21:21",
   "VIGILO-C04:tools\\lsp.py:246:18"
  ],
- "count": 411,
+ "count": 412,
  "by_rule": {
   "VIGILO-005": 234,
   "VIGILO-001": 1,
@@ -421,6 +422,6 @@
   "VIGILO-C01": 1,
   "VIGILO-C04": 3,
   "VIGILO-C02": 5,
-  "VIGILO-C03": 185
+  "VIGILO-C03": 186
  }
 }

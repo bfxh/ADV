@@ -850,7 +850,7 @@
   "max_type_members": 0
  },
  "server.py": {
-  "file_lines": 557,
+  "file_lines": 570,
   "max_fn_lines": 84,
   "max_type_members": 0
  },
@@ -1369,6 +1369,11 @@
   "max_fn_lines": 18,
   "max_type_members": 0
  },
+ "tests/test_s215_list_spill.py": {
+  "file_lines": 105,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
  "tests/test_s29_fuzz.py": {
   "file_lines": 141,
   "max_fn_lines": 17,
@@ -1870,8 +1875,8 @@
   "max_type_members": 0
  },
  "tools/spill.py": {
-  "file_lines": 70,
-  "max_fn_lines": 17,
+  "file_lines": 112,
+  "max_fn_lines": 26,
   "max_type_members": 0
  },
  "tools/svc.py": {
