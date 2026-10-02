@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
 import deps_lock  # noqa: E402
 import secrets_history  # noqa: E402
+import type_gate  # noqa: E402
 
 
 def _py(script, *args, env_extra=None):
@@ -127,6 +128,33 @@ def test_type_gate_catches_new_type_error(tmp_path):
     bad.write_text("def f() -> int:\n    return 1\n", encoding="utf-8")
     cp2 = _py("type_gate.py", "--root", str(tmp_path), "--paths", "bad.py")
     assert cp2.returncode == 0, cp2.stdout + cp2.stderr
+
+
+def test_type_gate_child_runs_in_utf8(monkeypatch):
+    """回归锁（S214-note）：run_mypy 必须给子 mypy 进程带 PYTHONUTF8=1。
+
+    成因：`-X utf8` 只作用于门自身解释器，子进程不继承 ⇒ Windows GBK locale 下
+    configparser 读含中文注释的 mypy.ini 直接 UnicodeDecodeError（rc=2、诊断被 `: error:`
+    过滤成 0 条）——类型门在 gbk 机器上永远假红。本测试不真跑 mypy，只捕获传给
+    subprocess.run 的 env；改前（无 env=）captured 为空即红，改后带 PYTHONUTF8 绿。
+    """
+    if importlib.util.find_spec("mypy") is None:
+        pytest.skip("无 mypy：run_mypy 在起子进程前即 RuntimeError，够不到 subprocess")
+    captured = {}
+
+    class _Stub:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(cmd, *a, **kw):
+        captured["env"] = kw.get("env") or {}
+        return _Stub()
+
+    monkeypatch.setattr(type_gate.subprocess, "run", fake_run)
+    type_gate.run_mypy(pathlib.Path("."), ["__no_such_file__.py"])
+    assert captured["env"].get("PYTHONUTF8") == "1", \
+        "子 mypy 未带 UTF-8——gbk 机器上类型门会静默假红（诊断被过滤成 0 却 rc=2）"
 
 
 def test_typos_gate_catches_misspelling(tmp_path):

@@ -1995,3 +1995,13 @@ HEAD
   无测试断言旧文案（grep 零命中）。sys_steer 迁移后 test_s148 端到端 render/background 仍过；
   39 测试绿（s148/s149/s143/s213/s145/s195）。
 
+## S214-note · type-gate 子进程 GBK 静默假红（过程发现的真缺陷，本片修）
+- 项目：ADV｜时间：2026-10-02
+- 决策：修（真门坏了，与分支无关）。PR 纪律里的「过程发现问题」单列此片。
+- 证据：`python -X utf8 scripts/type_gate.py` 只给门自身解释器开 utf8，子 mypy 进程未继承，
+  Windows GBK locale 下 configparser 读含中文注释的 mypy.ini（pos15=0x80）直接 UnicodeDecodeError，
+  rc=2 但诊断被 `: error:` 过滤成 0 条 ⇒ 类型门在 gbk 机器上永远不可能绿（静默假红）。
+  修复：run_mypy 子进程 env 置 PYTHONUTF8=1（对齐全仓 -X utf8 约定，零类型语义变更）。
+  复现/验证：修复前 `TYPE-GATE FAIL 诊断=0 rc=2`，修复后 `TYPE-GATE OK 0 error`。
+  更正：早前把 selftest EXE drift 归为「既有环境问题」是错的——那是未合并 marketplace 分支
+  （server.py=2.92.0）的产物；换 origin/main 基线（2.94.0，与磁盘 exe 一致）后 drift=0、CI-GATE OK。

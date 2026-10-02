@@ -333,6 +333,9 @@
   "VIGILO-C03:tests\\test_s138_gates.py:16:0",
   "VIGILO-C03:tests\\test_s140_stats_src.py:12:0",
   "VIGILO-C03:tests\\test_s143_toolface.py:25:0",
+  "VIGILO-C03:tests\\test_s147_gates.py:146:8",
+  "VIGILO-C03:tests\\test_s147_gates.py:147:8",
+  "VIGILO-C03:tests\\test_s147_gates.py:148:8",
   "VIGILO-C03:tests\\test_s148_sys.py:19:0",
   "VIGILO-C03:tests\\test_s149_disclosure.py:21:0",
   "VIGILO-C03:tests\\test_s151_svc.py:20:0",
@@ -409,7 +412,7 @@
   "VIGILO-C04:bench\\unified_report.py:21:21",
   "VIGILO-C04:tools\\lsp.py:246:18"
  ],
- "count": 408,
+ "count": 411,
  "by_rule": {
   "VIGILO-005": 234,
   "VIGILO-001": 1,
@@ -418,6 +421,6 @@
   "VIGILO-C01": 1,
   "VIGILO-C04": 3,
   "VIGILO-C02": 5,
-  "VIGILO-C03": 182
+  "VIGILO-C03": 185
  }
 }
