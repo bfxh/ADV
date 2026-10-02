@@ -51,6 +51,9 @@ def measure():
 # 目的（用户指令）："不需要每次把全部工具展给智能体看"——core 档必须显著小于全量。
 _CORE_GROUPS = {"fs", "scan", "ide", "search", "ops", "guard"}
 _CORE_CAP = 30000
+# S209：首屏占比帽。定 65% 的依据是实测现状 63.8%（core 29,243 / 全量 45,868）——
+# 只有低于"两边同时逼近绝对帽"的 65.2%，这条判据才拦得住渐进披露退化，所以不留大余量。
+_MAX_DISCLOSURE_RATIO = 0.65
 
 
 def measure_profile(groups):
@@ -80,6 +83,18 @@ def main():
     if cm["total_chars"] > core_cap:
         sys.exit(f"TOOLFACE-CORE FAIL: core 档超帽 {cm['total_chars']} > {core_cap}"
                  f"（渐进披露的裁剪面不许膨胀；抬帽须记账）")
+    # S209：渐进披露是**比例承诺**，两条绝对帽挡不住"两边同时涨"。
+    # 实测：core 29,243 / 全量 45,868 = 63.8%；若都逼近各自帽（29,999/46,000）＝65.2%
+    # 仍然全绿——S149 那句"core 必须显著小于全量"就被吃掉了，且无人判红。
+    ratio_cap = float(os.environ.get("UNIFIED_RX_TOOLFACE_RATIO_CAP", _MAX_DISCLOSURE_RATIO))
+    ratio = cm["total_chars"] / max(1, m["total_chars"])
+    room = int(ratio_cap * m["total_chars"] - cm["total_chars"])
+    print(f"TOOLFACE-DISCLOSURE core/full={ratio:.1%} cap={ratio_cap:.0%} "
+          f"core 余量={room} 字符（全量再涨也要同步挤出空间，否则判红）")
+    if ratio > ratio_cap:
+        sys.exit(f"TOOLFACE-DISCLOSURE FAIL: 首屏占全量 {ratio:.1%} > {ratio_cap:.0%}"
+                 f"（渐进披露退化：core={cm['total_chars']} full={m['total_chars']}）"
+                 f"——要么把 core 里的描述挤出空间，要么（记账后）调比帽")
     print("TOOLFACE-GATE OK")
 
 
