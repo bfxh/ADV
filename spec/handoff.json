@@ -1,18 +1,17 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S210",
+  "round": "S212",
   "as_of": "2026-10-02",
-  "branch": "feat/reply-byte-meter",
-  "now": "上下文优化的尺已接通（result_bytes/args_digest/attr+pid 全路径打点）；实测否证了「裁面板」与「相对路径折叠」两条路，真目标是分析型工具的肥回包（bug_scan 单次 45,936 字符）",
+  "branch": "fix/stall-watchdog-raw-fd",
+  "now": "尺已接通待合并（#132：result_bytes/args_digest/attr+pid 全路径打点）；main 的 3.11 AV 已由 #134 修好、影响面 conftest 边由 #133 补上",
   "next": [
-    "片 D-2（先量后改）：分析型工具的**明细列表分页/摘要**——`bug_scan` 回包 45,936 字符里 `issues` 一键占 45,369（98.8%）。判据是「信息不减」：首屏给 top-N + 全量计数 + by_rule 分布 + cursor 取全量，配 A/B 实测（同一夹具改前/改后 result_bytes 与召回集等价）",
-    "片 D-3：agent 级死循环熔断（现在才有尺）——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里已自动跑，只差 agent 维度）",
-    "握手归因仍有一件没弄清：`~/.ADV/clients.jsonl` 实测 0 条而 mcp 流量 8,346 条——要么真宿主没走 initialize，要么写入被 PYTEST_CURRENT_TEST 抑制逻辑误伤。下一步专测这条（真跑一次 initialize 看落账）"
+    "片 D-2（先量后改）：分析型工具的明细列表分页/摘要——#132 的尺合进去后就有了真数据。已知起点：`bug_scan` 单次回包 45,936 字符、其中 `issues` 一键占 45,369（98.8%）。判据是「信息不减」：首屏 top-N + 全量计数 + by_rule 分布 + cursor 取全量，配 A/B 实测（同一夹具改前/改后 result_bytes 与召回集等价）",
+    "片 D-3：agent 级死循环熔断（现在有尺了）——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里本就自动跑，只差 agent 维度）",
+    "专测一条悬案：`~/.ADV/clients.jsonl` 实测 0 条握手留痕，而 mcp 流量 8,346 条——真跑一次 initialize 看是否落账，分辨是宿主没握手还是写入被测试抑制逻辑误伤"
   ],
   "open": [
     "分支删除判据（S200→S201→S203 三轮打磨）：① 祖先法 `git merge-base --is-ancestor` 对当前 main 只能判「内容是否可达」，不能反判「有唯一副本」——**squash 合并会让分支全部提交永久不成祖先**（#84 实证：合并提交 c9a7bd6 单父）；② 「MERGED 但不在 main」两种成因：squash（已入，正常）vs stacked 链（#93/#94，未必入），分辨看合并提交单/双父；③ 兜底一律内容级核证（三点 diff 圈提议面 → 在 main 逐条找落点）；④ **范围**看 head 树文件清单实测，不能由祖先关系推；⑤ 删前核 `refs/pull/N/head` 是否仍可达（删分支 ≠ 丢历史），有 OPEN PR 的 head 不删",
-    "版本头：main=**v2.94.0**（#129 落 LSP 探测表时按节奏 bump：三处锁步 + 11 exe 重建，EXE_TAG ok=11 drift=0）；S208/S209 两片是门禁/测试强化，按门片口径不 bump",
-    "LSP 探测表的已知边界（别误读账面）：登记 23 种语言 ≠ 23 种可用——本机实测真探测到 6 种（rust/python/json/html/css/typescript），其余 17 种 detected=false 带安装 hint；TXT/LOG 故意不接；并存会话上限 6（UNIFIED_RX_LSP_MAX_SESSIONS），超出走 LRU 停旧进程。测试面 stall 护栏：UNIFIED_RX_TEST_STALL_S 默认 180 秒、0=关；转储默认落在 %TEMP%/unified-rx-pytest/stall-dump.log，且路径被钳制在临时目录内（越界即拒绝并关护栏——数据流门对 env 决定写路径判红后加的钳制，不是豁免）",
-    "打点账本新字段的已知边界（S210）：`result_bytes` 只从本轮起有值，历史 127,385 条为 None（不回填）；未知工具名故意不打点（键空间无界）；`attr=anon` 同时涵盖内嵌直调与未握手连接，别只当成「宿主匿名会话」一种解释"
+    "版本头：main=**v2.94.0**（#129 落 LSP 探测表时按既定节奏 bump：server.py / rust/Cargo.toml / README 三处锁步 + 11 个 exe 重建，selftest EXE_TAG ok=11 drift=0、SCHEMA_BAD 0）；S206-S212 均为门禁/测试/尺强化片，按门片口径不 bump；工具面软帽 46000（实测 45873，core 档帽 30000 未动，另 S209 加了首屏占比帽 65%）",
+    "LSP 探测表的已知边界（别误读账面）：登记 23 种语言 ≠ 23 种可用——本机实测真探测到 6 种（rust/python/json/html/css/typescript），其余 17 种 detected=false 带安装 hint；TXT/LOG 故意不接；并存会话上限 6（UNIFIED_RX_LSP_MAX_SESSIONS），超出走 LRU 停旧进程。测试面 stall 护栏：UNIFIED_RX_TEST_STALL_S 默认 180 秒、0=关；转储默认落在 %TEMP%/unified-rx-pytest/stall-dump.log，且路径被钳制在临时目录内（越界即拒绝并关护栏——数据流门对 env 决定写路径判红后加的钳制，不是豁免）"
   ]
 }

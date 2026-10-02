@@ -3,6 +3,12 @@
  "entries": [
   {
    "file": "conftest.py",
+   "sink": ".open",
+   "count": 1,
+   "why": "S212 stall 护栏的转储文件。为什么交裸 fd 而不是文件对象：CI 的 Python 3.11 矩阵上，给 faulthandler 传我们持有的 Python 文本写对象会与主线程并发写同一缓冲对象，内层 pytest 进程直接 access violation（rc=0xC0000005，崩在 pytest 终端报告阶段）；裸 fd 由 C 层直写、不经 Python 写对象，且关闭前先 cancel 停表。路径来源只有两处：默认落临时目录下固定名，或 env UNIFIED_RX_TEST_STALL_LOG 且已被 realpath+commonpath 钳制在临时目录内（越界即拒绝并关护栏，见 conftest._bounded_stall_log）；mode 0o600、内容只有线程栈；env 由操作者/CI 提供，非远程输入（S212 人工确认）"
+  },
+  {
+   "file": "conftest.py",
    "sink": ".replace",
    "count": 1,
    "why": "构建期测试配置：os.pathsep→';' 字符串替换（env 派生，非用户输入；S139 人工确认）"
