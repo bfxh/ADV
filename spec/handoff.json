@@ -3,11 +3,11 @@
   "round": "S212",
   "as_of": "2026-10-02",
   "branch": "fix/stall-watchdog-raw-fd",
-  "now": "S208 护栏改交裸 fd（3.11 AV 修复，本机 py -3.11 已验证 rc=0 且转储正常）；补尺那片（result_bytes/args_digest/attr）在另一条 PR 上等 rebase",
+  "now": "尺已接通待合并（#132：result_bytes/args_digest/attr+pid 全路径打点）；main 的 3.11 AV 已由 #134 修好、影响面 conftest 边由 #133 补上",
   "next": [
-    "先收 #91 feat/installer_scan（它未进 main）：用户要的「DLL 分析」里伪造安装包/PE 签名那一半就住在这条分支上，不收它就等于要在 main 上重做一遍。收完再谈 DLL 面往哪折（现有 file_scan 管签名与熵，installer_scan 管伪造形状）",
-    "调试适配器（DAP）与代码片段按用户选的「折进既有工具」落：DAP 进既有 ide_debug（tools/ide_debug.py 现在只有断点/单步形状，先量它缺什么再动），片段走 ide_lsp completion 面或 fs_write——不新增 @tool，工具面只剩 571 字符 core 余量与 132 字符全量余量",
-    "剩余 3 条非 main 祖先分支收口（见 spec/branch-prune.json 的 kept 栏）：#119 docs/marketplace-adv-sync（D:/KF/unified-rx-mcp 那个 worktree 的当前分支）、#96 feat/policy-rejections、#86 ci/structure-gates"
+    "片 D-2（先量后改）：分析型工具的明细列表分页/摘要——#132 的尺合进去后就有了真数据。已知起点：`bug_scan` 单次回包 45,936 字符、其中 `issues` 一键占 45,369（98.8%）。判据是「信息不减」：首屏 top-N + 全量计数 + by_rule 分布 + cursor 取全量，配 A/B 实测（同一夹具改前/改后 result_bytes 与召回集等价）",
+    "片 D-3：agent 级死循环熔断（现在有尺了）——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里本就自动跑，只差 agent 维度）",
+    "专测一条悬案：`~/.ADV/clients.jsonl` 实测 0 条握手留痕，而 mcp 流量 8,346 条——真跑一次 initialize 看是否落账，分辨是宿主没握手还是写入被测试抑制逻辑误伤"
   ],
   "open": [
     "分支删除判据（S200→S201→S203 三轮打磨）：① 祖先法 `git merge-base --is-ancestor` 对当前 main 只能判「内容是否可达」，不能反判「有唯一副本」——**squash 合并会让分支全部提交永久不成祖先**（#84 实证：合并提交 c9a7bd6 单父）；② 「MERGED 但不在 main」两种成因：squash（已入，正常）vs stacked 链（#93/#94，未必入），分辨看合并提交单/双父；③ 兜底一律内容级核证（三点 diff 圈提议面 → 在 main 逐条找落点）；④ **范围**看 head 树文件清单实测，不能由祖先关系推；⑤ 删前核 `refs/pull/N/head` 是否仍可达（删分支 ≠ 丢历史），有 OPEN PR 的 head 不删",

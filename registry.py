@@ -6,6 +6,7 @@
 - group 用于工具面收敛统计与文档生成
   - 2026-08-25: call() 自动打点（duration_ms 写入 stats.jsonl，供 usage_stats 统计；S15 起 cost_report 已并入 usage_stats）
 """
+import hashlib
 import inspect
 import json
 import os
@@ -448,14 +449,47 @@ def _boundary_denied(tool_name: str):
     return None
 
 
-def _record_stats(tool_name, duration_ms):
+def _reply_bytes(out):
+    """回包体积：按最终交给宿主的 JSON 形状算字符数（与 toolface 的尺同一口径）。
+
+    序列化不了（自定义对象等）如实记 -1，不拿 0 冒充"很小"——0 会被读方当成空回包。
+    """
+    if out is None:
+        return None
+    try:
+        return len(json.dumps(out, ensure_ascii=False, default=str))
+    except (TypeError, ValueError):
+        return -1
+
+
+def _digest_args(a):
+    try:
+        payload = json.dumps(a, ensure_ascii=False, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        payload = repr(a)
+    return hashlib.sha256(payload.encode("utf-8", "replace")).hexdigest()[:16]
+
+
+def note_stats(name, ms, out):
+    """打点后把回包原样返回：所有 return 路径都过这里，体积尺才没有盲区。"""
+    _record_stats(name, ms, out)
+    return out
+
+
+def _record_stats(tool_name, duration_ms, out=None):
     """工具调用打点（usage_stats 的数据源）。
 
     S140：附 src 来源——mcp=客户端协议流量，embedded=脚本/测试/引擎内部直调。
     旧记录无 src 字段（usage_stats 归为 unmarked），脚本洪峰从此不再污染 MCP 口径。
     S141：附带会话烧量哨兵（burnwatch，内部 60s 节流）——model-io 越过阈值写告警，
     让马拉松会话的 token 消耗在几分钟内可见。
-    S172：附 agent（宿主身份，initialize 的 clientInfo.name；未登记为 null）。"""
+    S172：附 agent（宿主身份，initialize 的 clientInfo.name；未登记为 null）。
+    S210（补尺）：三条新字段各有用途——`result_bytes` 是**最终回包体积**（宿主被喂的字节，
+      token 的主战场：面板首屏没浪费、重复回包才是大头，见 ~/.ADV/stats 实测）；
+      `args_digest` 让"同参数反复调"在事后也能分组（熔断只在内存里判，事后审计需要尺）；
+      `attr`+`pid` 区分 named（握手报了 clientInfo.name）与 anon（没握手/宿主没发）——
+      以前两者都塌进 null，"哪个智能体在转圈"根本答不出（实测 127,385 条里
+      真宿主归因 0 条）。字段加在尾部，老记录缺它们由读方按 None 处理，不回填。"""
     try:
         src = getattr(_REQ_LOCAL, "source", None)
         if src is None:
@@ -466,6 +500,9 @@ def _record_stats(tool_name, duration_ms):
             f.write(json.dumps({
                 "tool": tool_name, "duration_ms": int(duration_ms),
                 "ts": int(time.time()), "src": src, "agent": _AGENT_NAME,
+                "result_bytes": _reply_bytes(out),
+                "args_digest": getattr(_REQ_LOCAL, "args_digest", None),
+                "attr": "named" if _AGENT_NAME else "anon", "pid": os.getpid(),
             }, ensure_ascii=False) + "\n")
         _maybe_rotate_stats(path)          # S163：超阈值转分片，读方跨分片读 ⇒ 不丢历史
     except OSError:
@@ -589,11 +626,12 @@ def call(name, args):
     requires_auth 工具统一在此强制 __authorized is True（声明式授权）。"""
     if name not in _TOOLS:
         return {"ok": False, "error": f"未知工具: {name}"}
+    _REQ_LOCAL.args_digest = None
     if not tool_enabled(name):
         g = _TOOLS[name].get("group")
-        return {"ok": False, "error": (
+        return note_stats(name, 0.0, {"ok": False, "error": (
             f"该工具所属域「{g}」未启用（渐进披露）：先调 profile_enable "
-            f'开启（需 __authorized: true），或宿主设 UNIFIED_RX_PROFILE=all')}
+            f'开启（需 __authorized: true），或宿主设 UNIFIED_RX_PROFILE=all')})
     entry = _TOOLS[name]
     # S173：智能体边界（身份层）——在授权门之前。授权不能越过边界：
     # 身份决定"能不能用"，授权只是"现场确认"。
@@ -605,10 +643,14 @@ def call(name, args):
             f"拒绝调用 {name}（{denied}）；调整 agent-boundaries.json 或换身份")}
     a = dict(args or {})
     if entry.get("requires_auth") and a.get("__authorized") is not True:
-        return {"ok": False, "error": "PermissionError: 写/执行操作需要授权：参数加 __authorized: true 确认后重试"}
+        # S210：这条以前不打点——"反复调需授权工具却不确认"恰是循环的典型形状，
+        # 不打尺就永远看不见。
+        return note_stats(name, 0.0, {
+            "ok": False, "error": "PermissionError: 写/执行操作需要授权：参数加 __authorized: true 确认后重试"})
     a.pop("cursor", None)  # 传输层分页参数，不是工具签名的一部分
     cursor_arg = (args or {}).get("cursor")  # 分页起点先取出（a 已剥除）
     no_cache = bool(a.pop("__no_cache", False))   # S103：传输层缓存旁路
+    _REQ_LOCAL.args_digest = _digest_args(a)   # S210：签名摘要（剥掉传输层键之后）
     # S61：__authorized 不是工具签名一部分时剥掉——授权确认是传输层语义，
     # 调用方可以放心对任意工具统一附带，不撑爆 handler 签名
     if "__authorized" in a and "__authorized" not in entry.get("params", frozenset()):
@@ -616,26 +658,22 @@ def call(name, args):
     # S62 入口尺寸门：超大字符串/列表参数在这里死掉，不再穿透进工具内部
     for k, v in a.items():
         if isinstance(v, str) and len(v) > _MAX_STR_ARG:
-            _record_stats(name, 0.0)
-            return {"ok": False,
-                    "error": _aci_hint(f"SchemaError: 参数 {k} 过大（>{_MAX_STR_ARG // (1024 * 1024)}MB 字符）")}
+            return note_stats(name, 0.0, {"ok": False, "error": _aci_hint(
+                f"SchemaError: 参数 {k} 过大（>{_MAX_STR_ARG // (1024 * 1024)}MB 字符）")})
         if isinstance(v, list) and len(v) > _MAX_LIST_ARG:
-            _record_stats(name, 0.0)
-            return {"ok": False,
-                    "error": _aci_hint(f"SchemaError: 参数 {k} 列表过长（>{_MAX_LIST_ARG} 项）")}
+            return note_stats(name, 0.0, {"ok": False, "error": _aci_hint(
+                f"SchemaError: 参数 {k} 列表过长（>{_MAX_LIST_ARG} 项）")})
     # S10-D0：入口 schema 门禁（错误类型在这里死掉，不再穿透进工具内部）
     verr = _validate_schema(entry["schema"], a)
     if verr:
-        _record_stats(name, 0.0)
-        return {"ok": False, "error": _aci_hint(verr)}
+        return note_stats(name, 0.0, {"ok": False, "error": _aci_hint(verr)})
     # S122 熔断门：同一（工具+参数）窗口内重复超限 → 拒绝执行（循环刹车，见 tools/breaker.py）。
     # 位置：门禁之后、缓存之前——缓存命中的重复调用同样是循环，不能绕过刹车。
     try:
         from tools import breaker as _breaker
         _trip = _breaker.check(name, a, cursor_arg)
         if _trip:
-            _record_stats(name, 0.0)
-            return {"ok": False, "error": _aci_hint(_trip)}
+            return note_stats(name, 0.0, {"ok": False, "error": _aci_hint(_trip)})
     except Exception:
         pass                   # 熔断器自身绝不拖垮调用
     # S103 内容寻址缓存：门禁之后、执行之前查；只对纯读白名单工具生效。
@@ -648,8 +686,7 @@ def call(name, args):
             if ck:
                 hit = _cache.get(ck)
                 if hit is not None:
-                    _record_stats(name, 0.0)
-                    return hit
+                    return note_stats(name, 0.0, hit)   # S210：缓存命中也算一次回包体积
         except Exception:
             ck = None          # 缓存自身绝不拖垮调用
     t0 = time.time()
@@ -660,15 +697,15 @@ def call(name, args):
         # S61：砍掉 len<=2 魔数——{"error","applied","errors"} 三键错误形状
         # 曾穿透此检查（ok:true 藏错误，编辑 0 应用看起来像成功）
         if isinstance(result, dict) and isinstance(result.get("error"), str):
-            _record_stats(name, (time.time() - t0) * 1000)
-            return {"ok": False, "error": _aci_hint(result["error"]), "result": result}
+            return note_stats(name, (time.time() - t0) * 1000,
+                              {"ok": False, "error": _aci_hint(result["error"]), "result": result})
         # S10：工具【显式标记】ok:false（local_run 取消/超时等带详情的失败）→
         # 上浮顶层，调用方只看一个字段；详情留在 result 里不丢。
         if isinstance(result, dict) and result.get("ok") is False:
             rest = {k: v for k, v in result.items() if k != "ok"}
             msg = rest.get("error") or f"{name} 执行失败"
-            _record_stats(name, (time.time() - t0) * 1000)
-            return {"ok": False, "error": _aci_hint(str(msg)), "result": rest}
+            return note_stats(name, (time.time() - t0) * 1000,
+                              {"ok": False, "error": _aci_hint(str(msg)), "result": rest})
         result = _clamp(result, {"cursor": cursor_arg})
         try:
             from tools import aci as _aci
@@ -687,19 +724,18 @@ def call(name, args):
                 _cache.put(ck, out)
             except Exception:
                 pass           # 缓存写入失败不影响返回
-        _record_stats(name, (time.time() - t0) * 1000)
-        return out
+        return note_stats(name, (time.time() - t0) * 1000, out)
     except TypeError as e:
-        _record_stats(name, (time.time() - t0) * 1000)
-        return {"ok": False, "error": _aci_hint(f"参数错误: {e}")}
+        return note_stats(name, (time.time() - t0) * 1000,
+                          {"ok": False, "error": _aci_hint(f"参数错误: {e}")})
     except Exception as e:
-        _record_stats(name, (time.time() - t0) * 1000)
         # S72：附堆栈尾部（异常行 + 最近 3 帧）——单行 error 没有出错位置，
         # 模型修 bug 只能瞎猜重试；traceback 可能巨大，钳到 1000 字符
         tb_lines = traceback.format_exc().strip().splitlines()
         detail = "\n".join(tb_lines[-4:])[:1000]
-        return {"ok": False, "error": _aci_hint(f"{type(e).__name__}: {e}"),
-                "error_detail": detail}
+        return note_stats(name, (time.time() - t0) * 1000, {
+            "ok": False, "error": _aci_hint(f"{type(e).__name__}: {e}"),
+            "error_detail": detail})
 
 
 def tool_count():
