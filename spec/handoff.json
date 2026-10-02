@@ -1,16 +1,16 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S204",
+  "round": "S205",
   "as_of": "2026-10-02",
-  "branch": "feat/cargo-tools-integration",
-  "now": "cargo 三薄壳工具（cargo_audit / cargo_machete / cargo_semver_checks）经集成分支落进 main，版本锁步 v2.93.0、11 个 exe 重建对账通过；工具面软帽按实测记账 45000→46000",
+  "branch": "docs/cargo-stack-close",
+  "now": "cargo 这条线全部收口：三工具经 #126 进 main（v2.93.0、89 工具），#92 关闭留出处，三条 feat/cargo-* 分支按判据删除（远端 head 8→5）；第三批记进 spec/branch-prune.json",
   "next": [
-    "本 PR（cargo 落地片）合并后：三条 cargo stacked 分支（feat/cargo-audit / feat/cargo-machete / feat/cargo-semver-checks）的内容已入 main，逐条 `git merge-base --is-ancestor` 复核后可删，并同步关 #92（其内容已由集成分支覆盖）；台账继续记在 spec/branch-prune.json",
-    "C 片待拍板：门步骤三表（scripts/local_gate.py 的 STEPS / .github/workflows/core.yml / README 步数行）数据化为新增 gates 账文件——本片再次实锤热区冲突面（解冲突 5 个文件里 3 个是数字镜像面）",
-    "剩余 OPEN PR 分支逐个收口：#119 docs/marketplace-adv-sync（D:/KF/unified-rx-mcp worktree 当前分支）、#96 feat/policy-rejections、#91 feat/installer-scan、#86 ci/structure-gates"
+    "C 片待拍板：门步骤三表（scripts/local_gate.py 的 STEPS / .github/workflows/core.yml / README 步数行）数据化为新增 gates 账文件——本片又实锤一次：#126 解的 5 处冲突里 3 处是数字镜像面（README/PANORAMA/两处工具数账）",
+    "剩余 4 条非 main 祖先分支逐个收口（见 spec/branch-prune.json 的 kept 栏）：#119 docs/marketplace-adv-sync（也是 D:/KF/unified-rx-mcp 那个 worktree 的当前分支）、#96 feat/policy-rejections、#91 feat/installer-scan、#86 ci/structure-gates",
+    "交接纪律扩展：把「每轮必须留 next 锚」接进 spec/ROUNDLOG.md 的 entry_contract（现由 spec/handoff.json + scripts/handoff_gate.py 管卡，账内锚仍靠自觉）"
   ],
   "open": [
     "分支删除判据（S200→S201→S203 三轮打磨）：① 祖先法 `git merge-base --is-ancestor` 对当前 main 只能判「内容是否可达」，不能反判「有唯一副本」——**squash 合并会让分支全部提交永久不成祖先**（#84 实证：合并提交 c9a7bd6 单父）；② 「MERGED 但不在 main」两种成因：squash（已入，正常）vs stacked 链（#93/#94，未必入），分辨看合并提交单/双父；③ 兜底一律内容级核证（三点 diff 圈提议面 → 在 main 逐条找落点）；④ **范围**看 head 树文件清单实测，不能由祖先关系推；⑤ 删前核 `refs/pull/N/head` 是否仍可达（删分支 ≠ 丢历史），有 OPEN PR 的 head 不删",
-    "版本头：本 PR 把 main 从 v2.92.0 推到 **v2.93.0**（server.py / rust/Cargo.toml / README 三处锁步，selftest SCHEMA/EXE/VERSION 对账 OK=11 drift=0）；工具面软帽 46000（实测 45873，理由写在 scripts/toolface_budget.py 注释与 S204 账内），core 档 30000 未动（实测 29248）"
+    "版本头：main=**v2.93.0**（#126 落 cargo 三工具时按既定节奏 bump：server.py / rust/Cargo.toml / README 三处锁步 + 11 个 exe 重建，selftest SCHEMA_BAD 0、EXE_TAG ok=11 drift=0）；工具面软帽 46000（实测 45873，理由见 scripts/toolface_budget.py 注释与 S204 账），core 档 30000 未动"
   ]
 }
