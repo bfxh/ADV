@@ -1339,6 +1339,11 @@
   "max_fn_lines": 17,
   "max_type_members": 0
  },
+ "tests/test_s207_lsp_table.py": {
+  "file_lines": 106,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
  "tests/test_s29_fuzz.py": {
   "file_lines": 141,
   "max_fn_lines": 17,
@@ -1790,12 +1795,12 @@
   "max_type_members": 0
  },
  "tools/lsp.py": {
-  "file_lines": 516,
+  "file_lines": 644,
   "max_fn_lines": 36,
   "max_type_members": 15
  },
  "tools/lsp_actions.py": {
-  "file_lines": 282,
+  "file_lines": 285,
   "max_fn_lines": 73,
   "max_type_members": 0
  },

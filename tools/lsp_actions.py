@@ -8,7 +8,6 @@
 `ide_lsp` 是混合读写工具：读动作开放，rename_apply 落盘在 handler 内自查
 `__authorized`（S77 manual_gate，注册声明不变）。
 """
-import os
 
 from registry import tool
 from tools import lsp as _lsp
@@ -25,7 +24,11 @@ def _act_status():
                                        if l == lang)}
         if not found:
             entry["reason"] = f"{' '.join(cmd)} 不可用（未安装/不在 PATH/模块缺失）"
+            entry["hint"] = spec.get("hint", "")
         out[lang] = entry
+    out["_surface"] = {"servers": len(_lsp._LSP_SERVERS),
+                       "sessions_active": len(_lsp._SESSIONS),
+                       "sessions_cap": _lsp._session_cap()}
     return {"servers": out,
             "note": "definition/references 为语义级精确结果（相较文本级 ide 工具）"}
 
@@ -191,7 +194,7 @@ def _apply_file_edits(sess, fpath, eds):
     return {"file": real, "edits": n}, n
 
 
-@tool("ide_lsp", "真 LSP 语义查询（rust-analyzer/pylsp）：definition/references/hover/completion/symbols/diagnostics/rename_plan；apply 落盘需授权", "ide",
+@tool("ide_lsp", "真 LSP 语义查询（23 语言探测表·未装如实报）：definition/references/hover/completion/symbols/diagnostics/rename_plan；apply 落盘需授权", "ide",
       {"type": "object",
        "properties": {
            "action": {"type": "string",
@@ -216,9 +219,9 @@ def ide_lsp(action, file=None, line=0, col=0, new_name=None, include_decl=True,
         real = _lsp._resolve_in_sandbox(file)
     except PermissionError as e:
         return {"error": str(e)}
-    lang = _lsp._LANG_BY_EXT.get(os.path.splitext(real)[1].lower())
+    lang, why = _lsp.route(real)
     if not lang:
-        return {"error": f"不支持的扩展名 {os.path.splitext(real)[1]}；仅 .rs/.py 已接线"}
+        return {"error": why}
     root = _lsp._session_root(real)
 
     try:
