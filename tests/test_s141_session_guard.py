@@ -28,7 +28,7 @@ def _env(tmp_path, extra=None, with_rollout=False):
 
 
 def _run(mode, ev, env):
-    cp = subprocess.run([sys.executable, str(GUARD), mode],
+    cp = subprocess.run([sys.executable, "-X", "utf8", str(GUARD), mode],
                         input=json.dumps(ev).encode("utf-8"),
                         capture_output=True, env=env)
     return cp.returncode, (cp.stdout or b"").decode("utf-8", "replace")
@@ -73,7 +73,7 @@ def test_bypass_env(tmp_path):
 
 
 def test_garbage_stdin_passes(tmp_path):
-    cp = subprocess.run([sys.executable, str(GUARD), "prompt"],
+    cp = subprocess.run([sys.executable, "-X", "utf8", str(GUARD), "prompt"],
                         input=b"not json", capture_output=True, env=_env(tmp_path))
     assert cp.returncode == 0
     assert not (cp.stdout or b"").strip()
