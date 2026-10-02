@@ -1,18 +1,18 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S209",
+  "round": "S210",
   "as_of": "2026-10-02",
-  "branch": "feat/disclosure-ratio-gate",
-  "now": "你要的三片按实测落了两片半：A=LSP 探测表 2→23 + 会话 LRU 上限（已合并 #129）、B=测试卡死护栏 + 门步超时干净判红（已合并 #130）、C=上下文门——实测后落在 toolface-gate 的第三条判据（core/full ≤ 65%），没新建第二道门也没动三张热区表",
+  "branch": "feat/reply-byte-meter",
+  "now": "上下文优化的尺已接通（result_bytes/args_digest/attr+pid 全路径打点）；实测否证了「裁面板」与「相对路径折叠」两条路，真目标是分析型工具的肥回包（bug_scan 单次 45,936 字符）",
   "next": [
-    "先收 #91 feat/installer_scan（它未进 main）：用户要的「DLL 分析」里伪造安装包/PE 签名那一半就住在这条分支上，不收它就等于要在 main 上重做一遍。收完再谈 DLL 面往哪折（现有 file_scan 管签名与熵，installer_scan 管伪造形状）",
-    "调试适配器（DAP）与代码片段按用户选的「折进既有工具」落：DAP 进既有 ide_debug（tools/ide_debug.py 现在只有断点/单步形状，先量它缺什么再动），片段走 ide_lsp completion 面或 fs_write——不新增 @tool，工具面只剩 571 字符 core 余量与 132 字符全量余量",
-    "剩余 3 条非 main 祖先分支收口（见 spec/branch-prune.json 的 kept 栏）：#119 docs/marketplace-adv-sync（D:/KF/unified-rx-mcp 那个 worktree 的当前分支）、#96 feat/policy-rejections、#86 ci/structure-gates"
+    "片 D-2（先量后改）：分析型工具的**明细列表分页/摘要**——`bug_scan` 回包 45,936 字符里 `issues` 一键占 45,369（98.8%）。判据是「信息不减」：首屏给 top-N + 全量计数 + by_rule 分布 + cursor 取全量，配 A/B 实测（同一夹具改前/改后 result_bytes 与召回集等价）",
+    "片 D-3：agent 级死循环熔断（现在才有尺）——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里已自动跑，只差 agent 维度）",
+    "握手归因仍有一件没弄清：`~/.ADV/clients.jsonl` 实测 0 条而 mcp 流量 8,346 条——要么真宿主没走 initialize，要么写入被 PYTEST_CURRENT_TEST 抑制逻辑误伤。下一步专测这条（真跑一次 initialize 看落账）"
   ],
   "open": [
     "分支删除判据（S200→S201→S203 三轮打磨）：① 祖先法 `git merge-base --is-ancestor` 对当前 main 只能判「内容是否可达」，不能反判「有唯一副本」——**squash 合并会让分支全部提交永久不成祖先**（#84 实证：合并提交 c9a7bd6 单父）；② 「MERGED 但不在 main」两种成因：squash（已入，正常）vs stacked 链（#93/#94，未必入），分辨看合并提交单/双父；③ 兜底一律内容级核证（三点 diff 圈提议面 → 在 main 逐条找落点）；④ **范围**看 head 树文件清单实测，不能由祖先关系推；⑤ 删前核 `refs/pull/N/head` 是否仍可达（删分支 ≠ 丢历史），有 OPEN PR 的 head 不删",
     "版本头：main=**v2.94.0**（#129 落 LSP 探测表时按节奏 bump：三处锁步 + 11 exe 重建，EXE_TAG ok=11 drift=0）；S208/S209 两片是门禁/测试强化，按门片口径不 bump",
     "LSP 探测表的已知边界（别误读账面）：登记 23 种语言 ≠ 23 种可用——本机实测真探测到 6 种（rust/python/json/html/css/typescript），其余 17 种 detected=false 带安装 hint；TXT/LOG 故意不接；并存会话上限 6（UNIFIED_RX_LSP_MAX_SESSIONS），超出走 LRU 停旧进程。测试面 stall 护栏：UNIFIED_RX_TEST_STALL_S 默认 180 秒、0=关；转储默认落在 %TEMP%/unified-rx-pytest/stall-dump.log，且路径被钳制在临时目录内（越界即拒绝并关护栏——数据流门对 env 决定写路径判红后加的钳制，不是豁免）",
-    "上下文预算的实测底数（S209，别拿估算当尺）：全量 45,868 字符 / 15,356 est_tokens（帽 46,000，余 132）；core 首屏 29,243 / 9,727（帽 30,000，余 757 字符，但比例帽把可用余量压到 **571 字符**）；单次回包帽 64KB 且溢出必须落盘（model_fit_gate G2）；skills/*.md 不进装配面（实测无代码路径喂它，只被 selftest 拿去对账），initialize 无 instructions 字段——这两处**没有**可钉的虚构预算"
+    "打点账本新字段的已知边界（S210）：`result_bytes` 只从本轮起有值，历史 127,385 条为 None（不回填）；未知工具名故意不打点（键空间无界）；`attr=anon` 同时涵盖内嵌直调与未握手连接，别只当成「宿主匿名会话」一种解释"
   ]
 }
