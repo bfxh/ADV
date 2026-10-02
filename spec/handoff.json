@@ -1,11 +1,11 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S217",
+  "round": "S218",
   "as_of": "2026-10-02",
-  "branch": "fix/cp936-test-child-encoding",
-  "now": "S213 vigilo / S214 工具面瘦身 / S214-note type-gate UTF-8（#135/#136/#137，CI 绿）；S215 D-2 wire 大列表长尾溢出；S216 D-3 agent 变参空转熔断；S217 测试子进程 cp936 编码硬化（s113/s122/s141 spawn 补 -X utf8，消除顺序依赖，裸跑全量 1199 passed）。",
+  "branch": "docs/handshake-ledger-resolved",
+  "now": "S218 破案（证据与旧名沿革全在 spec/ROUNDLOG.md S218 证据栏）：握手留痕一直在旧落点 clients.jsonl（284 条，宿主每会话 initialize 入册，2026-10-02 当天 5 条 zcode 0.16.9）；「0 留痕 vs 8346 流量」两前提皆错（查错落点 + 把门/测试探针当宿主流量）。真发现＝活体部署漂移：插件活体是半旧混合体，S214/D-2/D-3/S217 全不在宿主。",
   "next": [
-    "专测一条悬案：`~/.ADV/clients.jsonl` 实测 0 条握手留痕，而 mcp 流量 8,346 条——真跑一次 initialize 看是否落账，分辨是宿主没握手还是写入被测试抑制逻辑误伤",
+    "活体部署漂移升级（S218 破案产物，待拍板）：ZCode 插件活体 = D:\\rj\\MCP\\server.py v2.76.0（S160 时代；协议帽 2025-06-18、宿主请求 2025-11-25 被降档；tools/ 2026-09-09 的 48 文件 vs 仓 main 53；origin 指向已不存在的 D:\\开发\\unified-rx-mcp）——S214/D-2/D-3/S217 全不在宿主。三选一：(a) 插件 .mcp.json 改指仓内 server.py；(b) D:\\rj\\MCP 重指 origin 快进；(c) 维持现状。动手须走改配置三件套（备份+等价+回滚）+ 核 EXE parity + 重启宿主生效",
     "D-3 后续可选：变参空转目前要求『结果逐字节相同』，若循环里结果微变（如时间戳）会漏判——待有真实误漏数据再收紧（先量，别过早加规则）"
   ],
   "open": [
