@@ -1,9 +1,9 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S213",
+  "round": "S214",
   "as_of": "2026-10-02",
-  "branch": "feat/vigilo-security-gate",
-  "now": "S213 vigilo 安全增量门（基线棘轮 408 条，接 local_gate STEPS + core.yml，4 测试）；步数以 main 实测重算=快档30/总37/全档34，README+HARDENING 同步。加门时补读 test_s145 反向锁：每个本地门步须在 core.yml 有落点",
+  "branch": "perf/toolface-context-trim",
+  "now": "S213 vigilo 安全增量门已并入本链；S214 工具面零损失瘦身（sys_steer 删 pid/profile 旧参 -171c、__authorized 中央注入点压缩 -189c，全量 43,851→43,491c、核心 29,248→29,149c）。test_s148 三处迁到 target/preset 后端到端仍过。",
   "next": [
     "片 D-2（先量后改）：分析型工具的明细列表分页/摘要——#132 的尺合进去后就有了真数据。已知起点：`bug_scan` 单次回包 45,936 字符、其中 `issues` 一键占 45,369（98.8%）。判据是「信息不减」：首屏 top-N + 全量计数 + by_rule 分布 + cursor 取全量，配 A/B 实测（同一夹具改前/改后 result_bytes 与召回集等价）",
     "片 D-3：agent 级死循环熔断（现在有尺了）——按 (attr/pid, tool, args_digest) 分组判跨调用重复 + 结果 hash 不变，ambient 生效不进面板（`registry.call` 里本就自动跑，只差 agent 维度）",

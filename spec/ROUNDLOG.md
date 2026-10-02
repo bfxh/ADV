@@ -1984,3 +1984,14 @@ HEAD
     钉版进 `.github/ci-requirements.txt`（deps_lock R2 要求登记+钉版，同步在 LIBRARY-POLICY §六②
     登记），core.yml 门步骤删掉冗余 inline pip install。教训：门脚本自带依赖时，其 pytest 金丝雀
     在 CI 的可用性取决于 test-env 装没装，不能只在家用机全局装了就当 CI 也有。
+
+## S214 · 工具面上下文瘦身（零质量损失方向）
+- 项目：ADV｜时间：2026-10-02
+- 决策：用户三选一「哪个不降质量选哪个」⇒ 选纯账面冗余删减（不动判定/不裁回包/不削参数）。
+  ① sys_steer 删 `pid`/`profile` 兼容旧参（`target`/`preset` 别名）：先把 test_s148 三处迁移到
+  规范参再从 schema+函数移除（-171c）。② `__authorized` 描述中央注入点（registry.py:297）压缩，
+  一处改传播 23 个 requires_auth 工具（-189c）。
+- 证据：toolface 全量 43,851→43,491c（余量 1,492c）、核心 29,248→29,149c（余量 752→851c）；
+  无测试断言旧文案（grep 零命中）。sys_steer 迁移后 test_s148 端到端 render/background 仍过；
+  39 测试绿（s148/s149/s143/s213/s145/s195）。
+

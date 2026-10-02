@@ -63,7 +63,7 @@ def test_threads_lists_own_process():
 
 
 def test_steer_requires_auth():
-    r = registry.call("sys_steer", {"pid": os.getpid(), "profile": "render"})
+    r = registry.call("sys_steer", {"target": str(os.getpid()), "preset": "render"})
     assert r.get("ok") is False
     assert "授权" in (r.get("error") or "")
 
@@ -80,14 +80,14 @@ def test_steer_effective_on_target_process():
         topo = registry.call("sys_topology", {})["result"]
         if topo["uniform"]:
             pytest.skip("非混合平台：E/P 定向无区分度（如实跳过）")
-        b = registry.call("sys_steer", {"pid": pid, "profile": "background",
+        b = registry.call("sys_steer", {"target": str(pid), "preset": "background",
                                         "__authorized": True})
         assert b.get("ok"), b
         assert b["result"]["ok_count"] >= 1, f"background 全败: {b['result']}"
         th = registry.call("sys_threads", {"pid": pid})["result"]["threads"]
         assert any(t["priority"] == -1 for t in th), "background 应把优先级压到 -1"
         assert any(t["cpu_sets"] for t in th), "background 应定向到 E 核 CPU 集"
-        rr = registry.call("sys_steer", {"pid": pid, "profile": "render",
+        rr = registry.call("sys_steer", {"target": str(pid), "preset": "render",
                                          "__authorized": True})
         assert rr.get("ok") and rr["result"]["ok_count"] >= 1, rr
         th2 = registry.call("sys_threads", {"pid": pid})["result"]["threads"]

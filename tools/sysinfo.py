@@ -89,15 +89,12 @@ def sys_threads(pid):
 
 
 @tool("sys_steer",
-      "引导进程线程调度（写操作，需授权）。目标=pid 或名称子串；档位=preset（render→P 核 / background→E 核）或显式 class_+priority+eco（任意应用/工具适用）；hard=true 走硬亲和（Intel 劝阻）。访问被拒会自动尝试 SeDebugPrivilege 并如实回报",
+      "引导进程线程调度（写操作，需授权）。目标=target（pid 或名称子串）；档位=preset（render→P 核 / background→E 核）或显式 class_+priority+eco；hard=true 走硬亲和（Intel 劝阻）。访问被拒自动尝试 SeDebugPrivilege 并如实回报",
       "sys",
       {"type": "object",
        "properties": {
            "target": {"type": "string",
-                      "description": "pid（数字）或可执行名子串（如 chrome.exe）"},
-           "pid": {"type": "integer", "description": "兼容旧参：等价于 target=pid"},
-           "profile": {"type": "string", "enum": ["render", "background"],
-                       "description": "兼容旧参：等价于 preset"},
+                      "description": "pid（数字字符串）或可执行名子串（如 chrome.exe）"},
            "preset": {"type": "string", "enum": ["render", "background"],
                       "description": "render=关键线程→P 核；background=后台→E 核"},
            "class_": {"type": "string", "enum": ["p", "e", "any"],
@@ -106,7 +103,7 @@ def sys_threads(pid):
                         "enum": ["highest", "above", "normal", "below", "lowest", "idle"],
                         "description": "线程优先级档位"},
            "eco": {"type": "string", "enum": ["on", "off"],
-                   "description": "EcoQoS：on=调度器导向 E 核并选省电频率；off=关闭"},
+                   "description": "EcoQoS：on=导向 E 核省电频率；off=关闭"},
            "tids": {"type": "array", "items": {"type": "integer"},
                     "description": "目标线程 TID 列表（缺省=该进程全部线程）"},
            "hard": {"type": "boolean",
@@ -114,15 +111,14 @@ def sys_threads(pid):
        },
        "required": []},
       requires_auth=True)
-def sys_steer(target=None, pid=None, profile=None, preset=None, class_=None,
+def sys_steer(target=None, preset=None, class_=None,
               priority=None, eco=None, tids=None, hard=False):
-    tgt = target if target is not None else (str(int(pid)) if pid is not None else None)
-    if not tgt:
-        raise ValueError("需要 target（pid 或名称子串）——旧参 pid 亦可")
-    pres = preset or profile
+    if not target:
+        raise ValueError("需要 target（pid 数字字符串或名称子串）")
+    pres = preset
     if pres is not None and pres not in ("render", "background"):
-        raise ValueError("preset/profile 必须是 render 或 background")
-    tail = ["steer", str(tgt)]
+        raise ValueError("preset 必须是 render 或 background")
+    tail = ["steer", str(target)]
     if pres:
         tail += ["--preset", pres]
     if class_ is not None:
