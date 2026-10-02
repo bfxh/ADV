@@ -1,16 +1,16 @@
 {
   "_doc": "会话交接卡（S200，scripts/handoff_gate.py 消费）。为什么存在：并行长会话靠「继续」链接续，上下文藏在 session sqlite/artifacts 里——第三方（或下一个会话）重建意图只能考古。本卡把「在做什么/下一步锚/未决账」变成仓内账：ROUNDLOG 推进而卡不更新 ⇒ 门红；锚里写的仓内路径必须真实存在（ghost 锚与 ghost commit 同罪，不可放行）。字段：round=卡片代表的轮次（必须已在 ROUNDLOG 记账）；branch=当前工作分支（自由文本）；next/open 每条都要具体到文件/门/PR 号。",
-  "round": "S202",
+  "round": "S203",
   "as_of": "2026-10-02",
-  "branch": "docs/branch-prune-ledger",
-  "now": "按 S201 钉的判据清完分支账：115 条内容已入 main 的远端分支删除，台账 spec/branch-prune.json（40 位 sha + 恢复命令）进仓；远端剩 10 条 = main + 9 条待处置",
+  "branch": "docs/branch-prune-drafts",
+  "now": "分支账清完第二批：2 条 not-in-main 草稿按**内容级核证**删除（远端 head 10→8），并给 S200 的删除判据补上成因分辨——squash 合并 vs stacked 链（详见 spec/ROUNDLOG.md S203）",
   "next": [
     "cargo 三薄壳工具落地片（待拍板）：三工具齐的内容在 feat/cargo-machete head（89b7fdf：audit+machete+semver），#92 head（f3716b5）只有 audit+machete 两个，main 三者皆无——按 spec/ROUNDLOG.md S201 的实测清单落地：推荐从当前 main 切集成分支、按现行门口径重写三个工具的接线（registry / 名字账 / 工具面预算 / 版本 bump + EXE 重建）；三条 cargo 分支在合入前不删；走集成分支还是复用 #92/#93 待用户口令",
-    "剩余 9 条待处置分支的逐个裁决（见 spec/branch-prune.json 的 kept 栏）：#119/#96/#92/#91/#86 五条看 PR 走向，ci/strict-and-parallel 与 fix/s195-guard-precision（#113 CLOSED）属可删草稿待口令，docs/marketplace-adv-sync 是 D:/KF/unified-rx-mcp 那个 worktree 的当前分支",
+    "剩余 7 条非 main 祖先分支的裁决（见 spec/branch-prune.json 的 kept 栏）：五条有 OPEN PR——#119 docs/marketplace-adv-sync（也是 D:/KF/unified-rx-mcp 那个 worktree 的当前分支）、#96 feat/policy-rejections、#92 feat/cargo-audit、#91 feat/installer-scan、#86 ci/structure-gates；另两条 feat/cargo-machete/feat/cargo-semver-checks 是 #92 stacked 链的中间 head，随 D2 落地片一起处置",
     "C 片待拍板：门步骤三表（scripts/local_gate.py 的 STEPS / .github/workflows/core.yml / README 步数行）数据化为新增 gates 账文件——治 core.yml/ROUNDLOG 多 PR 热区冲突；S201 已按同一病根治掉一处钉值断言（tests/test_s200_handoff_gate.py）"
   ],
   "open": [
-    "分支删除与落地范围判据（S200→S201 未决账，两次错判均已点名撤回）：删除看 `git merge-base --is-ancestor` / `git cherry` 对当前 main（\"PR MERGED\" ≠ 已入 main）；**范围看 head 树的文件清单实测**，不能由祖先关系推——下游分支后来的并入不会回灌上游分支 head；有 OPEN PR 的 head 不删（删了牵连 PR）",
+    "分支删除判据（S200→S201→S203 三轮打磨）：① 祖先法 `git merge-base --is-ancestor` 对当前 main 只能判「内容是否可达」，不能反判「有唯一副本」——**squash 合并会让分支全部提交永久不成祖先**（#84 实证：合并提交 c9a7bd6 单父）；② 「MERGED 但不在 main」两种成因：squash（已入，正常）vs stacked 链（#93/#94，未必入），分辨看合并提交单/双父；③ 兜底一律内容级核证（三点 diff 圈提议面 → 在 main 逐条找落点）；④ **范围**看 head 树文件清单实测，不能由祖先关系推；⑤ 删前核 `refs/pull/N/head` 是否仍可达（删分支 ≠ 丢历史），有 OPEN PR 的 head 不删",
     "版本头：main=v2.92.0（server/Cargo/README 锁步，见 spec/claim-checks.json）；S199/S200/S201/S202 均为门片/文档片不 bump；cargo 落地片随 PR 走 bump + cargo build --release 重建 EXE 的既定节奏"
   ]
 }
