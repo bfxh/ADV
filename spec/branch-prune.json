@@ -1,10 +1,11 @@
 {
-  "_doc": "分支删除台账（生成物）：判据 = git merge-base --is-ancestor <origin/分支> origin/main，即该 ref 全部内容已可从 main 到达 ⇒ 非唯一副本方可删；恢复命令 git branch <branch> <sha>。有 OPEN PR 的 head 一律不删（删了会牵连 PR）。",
+  "_doc": "分支删除台账（生成物）：判据 = git merge-base --is-ancestor <origin/分支> origin/main，即该 ref 全部内容已可从 main 到达 ⇒ 非唯一副本方可删；恢复命令 git branch <branch> <sha>。有 OPEN PR 的 head 一律不删（删了会牵连 PR）。 第二批（drafts）用的是内容级核证：not-in-main 的分支不能靠 --is-ancestor 判，要看它提议的改动是否已在 main（squash 合并会让全部提交都不成为祖先）。",
   "as_of": "2026-10-02",
-  "main": "9d4ce769317e4805e07dbc9947d7d1523b54fa50",
+  "main": "83791fda709b830d517b6ef6d4ac47af40a0f5d7",
   "counts": {
-    "dropped": 115,
-    "kept": 9
+    "dropped_batch1_ancestor": 115,
+    "dropped_batch2_drafts": 2,
+    "kept": 7
   },
   "dropped": [
     {
@@ -470,11 +471,6 @@
   ],
   "kept": [
     {
-      "branch": "ci/strict-and-parallel",
-      "sha": "0c6823201822623ca2e912454dd81da929642d50",
-      "why": "not-in-main"
-    },
-    {
       "branch": "ci/structure-gates",
       "sha": "a5593f73a450367d3574012cccbf32bcaab0ce80",
       "why": "not-in-main"
@@ -508,11 +504,22 @@
       "branch": "feat/policy-rejections",
       "sha": "e939a415f012146de5551bf5ec64700baef7b6d7",
       "why": "not-in-main"
+    }
+  ],
+  "drafts": [
+    {
+      "branch": "ci/strict-and-parallel",
+      "sha": "0c6823201822623ca2e912454dd81da929642d50",
+      "pr": "#84 MERGED（squash：合并提交 c9a7bd6 单父 b81d426）",
+      "verified": "四项改动逐条在 main 找到：并发组键 head_ref||ref_name、pytest 矩阵 3.11/3.14×shard[1,2]、gates job 装 ci-requirements（含 pytest==9.1.1）、构建缓存被 S165 实测否证并写进 main 注释",
+      "recover": "refs/pull/84/head（删前实测可达）"
     },
     {
       "branch": "fix/s195-guard-precision",
       "sha": "ebd11fd11012dd802661898bca5f0a5c55147ac9",
-      "why": "not-in-main"
+      "pr": "#113 CLOSED",
+      "verified": "四条判据的进化版在 main：tools/guard.py 的 `1 <= int(lineno) <= n`（P3）、_SYM_CAP/_scan_symbols（P4）、形态规则退役（P1）；tests/test_s195_guard_gate.py 四条反向金丝雀齐（误杀复活/盲区静默/:0/钳制）",
+      "recover": "refs/pull/113/head（删前实测可达）"
     }
   ]
 }
