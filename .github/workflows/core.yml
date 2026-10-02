@@ -217,12 +217,11 @@ jobs:
         run: python -X utf8 scripts/gitleaks_gate.py
 
       # S213：安全扫描增量门（vigilo AST+数据流）——补 secrets/gitleaks 之外的代码级
-      # 漏洞/正确性面（路径遍历/SQL 注入/未定义名/裸 open）。基线棘轮：存量 402 条入
-      # spec/vigilo-baseline.json，只拦新增。缺 vigilo 不静默（脚本内 sys.exit(2)）。
+      # 漏洞/正确性面（路径遍历/SQL 注入/未定义名/裸 open）。基线棘轮：存量 408 条入
+      # spec/vigilo-baseline.json，只拦新增。vigilo 钉版在 .github/ci-requirements.txt（缺则
+      # 脚本 sys.exit(2)，不静默降级）。
       - name: Vigilo security gate（安全扫描增量——基线棘轮）
-        run: |
-          python -X utf8 -m pip install vigilo==0.3.4
-          python -X utf8 scripts/vigilo_gate.py
+        run: python -X utf8 scripts/vigilo_gate.py
 
       # S176：平台层防骗判据门（spec/HUB.md §6.3）——平台跑 vs 直跑 parity、金丝雀三态
       # （必绿/必红/含 SKIP 只算 green_with_skips）、账本链 + 篡改注入必红、复核计划真执行、

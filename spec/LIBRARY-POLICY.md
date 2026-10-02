@@ -99,6 +99,7 @@ ast-grep、OpenCL 运行时、codegraph、ruff/mypy/pyflakes、cargo/go/javac/gc
   版本姿势：ruff 是本类**前沿首选**（Rust 实现快 + JSON 稳定输出）。
 - **mypy**（类型面，独立）→ 同通道；缓存钉 TEMP；未装如实报。
 - **typos（typos-cli）** → `typos_gate` 拼写门 → 版本姿势：CI 钉版安装（`.github/ci-requirements.txt`），拼写词典由 `_typos.toml` 自映射维护（每条豁免都要写理由）。
+- **vigilo** → `vigilo_gate` 安全扫描增量门（S213）→ 零配置 AST+数据流 SAST，补 secrets/gitleaks 之外的代码级漏洞/正确性面（路径遍历/SQL 注入/未定义名/裸 open）→ 版本姿势：CI 钉版 `vigilo==0.3.4` 进 `.github/ci-requirements.txt`（门链 job 与 pytest job 共用；test_s213 金丝雀须真跑 vigilo，未装不静默——脚本 `sys.exit(2)`）。
 - **ast-grep**（结构搜索 `$VAR`）→ `ast_grep` 薄壳 → 未装清晰报错给安装提示 →
   版本姿势：模式即代码的现代结构化搜索（优于纯正则的升级路径）。
 - **rust clippy**（随工具链）→ `ide_diagnostics`/`ide_build` lint → `cargo`

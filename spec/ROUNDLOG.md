@@ -1979,3 +1979,8 @@ HEAD
   当场踩坑：测试文件自身 unused import（importlib）被 vigilo 抓到新增⇒门红，修掉后通过（门真在拦）。
   接 CI 时补读 test_s145 反向锁「每个本地门步须在 core.yml 有落点」——加门不接 CI 会红，已同步。
 
+  · **CI 补装（#135 首推后 pytest job 红「vigilo 未安装」）**：test_s213 金丝雀 shellout 到
+    vigilo_gate.py，需 CI 的 pytest job 环境装有 vigilo；本地全局装了故漏测。修：`vigilo==0.3.4`
+    钉版进 `.github/ci-requirements.txt`（deps_lock R2 要求登记+钉版，同步在 LIBRARY-POLICY §六②
+    登记），core.yml 门步骤删掉冗余 inline pip install。教训：门脚本自带依赖时，其 pytest 金丝雀
+    在 CI 的可用性取决于 test-env 装没装，不能只在家用机全局装了就当 CI 也有。
