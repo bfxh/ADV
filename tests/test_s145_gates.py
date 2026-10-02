@@ -8,6 +8,7 @@
 4. **握手审计（B1）**——版本协商白名单语义 + 留痕落盘（谁/什么版本/协商结果）
    + 留痕失败永不阻断握手。
 """
+import ast
 import json
 import os
 import re
@@ -19,10 +20,44 @@ import server
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GATE = os.path.join(ROOT, "scripts", "local_gate.py")
 CORE = os.path.join(ROOT, ".github", "workflows", "core.yml")
-STEPS = ("secrets", "path-gate", "arch-gate", "claim-gate", "self-attack", "data-flow", "secrets-history",
-         "deps-lock", "audit-freshness", "toolface", "tool-evals", "cli-bench", "perf-gate",
-         "mcp-surface", "shard-plan", "hub-gate", "model-fit", "selftest", "stress", "pytest",
-         "cargo-test", "clippy")
+
+# 门步在 CI 的落点里有三类按**脚本名**查不到：CI 把 pytest 交给分片计划展开，
+# cargo/clippy 是 cargo 子命令而非仓内脚本。显式登记而非靠名字子串蒙混——
+# 子串匹配既会放过"CI 其实没跑这步"，也会因别处的同名提及而假绿。
+CI_INDIRECT = {
+    "pytest": "shard_plan.py --plan",
+    "cargo-test": "cargo test",
+    "clippy": "clippy",
+}
+
+
+def _steps() -> list[dict[str, str]]:
+    """STEPS 的单一真值源是 local_gate.py 源码（ast 解析，与 claim-gate 的步数口径同形）。"""
+    tree = ast.parse(_read(GATE))
+    node = next((n for n in ast.walk(tree) if isinstance(n, ast.Assign)
+                 and any(getattr(t, "id", "") == "STEPS" for t in n.targets)), None)
+    if node is None or not isinstance(node.value, ast.List):
+        raise AssertionError("local_gate.py 里读不到 STEPS 列表——门链被改名？")
+    rows: list[dict[str, str]] = []
+    for el in node.value.elts:
+        if not isinstance(el, ast.Tuple) or len(el.elts) < 3:
+            continue
+        name, argv, tier = el.elts[0], el.elts[1], el.elts[2]
+        if not (isinstance(name, ast.Constant) and isinstance(tier, ast.Constant)):
+            continue
+        scripts = [a.value for a in (argv.elts if isinstance(argv, ast.List) else [])
+                   if isinstance(a, ast.Constant) and isinstance(a.value, str)
+                   and a.value.endswith(".py")]
+        rows.append({"name": str(name.value), "tier": str(tier.value),
+                     "script": scripts[0] if scripts else ""})
+    return rows
+
+
+def _runs_in_ci(row: dict[str, str], core: str) -> bool:
+    name = row["name"]
+    if name in CI_INDIRECT:
+        return CI_INDIRECT[name] in core
+    return bool(row["script"]) and row["script"] in core
 
 
 def _read(p):
@@ -38,10 +73,26 @@ def _py(*args, cwd=ROOT):
 
 def test_local_gate_covers_every_ci_gate_script():
     core = _read(CORE)
-    gate = _read(GATE)
     ci_scripts = set(re.findall(r"(?:scripts/[a-z0-9_]+\.py|bench/tool_evals\.py)", core))
-    missing = {s for s in ci_scripts if s not in gate}
+    step_scripts = {r["script"] for r in _steps() if r["script"]}
+    missing = {s for s in ci_scripts if s not in step_scripts}
     assert not missing, f"CI 有而本地门没有（漂移）: {sorted(missing)}"
+
+
+def test_every_gate_step_has_a_ci_landing():
+    """反向锁：STEPS 的每一步都必须在 CI 有落点——「本地加门、CI 不跑」同样是漂移。"""
+    core = _read(CORE)
+    never = [r["name"] for r in _steps() if not _runs_in_ci(r, core)]
+    assert not never, f"这些门步在 CI 找不到落点（本地绿 CI 空转）: {sorted(never)}"
+
+
+def test_reverse_lock_has_teeth() -> None:
+    """反假绿：把 CI 里某一步的落点抹掉，反向锁必须点名到那一步（否则它是个装饰）。"""
+    victim = next(r for r in _steps() if r["script"] and r["name"] not in CI_INDIRECT)
+    tampered = "\n".join(ln for ln in _read(CORE).splitlines()
+                         if victim["script"].split("/")[-1] not in ln)
+    caught = [r["name"] for r in _steps() if not _runs_in_ci(r, tampered)]
+    assert victim["name"] in caught, f"抹掉 {victim['name']} 的 CI 落点却没判红: {caught}"
 
 
 def test_hooks_split_fast_and_full():
@@ -64,8 +115,12 @@ def test_local_gate_force_fail_is_a_real_gate():
 def test_local_gate_list_shows_all_steps():
     cp = _py(GATE, "--list")
     assert cp.returncode == 0
-    for n in STEPS:
-        assert n in cp.stdout, f"步骤 {n} 不在 --list"
+    rows = _steps()
+    listed = [ln for ln in cp.stdout.splitlines() if ln.strip()]
+    assert len(listed) == len(rows), f"--list 行数 {len(listed)} ≠ STEPS 条数 {len(rows)}"
+    for row in rows:
+        assert f"{row['tier']} {row['name']}" in cp.stdout, \
+            f"门步 {row['name']}（档位 {row['tier']}）没按档位进 --list"
 
 
 def test_negotiate_version_semantics():

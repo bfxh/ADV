@@ -1165,8 +1165,8 @@
   "max_type_members": 0
  },
  "tests/test_s145_gates.py": {
-  "file_lines": 117,
-  "max_fn_lines": 15,
+  "file_lines": 172,
+  "max_fn_lines": 20,
   "max_type_members": 0
  },
  "tests/test_s146_protocol.py": {
