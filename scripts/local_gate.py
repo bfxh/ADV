@@ -90,6 +90,8 @@ STEPS = [
      "拼写门（typos 零容忍；豁免/排除见 _typos.toml）"),
     ("gitleaks-gate", [PY, "-X", "utf8", "scripts/gitleaks_gate.py"], "fast",
      "凭据泄漏门（gitleaks 业界规则库，零容忍；豁免见 .gitleaks.toml）"),
+    ("vigilo-gate", [PY, "-X", "utf8", "scripts/vigilo_gate.py"], "fast",
+     "安全扫描增量门（vigilo 基线棘轮：只拦新增发现；基线见 spec/vigilo-baseline.json）"),
     ("quality-pact",  [PY, "-X", "utf8", "scripts/quality_pact_gate.py"], "fast",
      "质量-速度契约（perf 提交必须带 EVIDENCE 行；CD-PLATFORM §三）"),
     ("coverage-gate", [PY, "-X", "utf8", "scripts/coverage_gate.py"], "coverage",

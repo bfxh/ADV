@@ -35,14 +35,14 @@ Bootstrap 95% 区间 → 三态**（`pass` / `inconclusive` 噪声带不算真�
 方法形态/**S161 模型适配三件**：失败回包也是 JSON、错误带 `next`、`structuredContent`
 与文本同形…）——**首跑抓到真违约**：未知方法原先返回"工具级 isError 结果"（JSON-RPC
 客户端会当成功），已改为 `error{code:-32601}`。
-**门清单 36 步**：本地门 36 步（快档 29 步 ~21s）+ pytest 内门套件，CI 与本地同源。
+**门清单 37 步**：本地门 37 步（快档 30 步 ~21s）+ pytest 内门套件，CI 与本地同源。
 **自提交 PR 的双门**：**key 门**（明文红线：工作树 + 历史 diff 两路）与**路径门**
 （`scripts/path_gate.py`：无符号链接 / 文件名卫生 / ≤1MB / 无越界写路径 / 无软链接逃逸），
 两者都在 `.githooks/pre-commit` 的快门上（`core.hooksPath=.githooks` 已设）。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
-一条命令跑完与 CI **同一套脚本**的全部门禁——快档 29 步（secrets / self-attack /
-data-flow / toolface / tool-evals / selftest / guard-gate / name-ledger / bench-anchor …，**~21 秒级**）与全档 33 步（+pytest 全量 +
+一条命令跑完与 CI **同一套脚本**的全部门禁——快档 30 步（secrets / self-attack /
+data-flow / toolface / tool-evals / selftest / guard-gate / name-ledger / bench-anchor …，**~21 秒级**）与全档 34 步（+pytest 全量 +
 cargo test + clippy）；`.githooks/` 版本化钩子（pre-commit 快门、pre-push 全门）经
 `git config core.hooksPath .githooks` 一次安装——**审核在本机即可完整跑完，CI 降格为
 镜像/备份**；本地门与 CI 不漂移（core.yml 出现的门脚本必须都在 local_gate 步骤里）

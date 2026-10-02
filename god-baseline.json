@@ -245,8 +245,8 @@
   "max_type_members": 0
  },
  "registry.py": {
-  "file_lines": 718,
-  "max_fn_lines": 117,
+  "file_lines": 754,
+  "max_fn_lines": 116,
   "max_type_members": 0
  },
  "rust/src/appaudit.rs": {
@@ -735,7 +735,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 230,
+  "file_lines": 232,
   "max_fn_lines": 51,
   "max_type_members": 0
  },
@@ -837,6 +837,11 @@
  "scripts/usage_audit.py": {
   "file_lines": 162,
   "max_fn_lines": 53,
+  "max_type_members": 0
+ },
+ "scripts/vigilo_gate.py": {
+  "file_lines": 137,
+  "max_fn_lines": 37,
   "max_type_members": 0
  },
  "scripts/vuln_hunt.py": {
@@ -1352,6 +1357,16 @@
  "tests/test_s208_stall_watchdog.py": {
   "file_lines": 75,
   "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s210_reply_meter.py": {
+  "file_lines": 124,
+  "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "tests/test_s213_vigilo_gate.py": {
+  "file_lines": 84,
+  "max_fn_lines": 18,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {
