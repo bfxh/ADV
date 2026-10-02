@@ -63,6 +63,15 @@
    "findings": 46,
    "verdict": "inconclusive",
    "head": "22fe6ee"
+  },
+  {
+   "round": "复审七（D-2/D-3/S217/S218 栈期；mimosa 深扫）",
+   "date": "2026-10-02",
+   "copy": "Mimosa deep 扫描（本机 MCP，deep，static_only_no_runtime_execution / verdictEffect=none）scanId=scan-2026-10-02T19-07-31.180Z-924ac30758a5；**46 条未逐条定罪**，族级粗分诊与复审六同分布：①path-traversal 34 条集中在 bench/（含 manual_snaps 第三方语料快照本体被扫）②知识库/文档文本命中（vulnkb.py 描述 pickle/yaml 的教材串）③__authorized 授权门语义（ide_debug 求值）④game.py 127.0.0.1 本机 IPC（非远程 SSRF 面）；⇒ 记档待逐条分诊，不宣称安全；工作树直扫 @c079e6c（含 D-2/D-3/S217 代码面；#138/#139/#140 合并提交与该树内容逐位等价）",
+   "seal": "sha256:d7c8996e",
+   "findings": 46,
+   "verdict": "inconclusive",
+   "head": "c079e6c"
   }
  ]
 }

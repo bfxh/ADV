@@ -113,7 +113,7 @@ CI 侧对应的自动化门 = **Self-attack gate**（`scripts/attack_gate.py`：
 | 复审四（S169 函数级瘦身期） | MIMOSA `scan-2026-09-23T16-29-40.701Z-7f210a999686`（**扫描输出目录，非源码副本**；工作树直扫 @1a84f79） | sha256:0f92c279… | 58 | **none**（`verdictEffect=none`：静态面，未做运行时验证） | 条数 57→58；**待 triage**（未与上轮逐条比对） |
 | 复审五（BSHSQ/ADV 主名体系 + 命名纪律门期） | **ADV 自带扫描**（`bug_scan` + `std_check`；MIMOSA 本机不可用，工具面与复审四不同——**条数不可直接比对**）→ `%TEMP%/urx-audit-copy-2026-09-28/scan.json`（扫描输出，非源码副本；工作树直扫 @b5ae2ce） | sha256:ce1b8665… | 400 | inconclusive（本机无 MIMOSA，换用仓内自带扫描面；**未逐条 triage**） | 主名改名 66+49 文件 + naming-gate 接入期；扫描面 400 条待 triage |
 | 复审六（主张可复算/守卫精度/编译账期；S190-S199 合并后） | **MIMOSA deep**（本机可用；`static_only_no_runtime_execution`／`verdictEffect=none`）`scan-2026-09-30T13-45-52.517Z-49b9e47c918f`（扫描输出目录，非源码副本；工作树直扫 @22fe6ee；原记 @f74a2d2 系分支上被 amend 掉的提交，已修正） | sha256:7d861f5b… | 46 | inconclusive（**未逐条 triage**） | **抽样分诊三类**：①`path-traversal` 34 条集中在 `bench/` 与门禁脚手架（路径来自本机操作者/夹具，非不可信输入面）②知识库/文档**文本**命中（如 `vulnkb.py` 里描述 pickle/yaml 的文本）③已挂 `__authorized` 授权门的调试器语义（`ide_debug` 表达式求值）。条数 400→46 是**扫描面换了**（自带面 vs MIMOSA），不可直接比对 |
-
+| 复审七（D-2/D-3/S217/S218 栈期） | **MIMOSA deep**（static_only_no_runtime_execution／verdictEffect=none）`scan-2026-10-02T19-07-31.180Z-924ac30758a5`（扫描输出目录，非源码副本；工作树直扫 @c079e6c，含 D-2/D-3/S217 代码面） | sha256:d7c8996e… | 46 | inconclusive（**未逐条 triage**） | 族级粗分诊与复审六同分布：①`path-traversal` 34 条集中在 `bench/`（**含 manual_snaps 第三方语料快照本体被扫**）②知识库/文档**文本**命中（`vulnkb.py` 教材串）③`__authorized` 授权门语义（ide_debug）④`game.py` 127.0.0.1 本机 IPC；条数 46→46 同扫描面同分布；同轮另发现 **handoff-gate 锚检查被本机磁盘污染**（仓外绝对路径锚本地假绿/CI 真红，c079e6c 已改卡措辞，门本身修正待专片） |
 **复审三记账（S144）**：副本 782 文件 / head=6e1a837（含 B3 注入前缀逻辑、
 `bench/tool_evals.py`、toolmeta 注入清单与 13 条瘦身描述）；深扫 10s；差量与
 上轮**完全一致**（57/57）——本轮回的改动面零新增零消失。运行状态照旧
