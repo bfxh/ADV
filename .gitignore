@@ -20,3 +20,6 @@ rust/target/
 
 # ADV 新工作区（adv-rewrite 分支）构建产物
 target/
+
+# 调研临时证据（原始抓取，不入库）
+RESEARCH/.tmp-*/
