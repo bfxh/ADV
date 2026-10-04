@@ -6,6 +6,7 @@
 pub mod matcher;
 pub mod rule;
 pub mod suppression;
+pub mod taint;
 pub mod testing;
 
 pub use matcher::{Finding, run_matchers};
