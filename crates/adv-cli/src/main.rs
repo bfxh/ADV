@@ -80,10 +80,10 @@ fn scan(args: &[String]) {
                 m.why
             );
         }
-        for (line, what) in adv_rules::suppression::expired(&ast, &today()) {
+        for (line, what) in adv_rules::suppression::expired(&ast, &adv_core::today()) {
             eprintln!("抑制到期 {}:{} {what}（发现照报）", path.display(), line);
         }
-        for f in adv_rules::run_matchers(&ast, path, lang, &rules, &today()) {
+        for f in adv_rules::run_matchers(&ast, path, lang, &rules, &adv_core::today()) {
             println!("{}", serde_json::to_string(&f).unwrap_or_default());
             findings_total += 1;
             match per_rule.iter_mut().find(|(r, _)| r == &f.rule) {
@@ -97,35 +97,6 @@ fn scan(args: &[String]) {
     for (rule, n) in &per_rule {
         eprintln!("  {rule}: {n}");
     }
-}
-
-/// 今日日期（ISO）：`ADV_TODAY` 覆盖优先（判据时序独立性），否则系统 UTC。
-fn today() -> String {
-    if let Ok(d) = std::env::var("ADV_TODAY")
-        && !d.is_empty()
-    {
-        return d;
-    }
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-    civil(secs / 86_400)
-}
-
-/// 天数 → YYYY-MM-DD（Howard Hinnant civil_from_days 算法，零依赖）。
-fn civil(days: i64) -> String {
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    format!("{y:04}-{m:02}-{d:02}")
 }
 
 /// 路径任一组件命中排除名单即跳过。

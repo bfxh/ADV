@@ -29,7 +29,7 @@ mod tests {
 
     #[test]
     fn python_call_callee_is_dotted() {
-        let ast = parse_source(Language::Python, "import os\nos.system('ls')\n").unwrap();
+        let ast = parse_source(Language::Python, "import os\nos.system('ls')\n").unwrap(); // adv:allow(RS-UNWRAP-USE, reason=测试断言入口, until=2027-06-30)
         let calls =
             ast.find(|n| matches!(&n.kind, AstKind::Call { callee, .. } if callee == "os.system"));
         assert_eq!(calls.len(), 1, "应找到 os.system 调用");
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn rust_call_and_fn() {
         let src = "fn main() { foo(1); }\n";
-        let ast = parse_source(Language::Rust, src).unwrap();
+        let ast = parse_source(Language::Rust, src).unwrap(); // adv:allow(RS-UNWRAP-USE, reason=测试断言入口, until=2027-06-30)
         assert!(
             ast.find(|n| matches!(&n.kind, AstKind::FunctionDef { .. }))
                 .len()
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn broken_syntax_still_yields_ast() {
         // 零失败解析：残缺代码不许 panic，不许零 AST（RESEARCH 01 rowan 纪律）
-        let ast = parse_source(Language::Python, "def broken(:\n  pass\n").unwrap();
+        let ast = parse_source(Language::Python, "def broken(:\n  pass\n").unwrap(); // adv:allow(RS-UNWRAP-USE, reason=测试断言入口, until=2027-06-30)
         assert!(!ast.nodes.is_empty());
         assert!(ast.parse_errors >= 1, "残缺语法应计错误数");
     }

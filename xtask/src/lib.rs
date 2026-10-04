@@ -4,3 +4,4 @@
 
 pub mod god;
 pub mod lockstep;
+pub mod suppress;

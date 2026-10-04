@@ -183,6 +183,12 @@ fn import_kind(b: &mut Builder, node: Node) -> AstKind {
             "dotted_name" if !is_from => {
                 let t = b.text(ch).to_string();
                 let bind = t.split('.').next().unwrap_or("").to_string();
+                if bind == t {
+                    // `import os`：绑定名即路径本身（恒等，不需映射）；
+                    // `import a.b`（无别名）绑定根段 a ⇒ 调用 a.b 本就按路径解析，
+                    // 不入映射（避免 a→a.b 的首段替换拼出 a.b.b）。
+                    continue;
+                }
                 names.push((t, bind));
             }
             "name" | "dotted_name" if is_from => {

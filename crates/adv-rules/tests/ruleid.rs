@@ -1,3 +1,4 @@
+// adv:allow-file(RS-UNWRAP-USE, reason=测试断言入口, until=2027-06-30)
 //! 规则测试门禁（ruleid 注释逐行一致；漏报与误报都算失败）。
 
 use adv_parse::Language;

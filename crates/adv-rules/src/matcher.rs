@@ -46,18 +46,27 @@ pub fn run_matchers(
         if rule_language(rule) != Some(lang) {
             continue;
         }
+        let sep = match lang {
+            Language::Python => ".",
+            Language::Rust => "::",
+        };
         let bucket: Vec<Finding> = match (&rule.r#match.call, &rule.r#match.taint) {
-            (Some(m), None) => call_findings(ast, file, rule, m, &imports),
-            (None, Some(m)) => taint_findings(ast, file, rule, m, &imports),
+            (Some(m), None) => call_findings(ast, file, rule, m, &imports, sep),
+            (None, Some(m)) => taint_findings(ast, file, rule, m, &imports, sep),
             _ => continue, // 加载期已校验，此处不可达
         };
         findings.extend(bucket);
     }
-    // 抑制过滤（行级 × 规则 × 未到期）
+    // 抑制过滤（粒度 × 规则 × 未到期）：File 粒度压全文件，Line 粒度压所在行
     findings.retain(|f| {
-        !suppressions
-            .iter()
-            .any(|s| s.rule == f.rule && s.line == f.start_line && suppression::active(s, today))
+        !suppressions.iter().any(|s| {
+            s.rule == f.rule
+                && suppression::active(s, today)
+                && match s.scope {
+                    suppression::Scope::File => true,
+                    suppression::Scope::Line => s.line == f.start_line,
+                }
+        })
     });
     findings
 }
@@ -69,6 +78,7 @@ fn call_findings(
     rule: &Rule,
     m: &crate::rule::CallMatch,
     imports: &HashMap<String, String>,
+    sep: &str,
 ) -> Vec<Finding> {
     let wanted = m.callee.to_vec();
     let mut findings = Vec::new();
@@ -76,9 +86,9 @@ fn call_findings(
         let AstKind::Call { callee, kwargs, .. } = &node.kind else {
             continue;
         };
-        let resolved = imports.get(callee).map(String::as_str);
-        let hit =
-            callee_matches(callee, &wanted) || resolved.is_some_and(|r| callee_matches(r, &wanted));
+        let resolved = resolve_callee(callee, imports, sep);
+        let hit = callee_matches(callee, &wanted)
+            || resolved.is_some_and(|r| callee_matches(r.as_str(), &wanted));
         if !hit || !kwargs_satisfied(ast, kwargs, &m.kwargs) {
             continue;
         }
@@ -101,12 +111,17 @@ fn import_map(ast: &GenericAst) -> HashMap<String, String> {
         let AstKind::Import { module, names } = &node.kind else {
             continue;
         };
-        if module.is_empty() || module.starts_with('.') {
+        if module.starts_with('.') {
             continue;
         }
         for (imported, alias) in names {
             if alias != "*" {
-                m.insert(alias.clone(), format!("{module}.{imported}"));
+                let path = if module.is_empty() {
+                    imported.clone()
+                } else {
+                    format!("{module}.{imported}")
+                };
+                m.insert(alias.clone(), path);
             }
         }
     }
@@ -120,6 +135,7 @@ fn taint_findings(
     rule: &Rule,
     m: &crate::rule::TaintMatch,
     imports: &HashMap<String, String>,
+    sep: &str,
 ) -> Vec<Finding> {
     let sources = m.sources.to_vec();
     let sinks = m.sinks.to_vec();
@@ -133,23 +149,20 @@ fn taint_findings(
         .as_ref()
         .map(|s| s.to_vec())
         .unwrap_or_default();
+    let env = TaintEnv {
+        sources: &sources,
+        propagators: &propagators,
+        sanitizers: &sanitizers,
+        imports,
+        sep,
+    };
     let mut state: HashMap<String, bool> = HashMap::new();
     let mut findings = Vec::new();
     for (i, node) in ast.nodes.iter().enumerate() {
         match &node.kind {
             AstKind::Assignment { targets, value } => {
                 let tainted = value
-                    .map(|v| {
-                        expr_taint(
-                            ast,
-                            v,
-                            &sources,
-                            &propagators,
-                            &sanitizers,
-                            &mut state,
-                            imports,
-                        )
-                    })
+                    .map(|v| expr_taint(ast, v, &env, &mut state))
                     .unwrap_or(false);
                 for t in targets {
                     if let Some(name) = root_var(ast, *t) {
@@ -160,25 +173,18 @@ fn taint_findings(
             AstKind::Call { .. } => {
                 // 汇点判定：任一实参带污点（源调用/污染变量/传播子均按表达式污点判定）
                 let callee = callee_of(ast, AstId(i as u32));
-                let resolved = imports.get(callee).map(String::as_str);
-                if !name_in(callee, resolved, &sinks) {
+                let resolved = resolve_callee(callee, env.imports, env.sep);
+                if !name_in(callee, resolved.as_deref(), &sinks) {
                     continue;
                 }
                 let n = ast.get(AstId(i as u32));
                 let AstKind::Call { args, kwargs, .. } = &n.kind else {
                     continue;
                 };
-                let dirty = args.iter().chain(kwargs.iter().map(|(_, v)| v)).any(|a| {
-                    expr_taint(
-                        ast,
-                        *a,
-                        &sources,
-                        &propagators,
-                        &sanitizers,
-                        &mut state,
-                        imports,
-                    )
-                });
+                let dirty = args
+                    .iter()
+                    .chain(kwargs.iter().map(|(_, v)| v))
+                    .any(|a| expr_taint(ast, *a, &env, &mut state));
                 if dirty {
                     findings.push(new_finding(
                         rule,
@@ -203,21 +209,37 @@ fn callee_of(ast: &GenericAst, id: AstId) -> &str {
     }
 }
 
-/// 原样名或导入解析名任一命中。
 /// 原样名或导入解析名任一命中（沿用三段语义：裸名/前导点/点分）。
 fn name_in(callee: &str, resolved: Option<&str>, set: &[String]) -> bool {
     callee_matches(callee, set) || resolved.is_some_and(|r| callee_matches(r, set))
+}
+
+/// 导入解析：整名命中优先；否则首段替换（`env::var` + env→std::env ⇒ std::env::var）。
+fn resolve_callee(callee: &str, imports: &HashMap<String, String>, sep: &str) -> Option<String> {
+    if let Some(mapped) = imports.get(callee) {
+        return Some(mapped.clone());
+    }
+    let (first, rest) = callee.split_once(sep)?;
+    imports
+        .get(first)
+        .map(|mapped| format!("{mapped}{sep}{rest}"))
+}
+
+/// 污点判定环境（规则集合 + 导入表 + 语言分隔符）。
+struct TaintEnv<'a> {
+    sources: &'a [String],
+    propagators: &'a [String],
+    sanitizers: &'a [String],
+    imports: &'a HashMap<String, String>,
+    sep: &'a str,
 }
 
 /// 表达式污点（递归；Call 按源/净化/传播三分类，其他节点看孩子变量与子表达式）。
 fn expr_taint(
     ast: &GenericAst,
     id: AstId,
-    sources: &[String],
-    propagators: &[String],
-    sanitizers: &[String],
+    env: &TaintEnv,
     state: &mut HashMap<String, bool>,
-    imports: &HashMap<String, String>,
 ) -> bool {
     let node = ast.get(id);
     match &node.kind {
@@ -228,24 +250,24 @@ fn expr_taint(
             args,
             kwargs,
         } => {
-            let resolved = imports.get(callee).map(String::as_str);
-            if name_in(callee, resolved, sources) {
+            let resolved = resolve_callee(callee, env.imports, env.sep);
+            if name_in(callee, resolved.as_deref(), env.sources) {
                 return true;
             }
-            if name_in(callee, resolved, sanitizers) {
+            if name_in(callee, resolved.as_deref(), env.sanitizers) {
                 return false;
             }
             // 方法调用的接收者也是污点入口（s.strip() 的 s 在函数路径里，不在 args）
             let receiver = node
                 .children
                 .first()
-                .map(|c| expr_taint(ast, *c, sources, propagators, sanitizers, state, imports))
+                .map(|c| expr_taint(ast, *c, env, state))
                 .unwrap_or(false);
             let any_arg = args
                 .iter()
                 .chain(kwargs.iter().map(|(_, v)| v))
-                .any(|a| expr_taint(ast, *a, sources, propagators, sanitizers, state, imports));
-            if name_in(callee, resolved, propagators) {
+                .any(|a| expr_taint(ast, *a, env, state));
+            if name_in(callee, resolved.as_deref(), env.propagators) {
                 return receiver || any_arg;
             }
             false // 未声明传播的调用不吃污点（保守；FN 面记档）
@@ -253,12 +275,12 @@ fn expr_taint(
         AstKind::Attribute { .. } => node
             .children
             .first()
-            .map(|c| expr_taint(ast, *c, sources, propagators, sanitizers, state, imports))
+            .map(|c| expr_taint(ast, *c, env, state))
             .unwrap_or(false),
         _ => node
             .children
             .iter()
-            .any(|c| expr_taint(ast, *c, sources, propagators, sanitizers, state, imports)),
+            .any(|c| expr_taint(ast, *c, env, state)),
     }
 }
 

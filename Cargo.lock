@@ -525,6 +525,8 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "adv-core",
+ "adv-parse",
+ "adv-rules",
  "anyhow",
  "proc-macro2",
  "serde",

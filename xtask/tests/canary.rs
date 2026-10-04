@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use xtask::god::{MAX_FN_LINES, analyze_source, hard_violations, ratchet_violations};
 use xtask::lockstep::check_lockstep;
+use xtask::suppress::file_violations;
 
 fn long_fn_source(lines: usize) -> String {
     let mut s = String::from("fn big() {\n");
@@ -78,4 +79,32 @@ fn canary_lockstep_rejects_drift() {
     assert!(check_lockstep("0.3.0", &tags).is_err());
     // 非法版本
     assert!(check_lockstep("abc", &[]).is_err());
+}
+
+#[test]
+fn canary_expired_suppression_is_red() {
+    let src = "fn f() { v.unwrap() } // adv:allow(RS-UNWRAP-USE, reason=旧账, until=2026-01-01)
+";
+    let v = file_violations("t.rs", src, "2026-10-04");
+    assert!(
+        v.iter().any(|x| x.contains("抑制到期")),
+        "金丝雀失败：过期抑制没被抓到：{v:?}"
+    );
+}
+
+#[test]
+fn canary_valid_suppression_and_malformed() {
+    // 有效抑制 = 绿
+    let ok = "fn f() { v.unwrap() } // adv:allow(RS-UNWRAP-USE, reason=测试, until=2999-01-01)
+";
+    assert!(file_violations("t.rs", ok, "2026-10-04").is_empty());
+    // 畸形（缺 until）= 红
+    let bad = "// adv:allow(RS-UNWRAP-USE, reason=忘了日期)
+fn f() {}
+";
+    let v = file_violations("t.rs", bad, "2026-10-04");
+    assert!(
+        v.iter().any(|x| x.contains("畸形")),
+        "金丝雀失败：畸形抑制没被抓到：{v:?}"
+    );
 }

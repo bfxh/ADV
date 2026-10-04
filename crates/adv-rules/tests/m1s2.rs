@@ -1,3 +1,4 @@
+// adv:allow-file(RS-UNWRAP-USE, reason=测试断言入口, until=2027-06-30)
 //! M1 片2 判据：污点（源/汇/传播/净化）+ 导入感知 + 抑制四要素 + 到期账。
 
 use adv_parse::Language;

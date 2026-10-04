@@ -63,8 +63,9 @@ pub fn walk(b: &mut Builder, node: Node) -> AstId {
         "return_expression" | "return_statement" => AstKind::Return,
         "use_declaration" => AstKind::Import {
             module: String::new(),
-            names: use_path(b, node)
-                .map(|p| vec![(p.clone(), p)])
+            names: node
+                .child_by_field_name("argument")
+                .map(|arg| use_tree_paths(b, arg, ""))
                 .unwrap_or_default(),
         },
         "string_literal" | "raw_string_literal" => AstKind::Literal {
@@ -176,7 +177,55 @@ fn dotted_callee(b: &mut Builder, node: Option<Node>) -> String {
 }
 
 /// `use path::name;` ⇒ (全路径, 全路径)（rust use 树解析留片3；别名 `as` 暂不展开）。
-fn use_path(b: &mut Builder, node: Node) -> Option<String> {
-    node.child_by_field_name("argument")
-        .map(|a| b.text(a).to_string())
+/// use 树展开：`use a::{b, c as d}; use e::f as g;` ⇒ [(全路径, 绑定名)]。
+/// 绑定名 = `as` 别名，否则路径末段；`*` 通配记为 ("路径::*","*")（解析跳过）。
+fn use_tree_paths(b: &mut Builder, node: Node, prefix: &str) -> Vec<(String, String)> {
+    let join = |base: &str, leaf: &str| {
+        if base.is_empty() {
+            leaf.to_string()
+        } else {
+            format!("{base}::{leaf}")
+        }
+    };
+    match node.kind() {
+        "use_path" | "scoped_identifier" | "identifier" => {
+            let full = join(prefix, b.text(node).trim());
+            let bind = full.rsplit("::").next().unwrap_or("").to_string();
+            vec![(full, bind)]
+        }
+        "use_as_clause" => {
+            let path = node
+                .child_by_field_name("path")
+                .map(|p| join(prefix, b.text(p).trim()))
+                .unwrap_or_else(|| prefix.to_string());
+            let alias = node
+                .child_by_field_name("alias")
+                .map(|a| b.text(a).trim().to_string())
+                .unwrap_or_else(|| path.rsplit("::").next().unwrap_or("").to_string());
+            vec![(path, alias)]
+        }
+        "scoped_use_list" | "use_declaration" => {
+            let base = node
+                .child_by_field_name("path")
+                .map(|p| join(prefix, b.text(p).trim()))
+                .unwrap_or_else(|| prefix.to_string());
+            let mut out = Vec::new();
+            if let Some(list) = node.child_by_field_name("list") {
+                out.extend(use_list_items(b, list, &base));
+            }
+            out
+        }
+        "use_list" => use_list_items(b, node, prefix),
+        "use_wildcard" => vec![(format!("{prefix}::*"), "*".to_string())],
+        _ => vec![],
+    }
+}
+
+fn use_list_items(b: &mut Builder, list: Node, base: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut c = list.walk();
+    for item in list.named_children(&mut c) {
+        out.extend(use_tree_paths(b, item, base));
+    }
+    out
 }
