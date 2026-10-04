@@ -20,12 +20,43 @@ pub enum Severity {
     Info,
 }
 
-/// 规则匹配子句（片1 只有 `call`；污点/模式对在片2 扩展）。
+/// 规则匹配子句（`call`/`taint` 二选一；两者都缺或都在 = 加载即红，fail-closed）。
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Match {
-    /// 调用匹配子句。
-    pub call: CallMatch,
+    /// 结构匹配（调用点）。
+    pub call: Option<CallMatch>,
+    /// 污点流（sources → sinks，进程内单文件）。
+    pub taint: Option<TaintMatch>,
+}
+
+impl Match {
+    /// 加载期校验：恰好一种形态。
+    pub fn validate(&self) -> Result<(), String> {
+        match (&self.call, &self.taint) {
+            (Some(_), None) | (None, Some(_)) => Ok(()),
+            (Some(_), Some(_)) => Err("match 里 call 与 taint 同时出现（二选一）".into()),
+            (None, None) => Err("match 里 call 与 taint 都缺失".into()),
+        }
+    }
+}
+
+/// 污点规则（RESEARCH 01/02：Semgrep 兼容 sources/sanitizers/propagators 形态）。
+/// 语义 = 进程内单文件、语句序流敏感的保守跟踪：只有声明过的 propagators 传播，
+/// 未经声明路径的调用视为净化点（FN 面已记 FP 会计）。
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TaintMatch {
+    /// 污点源（调用名）。
+    pub sources: OneOrMany,
+    /// 汇点（调用名，任一实参带污点即命中）。
+    pub sinks: OneOrMany,
+    /// 传播子（任一实参带污点则返回值带污点）。
+    #[serde(default)]
+    pub propagators: Option<OneOrMany>,
+    /// 净化子（返回值视为干净）。
+    #[serde(default)]
+    pub sanitizers: Option<OneOrMany>,
 }
 
 /// 调用匹配：点分名后缀按段匹配（`eval` 匹配 `eval` 与 `x.eval`，不匹配 `x.evalx`）。
@@ -105,6 +136,9 @@ pub fn load_rules(dir: &Path) -> Result<Vec<Rule>, String> {
                 .map_err(|err| format!("读 {} 失败：{err}", p.display()))?;
             let rule: Rule = serde_yaml_ng::from_str(&text)
                 .map_err(|err| format!("解析 {} 失败：{err}", p.display()))?;
+            rule.r#match
+                .validate()
+                .map_err(|err| format!("规则 {}：{err}", rule.id))?;
             rules.push(rule);
         }
     }

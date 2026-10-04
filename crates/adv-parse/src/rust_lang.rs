@@ -62,7 +62,10 @@ pub fn walk(b: &mut Builder, node: Node) -> AstId {
         "while_expression" => AstKind::While,
         "return_expression" | "return_statement" => AstKind::Return,
         "use_declaration" => AstKind::Import {
-            module: use_path(b, node),
+            module: String::new(),
+            names: use_path(b, node)
+                .map(|p| vec![(p.clone(), p)])
+                .unwrap_or_default(),
         },
         "string_literal" | "raw_string_literal" => AstKind::Literal {
             kind: LiteralKind::Str,
@@ -172,8 +175,8 @@ fn dotted_callee(b: &mut Builder, node: Option<Node>) -> String {
     }
 }
 
-fn use_path(b: &mut Builder, node: Node) -> String {
+/// `use path::name;` ⇒ (全路径, 全路径)（rust use 树解析留片3；别名 `as` 暂不展开）。
+fn use_path(b: &mut Builder, node: Node) -> Option<String> {
     node.child_by_field_name("argument")
         .map(|a| b.text(a).to_string())
-        .unwrap_or_default()
 }

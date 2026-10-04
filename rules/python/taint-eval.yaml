@@ -1,0 +1,11 @@
+id: PY-TAINT-EVAL
+languages: [python]
+severity: error
+message: "不可信输入流入代码执行汇点（eval/exec/os.system）；请净化、白名单化或留抑制四要素"
+# 片2 污点口径：进程内单文件、语句序；只有声明过的 propagators 传播（保守，FN 面记 FP 会计）
+match:
+  taint:
+    sources: [input]
+    sinks: [eval, exec, os.system]
+    propagators: [str, format, .strip, .upper, .lower]
+    sanitizers: [int, float, len]

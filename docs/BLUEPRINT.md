@@ -175,3 +175,5 @@ adv-server (MCP) ───┤（stdio 自研 + 三层渐进披露）
 - 嵌入层确认不搞（拍板不变）；FTS5 调参走列权重+分词器（unicode61 tokenchars '_-' + trigram）路径（E4/X13）。
 
 **论文 P0（52 篇）已逐篇映射模块**；先读顺序：SVF 3.0 → IRIS → PrimeVul → cAST → Agentless（wave-0 10）→ ZIPPER → SAILR → Ladisa。
+
+**工具链裁定（2026-10-04 用户拍板，写入 AGENTS-ADV.md §3）**：`rust-toolchain.toml` `channel = "1.99.0"` patch 级钉定；本机 default-host=gnu（无 MSVC link.exe）、CI=msvc，同一 channel 各自解析可用工具链；channel 里**禁止**带目标三元组（CI rustup 拒收实测）。依赖保持最高兼容，lockfile 入库。

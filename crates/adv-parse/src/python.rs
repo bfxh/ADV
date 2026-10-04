@@ -61,9 +61,7 @@ pub fn walk(b: &mut Builder, node: Node) -> AstId {
         "for_statement" => AstKind::For,
         "while_statement" => AstKind::While,
         "return_statement" => AstKind::Return,
-        "import_statement" | "import_from_statement" => AstKind::Import {
-            module: import_module(b, node),
-        },
+        "import_statement" | "import_from_statement" => import_kind(b, node),
         "string" => AstKind::Literal {
             kind: LiteralKind::Str,
             text: b.text(node).to_string(),
@@ -157,24 +155,43 @@ fn dotted_callee(b: &mut Builder, node: Option<Node>) -> String {
     }
 }
 
-fn import_module(b: &mut Builder, node: Node) -> String {
+/// 导入建账：`import a.b [as c]` / `from m import x [as y]` ⇒ (被导入名, 绑定名) 对。
+fn import_kind(b: &mut Builder, node: Node) -> AstKind {
+    let is_from = node.kind() == "import_from_statement";
+    let module = if is_from {
+        node.child_by_field_name("module_name")
+            .map(|m| b.text(m).to_string())
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+    let mut names = Vec::new();
     let mut c = node.walk();
     for ch in node.named_children(&mut c) {
         match ch.kind() {
-            "dotted_name" | "aliased_import" => {
-                let t = b
-                    .text(ch)
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-                    .to_string();
-                if !t.is_empty() {
-                    return t;
-                }
+            "aliased_import" => {
+                let base = ch
+                    .child_by_field_name("name")
+                    .map(|n| b.text(n).to_string())
+                    .unwrap_or_default();
+                let alias = ch
+                    .child_by_field_name("alias")
+                    .map(|n| b.text(n).to_string())
+                    .unwrap_or_else(|| base.clone());
+                names.push((base, alias));
             }
-            "wildcard_import" | "relative_import" => return b.text(ch).to_string(),
+            "dotted_name" if !is_from => {
+                let t = b.text(ch).to_string();
+                let bind = t.split('.').next().unwrap_or("").to_string();
+                names.push((t, bind));
+            }
+            "name" | "dotted_name" if is_from => {
+                let t = b.text(ch).to_string();
+                names.push((t.clone(), t));
+            }
+            "wildcard_import" => names.push(("*".into(), "*".into())),
             _ => {}
         }
     }
-    String::new()
+    AstKind::Import { module, names }
 }

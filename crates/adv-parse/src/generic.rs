@@ -80,10 +80,12 @@ pub enum AstKind {
     While,
     /// 返回语句。
     Return,
-    /// 导入（片1 只记首个路径）。
+    /// 导入（供导入感知解析：`from X import a as b` ⇒ b → X.a）。
     Import {
-        /// 模块路径原文。
+        /// from-来源模块（`import a.b` 时为空串）。
         module: String,
+        /// (被导入名, 绑定别名)；`import a.b as c` 记 ("a.b","c")。
+        names: Vec<(String, String)>,
     },
     /// 二元运算。
     Binary,

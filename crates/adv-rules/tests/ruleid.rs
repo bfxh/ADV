@@ -13,7 +13,7 @@ fn load() -> Vec<adv_rules::Rule> {
 
 const PY_EVAL: &str = r#"
 import os
-value = eval(input())  # ruleid: PY-EVAL-USE
+value = eval(input())  # ruleid: PY-EVAL-USE PY-TAINT-EVAL
 safe = len(input())
 evalx(value)
 obj.eval(value)
@@ -68,6 +68,7 @@ fn negative_case_has_zero_findings() {
         std::path::Path::new("clean.py"),
         Language::Python,
         &rules,
+        "2026-10-04",
     );
     assert!(f.is_empty(), "干净代码不应有发现：{f:?}");
 }
@@ -98,6 +99,7 @@ fn finding_spans_point_at_call() {
         std::path::Path::new("t.py"),
         Language::Python,
         &rules,
+        "2026-10-04",
     );
     let eval = f
         .iter()

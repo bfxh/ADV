@@ -5,6 +5,7 @@
 ## 语言与依赖
 1. **Rust 为主体**：产品代码全 Rust；Python 白名单制——新 Python 文件必须先登记 `spec/PY-WHITELIST.md` 才许存在（蓝图 C1）。
 2. **本地优先**：默认档零网络。联网能力只能以 feature 门控存在，且 CI 断言默认档 `cargo tree` 不含网络栈（RESEARCH X12）。
+3. **工具链钉 1.99.0**（2026-10-04 用户拍板）：根 `rust-toolchain.toml` `channel = "1.99.0"`（patch 级单一事实源）。本机 default-host=x86_64-pc-windows-gnu（`rustup set default-host` 一次性；本机无 MSVC link.exe，PATH 里 link 是 MSYS 假链接器），CI runner 解析到 msvc（自带链接器）——同一 channel 各自可用。**禁止**在 channel 里写目标三元组（CI rustup 拒收 "target tuple in channel name"，实测锚 2026-10-04）。依赖保持最高兼容（`cargo update` 定期跑，lockfile 入库）。
 
 ## 质量门（全部机器执行，判据走真路径）
 3. **god 门**：`cargo run -p xtask -- gate`。三轴硬阈（file 800 / fn 120 / members 24）+ 棘轮基线只准减；新面走 `--write` 登记并**在提交信息披露**新增了什么（旧仓教训：--write 会吞掉新超标面 ⇒ 先拆到阈内再登记）。基线在 `tools/baselines/god-baseline.json`。

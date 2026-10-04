@@ -12,10 +12,10 @@ use std::path::Path;
 /// 跑一条夹具并对照注解；不一致返回人类可读差异（测试里 unwrap 后 assert 即红）。
 pub fn check_fixture(name: &str, lang: Language, src: &str, rules: &[Rule]) -> Result<(), String> {
     let ast = parse_source(lang, src).map_err(|e| format!("{name}: 解析失败 {e}"))?;
-    let findings = run_matchers(&ast, Path::new(name), lang, rules);
+    let findings = run_matchers(&ast, Path::new(name), lang, rules, "2026-10-04");
     let mut expected: Vec<(usize, String)> = Vec::new();
     for (line, text) in &ast.comments {
-        if let Some(id) = extract_ruleid(text) {
+        for id in extract_ruleids(text) {
             expected.push((*line, id));
         }
     }
@@ -35,12 +35,13 @@ pub fn check_fixture(name: &str, lang: Language, src: &str, rules: &[Rule]) -> R
     ))
 }
 
-/// 从注释文本提取 `ruleid: <ID>`；非注解注释返回 None。
-fn extract_ruleid(comment: &str) -> Option<String> {
+/// 从注释文本提取 `ruleid: <ID> [ID2 ...]`（一行可注多条规则）；非注解注释返回空。
+fn extract_ruleids(comment: &str) -> Vec<String> {
     let t = comment.trim_start_matches(['#', '/', ' ']);
-    let rest = t.strip_prefix("ruleid:")?;
-    let id = rest.trim();
-    (!id.is_empty()).then(|| id.to_string())
+    let Some(rest) = t.strip_prefix("ruleid:") else {
+        return Vec::new();
+    };
+    rest.split_whitespace().map(str::to_string).collect()
 }
 
 /// 注解行集合（调试用）。
@@ -51,7 +52,7 @@ pub fn annotated_lines(src: &str, lang: Language) -> Vec<usize> {
     };
     ast.comments
         .iter()
-        .filter(|(_, t)| extract_ruleid(t).is_some())
+        .filter(|(_, t)| !extract_ruleids(t).is_empty())
         .map(|(l, _)| *l)
         .collect()
 }

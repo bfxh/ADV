@@ -1,11 +1,13 @@
-//! 匹配器：规则 × 归一 AST → 发现清单（M1 片1：call 后缀匹配 + kwarg 约束）。
+//! 匹配器：规则 × 归一 AST → 发现清单（M1 片2：call/taint 双形态 + 抑制 + 导入感知）。
 //!
 //! 性能注记：朴素全遍历；aho-corasick 字面量预过滤按 RESEARCH X4 待基线后加
 //!（先量后改，扫视层计账不预优化）。
 
 use crate::rule::{Rule, rule_language};
-use adv_parse::{AstKind, GenericAst, Language};
+use crate::suppression;
+use adv_parse::{AstId, AstKind, GenericAst, Language};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::Path;
 
 /// 一条发现（JSONL 报告行 ⇔ 结构一一对应）。
@@ -29,37 +31,259 @@ pub struct Finding {
     pub end_col: usize,
 }
 
-/// 对单文件 AST 跑全部适用规则。
-pub fn run_matchers(ast: &GenericAst, file: &Path, lang: Language, rules: &[Rule]) -> Vec<Finding> {
+/// 对单文件 AST 跑全部适用规则；`today` 为 ISO 日期（抑制到期判定，注入以便测试）。
+pub fn run_matchers(
+    ast: &GenericAst,
+    file: &Path,
+    lang: Language,
+    rules: &[Rule],
+    today: &str,
+) -> Vec<Finding> {
+    let (suppressions, _) = suppression::collect(ast);
+    let imports = import_map(ast);
+    let mut findings = Vec::new();
+    for rule in rules {
+        if rule_language(rule) != Some(lang) {
+            continue;
+        }
+        let bucket: Vec<Finding> = match (&rule.r#match.call, &rule.r#match.taint) {
+            (Some(m), None) => call_findings(ast, file, rule, m, &imports),
+            (None, Some(m)) => taint_findings(ast, file, rule, m, &imports),
+            _ => continue, // 加载期已校验，此处不可达
+        };
+        findings.extend(bucket);
+    }
+    // 抑制过滤（行级 × 规则 × 未到期）
+    findings.retain(|f| {
+        !suppressions
+            .iter()
+            .any(|s| s.rule == f.rule && s.line == f.start_line && suppression::active(s, today))
+    });
+    findings
+}
+
+/// 结构匹配：遍历全部 Call 节点（含导入解析后的候选名）。
+fn call_findings(
+    ast: &GenericAst,
+    file: &Path,
+    rule: &Rule,
+    m: &crate::rule::CallMatch,
+    imports: &HashMap<String, String>,
+) -> Vec<Finding> {
+    let wanted = m.callee.to_vec();
     let mut findings = Vec::new();
     for node in &ast.nodes {
         let AstKind::Call { callee, kwargs, .. } = &node.kind else {
             continue;
         };
-        for rule in rules {
-            if rule_language(rule) != Some(lang) {
-                continue;
+        let resolved = imports.get(callee).map(String::as_str);
+        let hit =
+            callee_matches(callee, &wanted) || resolved.is_some_and(|r| callee_matches(r, &wanted));
+        if !hit || !kwargs_satisfied(ast, kwargs, &m.kwargs) {
+            continue;
+        }
+        findings.push(new_finding(
+            rule,
+            file,
+            node.span.start_line,
+            node.span.start_col,
+            node.span.end_line,
+            node.span.end_col,
+        ));
+    }
+    findings
+}
+
+/// 导入感知映射：`from X import a as b` ⇒ b → X.a（import 语句绑定；相对导入跳过）。
+fn import_map(ast: &GenericAst) -> HashMap<String, String> {
+    let mut m = HashMap::new();
+    for node in &ast.nodes {
+        let AstKind::Import { module, names } = &node.kind else {
+            continue;
+        };
+        if module.is_empty() || module.starts_with('.') {
+            continue;
+        }
+        for (imported, alias) in names {
+            if alias != "*" {
+                m.insert(alias.clone(), format!("{module}.{imported}"));
             }
-            let m = &rule.r#match.call;
-            if !callee_matches(callee, &m.callee.to_vec()) {
-                continue;
+        }
+    }
+    m
+}
+
+/// 污点跟踪（进程内单文件，语句序；只有声明过的 propagators 传播——保守口径，FN 面已记档）。
+fn taint_findings(
+    ast: &GenericAst,
+    file: &Path,
+    rule: &Rule,
+    m: &crate::rule::TaintMatch,
+    imports: &HashMap<String, String>,
+) -> Vec<Finding> {
+    let sources = m.sources.to_vec();
+    let sinks = m.sinks.to_vec();
+    let propagators = m
+        .propagators
+        .as_ref()
+        .map(|p| p.to_vec())
+        .unwrap_or_default();
+    let sanitizers = m
+        .sanitizers
+        .as_ref()
+        .map(|s| s.to_vec())
+        .unwrap_or_default();
+    let mut state: HashMap<String, bool> = HashMap::new();
+    let mut findings = Vec::new();
+    for (i, node) in ast.nodes.iter().enumerate() {
+        match &node.kind {
+            AstKind::Assignment { targets, value } => {
+                let tainted = value
+                    .map(|v| {
+                        expr_taint(
+                            ast,
+                            v,
+                            &sources,
+                            &propagators,
+                            &sanitizers,
+                            &mut state,
+                            imports,
+                        )
+                    })
+                    .unwrap_or(false);
+                for t in targets {
+                    if let Some(name) = root_var(ast, *t) {
+                        state.insert(name, tainted);
+                    }
+                }
             }
-            if !kwargs_satisfied(ast, kwargs, &m.kwargs) {
-                continue;
+            AstKind::Call { .. } => {
+                // 汇点判定：任一实参带污点（源调用/污染变量/传播子均按表达式污点判定）
+                let callee = callee_of(ast, AstId(i as u32));
+                let resolved = imports.get(callee).map(String::as_str);
+                if !name_in(callee, resolved, &sinks) {
+                    continue;
+                }
+                let n = ast.get(AstId(i as u32));
+                let AstKind::Call { args, kwargs, .. } = &n.kind else {
+                    continue;
+                };
+                let dirty = args.iter().chain(kwargs.iter().map(|(_, v)| v)).any(|a| {
+                    expr_taint(
+                        ast,
+                        *a,
+                        &sources,
+                        &propagators,
+                        &sanitizers,
+                        &mut state,
+                        imports,
+                    )
+                });
+                if dirty {
+                    findings.push(new_finding(
+                        rule,
+                        file,
+                        node.span.start_line,
+                        node.span.start_col,
+                        node.span.end_line,
+                        node.span.end_col,
+                    ));
+                }
             }
-            findings.push(Finding {
-                rule: rule.id.clone(),
-                severity: format!("{:?}", rule.severity).to_lowercase(),
-                message: rule.message.clone(),
-                file: file.to_string_lossy().replace('\\', "/"),
-                start_line: node.span.start_line,
-                start_col: node.span.start_col,
-                end_line: node.span.end_line,
-                end_col: node.span.end_col,
-            });
+            _ => {}
         }
     }
     findings
+}
+
+fn callee_of(ast: &GenericAst, id: AstId) -> &str {
+    match &ast.get(id).kind {
+        AstKind::Call { callee, .. } => callee,
+        _ => "",
+    }
+}
+
+/// 原样名或导入解析名任一命中。
+/// 原样名或导入解析名任一命中（沿用三段语义：裸名/前导点/点分）。
+fn name_in(callee: &str, resolved: Option<&str>, set: &[String]) -> bool {
+    callee_matches(callee, set) || resolved.is_some_and(|r| callee_matches(r, set))
+}
+
+/// 表达式污点（递归；Call 按源/净化/传播三分类，其他节点看孩子变量与子表达式）。
+fn expr_taint(
+    ast: &GenericAst,
+    id: AstId,
+    sources: &[String],
+    propagators: &[String],
+    sanitizers: &[String],
+    state: &mut HashMap<String, bool>,
+    imports: &HashMap<String, String>,
+) -> bool {
+    let node = ast.get(id);
+    match &node.kind {
+        AstKind::Literal { .. } => false,
+        AstKind::Identifier { name } => *state.get(ast.string(*name)).unwrap_or(&false),
+        AstKind::Call {
+            callee,
+            args,
+            kwargs,
+        } => {
+            let resolved = imports.get(callee).map(String::as_str);
+            if name_in(callee, resolved, sources) {
+                return true;
+            }
+            if name_in(callee, resolved, sanitizers) {
+                return false;
+            }
+            // 方法调用的接收者也是污点入口（s.strip() 的 s 在函数路径里，不在 args）
+            let receiver = node
+                .children
+                .first()
+                .map(|c| expr_taint(ast, *c, sources, propagators, sanitizers, state, imports))
+                .unwrap_or(false);
+            let any_arg = args
+                .iter()
+                .chain(kwargs.iter().map(|(_, v)| v))
+                .any(|a| expr_taint(ast, *a, sources, propagators, sanitizers, state, imports));
+            if name_in(callee, resolved, propagators) {
+                return receiver || any_arg;
+            }
+            false // 未声明传播的调用不吃污点（保守；FN 面记档）
+        }
+        AstKind::Attribute { .. } => node
+            .children
+            .first()
+            .map(|c| expr_taint(ast, *c, sources, propagators, sanitizers, state, imports))
+            .unwrap_or(false),
+        _ => node
+            .children
+            .iter()
+            .any(|c| expr_taint(ast, *c, sources, propagators, sanitizers, state, imports)),
+    }
+}
+
+/// 取表达式绑定的根变量名（Identifier 本名 / Attribute / 下标的基名）。
+fn root_var(ast: &GenericAst, id: AstId) -> Option<String> {
+    match &ast.get(id).kind {
+        AstKind::Identifier { name } => Some(ast.string(*name).to_string()),
+        AstKind::Attribute { .. } | AstKind::Other { .. } => {
+            root_var(ast, *ast.get(id).children.first()?)
+        }
+        _ => None,
+    }
+}
+
+fn new_finding(rule: &Rule, file: &Path, sl: usize, sc: usize, el: usize, ec: usize) -> Finding {
+    Finding {
+        rule: rule.id.clone(),
+        severity: format!("{:?}", rule.severity).to_lowercase(),
+        message: rule.message.clone(),
+        file: file.to_string_lossy().replace('\\', "/"),
+        start_line: sl,
+        start_col: sc,
+        end_line: el,
+        end_col: ec,
+    }
 }
 
 /// 被调名匹配（Semgrep 对齐的三段语义）：
@@ -67,7 +291,7 @@ pub fn run_matchers(ast: &GenericAst, file: &Path, lang: Language, rules: &[Rule
 /// - 前导点 `.unwrap`：方法调用，路径 ≥2 段且末段相等（`x.unwrap` 命中、`unwrap` 不命中）；
 /// - 点分路径 `subprocess.run`：整段精确相等。
 ///
-/// 导入感知解析（别名/相对导入）是片2 的活——此限制已记入 FP 会计。
+/// 导入感知解析（别名/相对导入）由调用方先重写候选名再进本判定。
 fn callee_matches(callee: &str, wanted: &[String]) -> bool {
     wanted.iter().any(|w| {
         if let Some(last) = w.strip_prefix('.') {
