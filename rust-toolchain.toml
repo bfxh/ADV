@@ -3,6 +3,8 @@
 # 本机/CI 分工：本机 default-host=x86_64-pc-windows-gnu（rustup set default-host，
 # 一次性已执行——本机无 MSVC link.exe，PATH 里的 link 是 MSYS coreutils 假链接器）；
 # CI runner default-host=msvc（自带链接器）。同一 channel 各自解析到可用工具链。
-# 教训锚：channel 带三元组（1.99.0-x86_64-pc-windows-gnu）被 CI rustup 拒收
-# （"target tuple in channel name"）——规范 schema 只允许 channel=版本/渠道。
+# 教训锚①：channel 带三元组被 CI rustup 拒收（"target tuple in channel name"）。
+# 教训锚②：toolchain 文件触发的自动补装走 minimal——组件必须显式声明，
+# 否则 CI 的 fmt/clippy 步骤找不到 cargo-fmt.exe（2026-10-04 实测）。
 channel = "1.99.0"
+components = ["rustfmt", "clippy"]

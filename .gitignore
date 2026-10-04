@@ -23,3 +23,6 @@ target/
 
 # 调研临时证据（原始抓取，不入库）
 RESEARCH/.tmp-*/
+
+# 会话账本（多会话并发协议）
+.task-owner
