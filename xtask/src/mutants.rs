@@ -17,24 +17,17 @@ struct Baseline {
     missed: Vec<String>,
 }
 
-#[derive(Deserialize)]
-struct Outcome {
-    mutation: MutationKey,
-    #[serde(rename = "summary")]
-    outcome: String,
-}
-
-#[derive(Deserialize)]
-struct MutationKey {
-    #[serde(default)]
-    file: String,
-    #[serde(default)]
-    function: String,
-}
-
-/// 未捕获变异键：`file::function`。
-fn missed_key(m: &MutationKey) -> String {
-    format!("{}::{}", m.file, m.function)
+/// 未捕获变异键：`file::function`（从 outcomes 条目提取，cargo-mutants 27 格式）。
+fn missed_key(outcome: &serde_json::Value) -> Option<String> {
+    let file = outcome
+        .pointer("/scenario/Mutant/file")?
+        .as_str()?
+        .to_string();
+    let function = outcome
+        .pointer("/scenario/Mutant/function/function_name")?
+        .as_str()?
+        .to_string();
+    Some(format!("{file}::{function}"))
 }
 
 /// 棘轮比较：current 里有而 baseline 没有的 missed = 新债 = 红。
@@ -93,17 +86,21 @@ pub fn run(root: &Path, base: &str, update: bool, timeout_secs: u64) -> Result<V
         "cargo mutants 失败：{}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let outcomes_path = out_dir.join("outcomes.json");
+    // cargo-mutants 把结果写在 <out>/mutants.out/outcomes.json
+    let outcomes_path = out_dir.join("mutants.out").join("outcomes.json");
     let raw = std::fs::read_to_string(&outcomes_path)
         .with_context(|| format!("读 {}", outcomes_path.display()))?;
-    let outcomes: Vec<Outcome> =
+    let parsed: serde_json::Value =
         serde_json::from_str(&raw).with_context(|| format!("解析 {}", outcomes_path.display()))?;
-    let mut missed: Vec<String> = outcomes
+    let mut missed: Vec<String> = parsed["outcomes"]
+        .as_array()
+        .context("outcomes 应为数组")?
         .iter()
-        .filter(|o| o.outcome == "missed")
-        .map(|o| missed_key(&o.mutation))
+        .filter(|o| o["summary"] == "MissedMutant")
+        .filter_map(missed_key)
         .collect();
     missed.sort();
+    missed.dedup();
     if update {
         let baseline_path = root.join(BASELINE_PATH);
         std::fs::create_dir_all(baseline_path.parent().expect("parent"))?;
