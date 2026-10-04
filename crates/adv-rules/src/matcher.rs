@@ -31,6 +31,13 @@ pub struct Finding {
     pub end_col: usize,
 }
 
+impl Finding {
+    /// JSONL 报告行（adv-cli stdout 的行契约；金标准门压这里）。
+    pub fn to_jsonl(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+}
+
 /// 对单文件 AST 跑全部适用规则；`today` 为 ISO 日期（抑制到期判定，注入以便测试）。
 pub fn run_matchers(
     ast: &GenericAst,

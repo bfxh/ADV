@@ -1,0 +1,5 @@
+{"rule":"PY-EVAL-USE","severity":"warning","message":"eval() 动态求值不可信输入可致代码执行；确需动态求值请用显式解析并留抑制注解（粒度/规则码/原因/到期）","file":"FIXTURE/py/eval.py","start_line":5,"start_col":4,"end_line":5,"end_col":11}
+{"rule":"PY-EXEC-USE","severity":"warning","message":"exec() 动态执行不可信输入可致代码执行；同 eval 口径","file":"FIXTURE/py/eval.py","start_line":7,"start_col":4,"end_line":7,"end_col":20}
+{"rule":"PY-SUBPROCESS-SHELL","severity":"error","message":"subprocess 以 shell=True 调用会经 shell 解释参数，注入面扩大；改用参数列表形式（shell 缺省 False）","file":"FIXTURE/py/eval.py","start_line":6,"start_col":4,"end_line":6,"end_col":35}
+{"rule":"PY-TAINT-EVAL","severity":"error","message":"不可信输入流入代码执行汇点（eval/exec/os.system）；请净化、白名单化或留抑制四要素","file":"FIXTURE/py/eval.py","start_line":5,"start_col":4,"end_line":5,"end_col":11}
+{"rule":"RS-UNWRAP-USE","severity":"warning","message":"unwrap() 在 None/Err 上 panic；产品路径应显式处理或 expect(带原因)，测试代码可用行内抑制四要素豁免","file":"FIXTURE/rs/unw.rs","start_line":3,"start_col":4,"end_line":3,"end_col":31}

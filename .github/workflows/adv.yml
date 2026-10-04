@@ -22,14 +22,16 @@ jobs:
           components: clippy, rustfmt
       - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
-          tool: cargo-nextest,cargo-deny
+          tool: cargo-nextest,cargo-deny,cargo-llvm-cov
       - name: fmt
         run: cargo fmt --all --check
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test (nextest)
         run: cargo nextest run --workspace
-      - name: gates（god 棘轮 + 版本锁步；本地与 CI 同尺）
+      - name: coverage（lcov 工件；棘轮阈值待 M2 基线后接）
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+      - name: gates（god 棘轮 + 版本锁步 + 抑制到期；本地与 CI 同尺）
         run: cargo run -p xtask -- gate
       - name: deny（license/advisory/ban）
         run: cargo deny check
@@ -39,4 +41,11 @@ jobs:
         with:
           name: nextest-junit
           path: target/nextest/**/*.junit.xml
+          if-no-files-found: ignore
+      - name: 上传覆盖率
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lcov
+          path: lcov.info
           if-no-files-found: ignore

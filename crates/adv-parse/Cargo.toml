@@ -14,3 +14,6 @@ adv-core = { path = "../adv-core" }
 tree-sitter = "0.25"
 tree-sitter-python = "0.23"
 tree-sitter-rust = "0.24"
+
+[dev-dependencies]
+insta = "1"

@@ -84,7 +84,7 @@ fn scan(args: &[String]) {
             eprintln!("抑制到期 {}:{} {what}（发现照报）", path.display(), line);
         }
         for f in adv_rules::run_matchers(&ast, path, lang, &rules, &adv_core::today()) {
-            println!("{}", serde_json::to_string(&f).unwrap_or_default());
+            println!("{}", f.to_jsonl());
             findings_total += 1;
             match per_rule.iter_mut().find(|(r, _)| r == &f.rule) {
                 Some((_, n)) => *n += 1,

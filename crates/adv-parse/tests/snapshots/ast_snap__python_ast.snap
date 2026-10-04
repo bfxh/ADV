@@ -1,0 +1,542 @@
+---
+source: crates/adv-parse/tests/ast_snap.rs
+expression: ast.nodes
+---
+[
+    AstNode {
+        kind: Identifier {
+            name: 0,
+        },
+        span: Span {
+            start_line: 1,
+            start_col: 7,
+            end_line: 1,
+            end_col: 9,
+            start_byte: 7,
+            end_byte: 9,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                1,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Other {
+            ts_kind: "dotted_name",
+        },
+        span: Span {
+            start_line: 1,
+            start_col: 7,
+            end_line: 1,
+            end_col: 9,
+            start_byte: 7,
+            end_byte: 9,
+        },
+        children: [
+            AstId(
+                0,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                2,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Import {
+            module: "",
+            names: [],
+        },
+        span: Span {
+            start_line: 1,
+            start_col: 0,
+            end_line: 1,
+            end_col: 9,
+            start_byte: 0,
+            end_byte: 9,
+        },
+        children: [
+            AstId(
+                1,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                22,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 0,
+        },
+        span: Span {
+            start_line: 2,
+            start_col: 5,
+            end_line: 2,
+            end_col: 7,
+            start_byte: 15,
+            end_byte: 17,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                4,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Other {
+            ts_kind: "dotted_name",
+        },
+        span: Span {
+            start_line: 2,
+            start_col: 5,
+            end_line: 2,
+            end_col: 7,
+            start_byte: 15,
+            end_byte: 17,
+        },
+        children: [
+            AstId(
+                3,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                7,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 1,
+        },
+        span: Span {
+            start_line: 2,
+            start_col: 15,
+            end_line: 2,
+            end_col: 21,
+            start_byte: 25,
+            end_byte: 31,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                6,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Other {
+            ts_kind: "dotted_name",
+        },
+        span: Span {
+            start_line: 2,
+            start_col: 15,
+            end_line: 2,
+            end_col: 21,
+            start_byte: 25,
+            end_byte: 31,
+        },
+        children: [
+            AstId(
+                5,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                7,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Import {
+            module: "os",
+            names: [
+                (
+                    "os",
+                    "os",
+                ),
+                (
+                    "system",
+                    "system",
+                ),
+            ],
+        },
+        span: Span {
+            start_line: 2,
+            start_col: 0,
+            end_line: 2,
+            end_col: 21,
+            start_byte: 10,
+            end_byte: 31,
+        },
+        children: [
+            AstId(
+                4,
+            ),
+            AstId(
+                6,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                22,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 2,
+        },
+        span: Span {
+            start_line: 3,
+            start_col: 4,
+            end_line: 3,
+            end_col: 5,
+            start_byte: 36,
+            end_byte: 37,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                21,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 3,
+        },
+        span: Span {
+            start_line: 3,
+            start_col: 6,
+            end_line: 3,
+            end_col: 7,
+            start_byte: 38,
+            end_byte: 39,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                10,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Other {
+            ts_kind: "parameters",
+        },
+        span: Span {
+            start_line: 3,
+            start_col: 5,
+            end_line: 3,
+            end_col: 8,
+            start_byte: 37,
+            end_byte: 40,
+        },
+        children: [
+            AstId(
+                9,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                21,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 4,
+        },
+        span: Span {
+            start_line: 4,
+            start_col: 4,
+            end_line: 4,
+            end_col: 5,
+            start_byte: 46,
+            end_byte: 47,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                14,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 5,
+        },
+        span: Span {
+            start_line: 4,
+            start_col: 8,
+            end_line: 4,
+            end_col: 13,
+            start_byte: 50,
+            end_byte: 55,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                13,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Call {
+            callee: "input",
+            args: [],
+            kwargs: [],
+        },
+        span: Span {
+            start_line: 4,
+            start_col: 8,
+            end_line: 4,
+            end_col: 15,
+            start_byte: 50,
+            end_byte: 57,
+        },
+        children: [
+            AstId(
+                12,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                14,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Assignment {
+            targets: [
+                AstId(
+                    11,
+                ),
+            ],
+            value: Some(
+                AstId(
+                    13,
+                ),
+            ),
+        },
+        span: Span {
+            start_line: 4,
+            start_col: 4,
+            end_line: 4,
+            end_col: 15,
+            start_byte: 46,
+            end_byte: 57,
+        },
+        children: [
+            AstId(
+                11,
+            ),
+            AstId(
+                13,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                20,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 0,
+        },
+        span: Span {
+            start_line: 5,
+            start_col: 4,
+            end_line: 5,
+            end_col: 6,
+            start_byte: 62,
+            end_byte: 64,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                17,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 1,
+        },
+        span: Span {
+            start_line: 5,
+            start_col: 7,
+            end_line: 5,
+            end_col: 13,
+            start_byte: 65,
+            end_byte: 71,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                17,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Attribute {
+            attr: 1,
+        },
+        span: Span {
+            start_line: 5,
+            start_col: 4,
+            end_line: 5,
+            end_col: 13,
+            start_byte: 62,
+            end_byte: 71,
+        },
+        children: [
+            AstId(
+                15,
+            ),
+            AstId(
+                16,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                19,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Identifier {
+            name: 4,
+        },
+        span: Span {
+            start_line: 5,
+            start_col: 14,
+            end_line: 5,
+            end_col: 15,
+            start_byte: 72,
+            end_byte: 73,
+        },
+        children: [],
+        parent: Some(
+            AstId(
+                19,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Call {
+            callee: "os.system",
+            args: [
+                AstId(
+                    18,
+                ),
+            ],
+            kwargs: [],
+        },
+        span: Span {
+            start_line: 5,
+            start_col: 4,
+            end_line: 5,
+            end_col: 16,
+            start_byte: 62,
+            end_byte: 74,
+        },
+        children: [
+            AstId(
+                17,
+            ),
+            AstId(
+                18,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                20,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Block,
+        span: Span {
+            start_line: 4,
+            start_col: 4,
+            end_line: 5,
+            end_col: 16,
+            start_byte: 46,
+            end_byte: 74,
+        },
+        children: [
+            AstId(
+                14,
+            ),
+            AstId(
+                19,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                21,
+            ),
+        ),
+    },
+    AstNode {
+        kind: FunctionDef {
+            name: 2,
+        },
+        span: Span {
+            start_line: 3,
+            start_col: 0,
+            end_line: 5,
+            end_col: 16,
+            start_byte: 32,
+            end_byte: 74,
+        },
+        children: [
+            AstId(
+                8,
+            ),
+            AstId(
+                10,
+            ),
+            AstId(
+                20,
+            ),
+        ],
+        parent: Some(
+            AstId(
+                22,
+            ),
+        ),
+    },
+    AstNode {
+        kind: Module,
+        span: Span {
+            start_line: 1,
+            start_col: 0,
+            end_line: 6,
+            end_col: 0,
+            start_byte: 0,
+            end_byte: 75,
+        },
+        children: [
+            AstId(
+                2,
+            ),
+            AstId(
+                7,
+            ),
+            AstId(
+                21,
+            ),
+        ],
+        parent: None,
+    },
+]

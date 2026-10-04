@@ -13,4 +13,5 @@ workspace = true
 adv-core = { path = "../adv-core" }
 adv-parse = { path = "../adv-parse" }
 serde = { version = "1", features = ["derive"] }
+serde_json = { workspace = true }
 serde_yaml_ng = "0.10"
