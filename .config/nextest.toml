@@ -1,0 +1,5 @@
+# cargo-nextest 配置（M0 起步档；D7：事件流为一等公民、flaky 端到端保留）。
+[profile.default]
+retries = 1
+failure-output = "immediate-final"
+status-level = "flaky"

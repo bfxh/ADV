@@ -1,0 +1,17 @@
+[package]
+name = "adv-cli"
+description = "ADV 人用面 CLI：scan / index / serve / gate（蓝图 §4）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "adv"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+adv-core = { path = "../adv-core" }

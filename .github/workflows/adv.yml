@@ -1,0 +1,42 @@
+# ADV CI 阶段 0（蓝图 §7：GitHub Actions 过渡档；自托管切换见 RESEARCH 05）。
+# 旧项目 workflows（codeql/core/health/release/scan）在切换日移除——本文件只管新工作区。
+name: adv
+
+on:
+  push:
+    branches: [adv-rewrite, main]
+  pull_request:
+
+concurrency:
+  group: adv-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
+        with:
+          components: clippy, rustfmt
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: cargo-nextest,cargo-deny
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: test (nextest)
+        run: cargo nextest run --workspace
+      - name: gates（god 棘轮 + 版本锁步；本地与 CI 同尺）
+        run: cargo run -p xtask -- gate
+      - name: deny（license/advisory/ban）
+        run: cargo deny check
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nextest-junit
+          path: target/nextest/**/*.junit.xml
+          if-no-files-found: ignore

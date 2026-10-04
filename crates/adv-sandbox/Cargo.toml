@@ -1,0 +1,13 @@
+[package]
+name = "adv-sandbox"
+description = "沙箱与插件：WIT 插件 ABI + wasmtime/wasmi 双运行时 + Windows broker/worker（蓝图 §4；RESEARCH 08/E7/X14）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+adv-core = { path = "../adv-core" }

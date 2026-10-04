@@ -17,3 +17,6 @@ tools/results/
 # Rust 构建产物
 rust/target/
 .urx-hist-*/
+
+# ADV 新工作区（adv-rewrite 分支）构建产物
+target/

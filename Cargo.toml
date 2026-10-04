@@ -1,0 +1,47 @@
+[workspace]
+resolver = "2"
+# adv-rewrite 分支（蓝图 docs/BLUEPRINT.md §4）。adv-ast-rust（nightly 边车）按里程碑 M2 再入列。
+members = [
+    "crates/adv-core",
+    "crates/adv-parse",
+    "crates/adv-rules",
+    "crates/adv-taint",
+    "crates/adv-secrets",
+    "crates/adv-sca",
+    "crates/adv-index",
+    "crates/adv-server",
+    "crates/adv-sandbox",
+    "crates/adv-bin",
+    "crates/adv-cli",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/bfxh/ADV"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[workspace.dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.9"
+walkdir = "2"
+syn = { version = "2", features = ["full", "visit"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }
+
+[profile.release]
+lto = "thin"
+panic = "abort"
+strip = "symbols"
+# 注：panic=abort 与 catch_unwind 互斥（RESEARCH X8 调和方案）——默认档放弃 unwind 隔离，
+# 不可信输入隔离走 worker 进程池（M6 沙箱里程碑落实）。profile.test/dev 自动豁免。
+codegen-units = 1

@@ -1,9 +1,9 @@
-# mingw ld 在含中文的路径下链接失败：target-dir 挪到纯 ASCII 临时目录（本机 workaround，S78）
-# S124 修正位置：cargo 只从【当前工作目录】逐级向上发现 .cargo/config.toml（与 --manifest-path 无关）。
-# 原先放在 rust/.cargo/ 只有 cd rust 才生效，仓库根运行即落回中文路径 rust/target 触发 S78
-# （症状：ld 报 "cannot find ....rcgu.o/symbols.o"，曾被误诊为增量缓存损坏）。移到仓库根后，
-# 仓内任何子目录运行 cargo 均可发现本文件；rust/target 目录为误诊期产物，可整目录删除。
-# 注意：本路径是本机绝对路径——CI 上由 CARGO_TARGET_DIR 环境变量覆盖（env 优先于本文件，
-# 见 .github/workflows/core.yml；S124 首跑 CI 实锤：不覆盖则 exe 落错位置、EXE_TAG 硬门禁失败）。
+# target-dir 历史与裁定（读我再改）：
+# S78：mingw ld 在含中文路径下链接失败 ⇒ target-dir 挪纯 ASCII 目录。
+# S124：cargo 只从当前工作目录逐级向上发现本文件；CI 由 CARGO_TARGET_DIR 环境变量覆盖
+#       （env 优先于本文件，core.yml 显式设置）。
+# 2026-10-04（adv-rewrite 分支）：工作区路径 D:/KF/ADV 已是纯 ASCII ⇒ target 回工作区内
+# target/（C 盘满盘风险消除）。主仓 main 的本文件不受影响（各自 worktree 各自文件）。
+# 若未来路径再含非 ASCII，恢复 ASCII 绝对路径并在此留痕。
 [build]
-target-dir = "C:/Users/lbx13/AppData/Local/Temp/rx-rs-target"
+target-dir = "target"

@@ -1,0 +1,6 @@
+[toolchain]
+# 工具链单一事实源（RESEARCH D4：patch 级锁定）。
+# 选 windows-gnu 完整三元组（M0 实测裁定 2026-10-04）：本机无 MSVC link.exe（PATH 里的 link
+# 是 MSYS coreutils 假链接器——旧仓体检已知坑）；windows-gnu 自含 MinGW 链接器，本机与 CI
+# 同一可证路径。MSVC 档（PDB/BinSkim 生态）待装 Build Tools 评估后另行切换。
+channel = "1.99.0-x86_64-pc-windows-gnu"

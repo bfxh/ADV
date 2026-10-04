@@ -1,0 +1,13 @@
+[package]
+name = "adv-secrets"
+description = "secrets 检测：Nosey Parker 内化源码（拍板）+ 掩码红显（蓝图 §4；RESEARCH 02/X10）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+adv-core = { path = "../adv-core" }

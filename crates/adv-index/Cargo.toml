@@ -1,0 +1,13 @@
+[package]
+name = "adv-index"
+description = "检索/索引：ignore 遍历 + Tantivy BM25 + SCIP 符号 + RRF（无嵌入，拍板；蓝图 §4；RESEARCH 09/E4/E5/X13）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+adv-core = { path = "../adv-core" }

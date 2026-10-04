@@ -1,0 +1,13 @@
+[package]
+name = "adv-server"
+description = "MCP 服务器：stdio 自研 + 三层渐进披露默认 + conformance 门（蓝图 §4；RESEARCH 04/E5/X6）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+adv-core = { path = "../adv-core" }
