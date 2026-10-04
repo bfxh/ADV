@@ -1,0 +1,7 @@
+id: PY-EXEC-USE
+languages: [python]
+severity: warning
+message: "exec() 动态执行不可信输入可致代码执行；同 eval 口径"
+match:
+  call:
+    callee: exec

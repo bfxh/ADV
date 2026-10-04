@@ -15,3 +15,7 @@ workspace = true
 
 [dependencies]
 adv-core = { path = "../adv-core" }
+adv-parse = { path = "../adv-parse" }
+adv-rules = { path = "../adv-rules" }
+serde_json = { workspace = true }
+ignore = "0.4"

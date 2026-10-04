@@ -1,0 +1,10 @@
+id: PY-SUBPROCESS-SHELL
+languages: [python]
+severity: error
+message: "subprocess 以 shell=True 调用会经 shell 解释参数，注入面扩大；改用参数列表形式（shell 缺省 False）"
+match:
+  call:
+    callee: [subprocess.run, subprocess.call, subprocess.check_call, subprocess.check_output, subprocess.Popen]
+    kwargs:
+      - name: shell
+        value: "True"

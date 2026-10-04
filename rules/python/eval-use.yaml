@@ -1,0 +1,7 @@
+id: PY-EVAL-USE
+languages: [python]
+severity: warning
+message: "eval() 动态求值不可信输入可致代码执行；确需动态求值请用显式解析并留抑制注解（粒度/规则码/原因/到期）"
+match:
+  call:
+    callee: eval

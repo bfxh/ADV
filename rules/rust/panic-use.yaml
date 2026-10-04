@@ -1,0 +1,7 @@
+id: RS-PANIC-USE
+languages: [rust]
+severity: warning
+message: "panic! 直接上抛；库代码应返回 Result 把失败交给调用方（扫描器自身守卫除外）"
+match:
+  call:
+    callee: panic!

@@ -1,0 +1,8 @@
+id: RS-UNWRAP-USE
+languages: [rust]
+severity: warning
+message: "unwrap() 在 None/Err 上 panic；产品路径应显式处理或 expect(带原因)，测试代码可用行内抑制四要素豁免"
+# 前导点 = 方法调用语义（路径 ≥2 段且末段为 unwrap）；裸名 `unwrap` 不会命中方法调用
+match:
+  call:
+    callee: .unwrap

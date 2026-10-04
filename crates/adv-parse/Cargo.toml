@@ -1,6 +1,6 @@
 [package]
 name = "adv-parse"
-description = "tree-sitter 多语言解析 + 归一 AST（蓝图 §4；RESEARCH 01/X1：id-arena+slotmap 句柄化、lasso 驻留、bumpalo per-file arena）"
+description = "tree-sitter 多语言解析 + 归一 AST（蓝图 §4；RESEARCH 01/X1：句柄化、零失败解析）"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,3 +11,6 @@ workspace = true
 
 [dependencies]
 adv-core = { path = "../adv-core" }
+tree-sitter = "0.25"
+tree-sitter-python = "0.23"
+tree-sitter-rust = "0.24"

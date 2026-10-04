@@ -1,6 +1,6 @@
 [package]
 name = "adv-rules"
-description = "规则引擎：YAML taint spec 编译 + AstKind 分发 matcher（蓝图 §4；RESEARCH 01/D1：规则测试门禁、fix 安全三档、抑制到期四要素）"
+description = "规则引擎：YAML 规则编译 + AstKind 分发 matcher + ruleid 测试门禁（蓝图 §4；RESEARCH 01/D1）"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,3 +11,6 @@ workspace = true
 
 [dependencies]
 adv-core = { path = "../adv-core" }
+adv-parse = { path = "../adv-parse" }
+serde = { version = "1", features = ["derive"] }
+serde_yaml_ng = "0.10"
