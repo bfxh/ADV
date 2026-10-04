@@ -1,7 +1,7 @@
 //! ADV 质量门载体（xtask bin，逻辑在 lib：`cargo run -p xtask -- <god [--write] | lockstep | gate>`）。
 
 use std::path::PathBuf;
-use xtask::{god, lockstep, suppress};
+use xtask::{god, lockstep, mutants, suppress};
 
 fn workspace_root() -> anyhow::Result<PathBuf> {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -38,6 +38,16 @@ fn main() -> anyhow::Result<()> {
         Some("suppress") => {
             let violations = suppress::run(&root, &adv_core::today())?;
             report("suppress", violations);
+        }
+        Some("mutants") => {
+            let base = args
+                .windows(2)
+                .find(|w| w[0] == "--base")
+                .map(|w| w[1].clone())
+                .unwrap_or_else(|| "main".to_string());
+            let update = args.contains(&"--update".to_string());
+            let violations = mutants::run(&root, &base, update, 60)?;
+            report("mutants", violations);
         }
         _ => {
             eprintln!("用法：cargo run -p xtask -- <god [--write] | lockstep | gate>");

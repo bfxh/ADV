@@ -4,4 +4,5 @@
 
 pub mod god;
 pub mod lockstep;
+pub mod mutants;
 pub mod suppress;

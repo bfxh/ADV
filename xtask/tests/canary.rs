@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use xtask::god::{MAX_FN_LINES, analyze_source, hard_violations, ratchet_violations};
 use xtask::lockstep::check_lockstep;
+use xtask::mutants::new_missed;
 use xtask::suppress::file_violations;
 
 fn long_fn_source(lines: usize) -> String {
@@ -107,4 +108,21 @@ fn f() {}
         v.iter().any(|x| x.contains("畸形")),
         "金丝雀失败：畸形抑制没被抓到：{v:?}"
     );
+}
+
+#[test]
+fn canary_new_missed_mutants_are_red() {
+    let baseline = vec!["a.rs::old_fn".to_string()];
+    let current = vec![
+        "a.rs::old_fn".to_string(),     // 存量债 = 绿
+        "taint.rs::new_fn".to_string(), // 新债 = 红
+    ];
+    let v = new_missed(&current, &baseline);
+    assert_eq!(
+        v,
+        vec!["taint.rs::new_fn".to_string()],
+        "新 missed 必须红，存量 missed 绿"
+    );
+    // 全捕获 = 绿
+    assert!(new_missed(&[], &baseline).is_empty());
 }
