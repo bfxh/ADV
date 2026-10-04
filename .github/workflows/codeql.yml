@@ -12,7 +12,9 @@
 name: merge-scan
 
 on:
-  pull_request:            # 扫合并结果（merge commit）
+  pull_request:
+    branches: [main]       # adv-rewrite（2026-10-04）：与 core.yml 同裁定
+  # 扫合并结果（merge commit）
   push:
     branches: [main]       # post-merge 全扫
   schedule:

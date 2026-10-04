@@ -2,8 +2,9 @@ name: core
 
 on:
   push:
-    branches: ['**']
+    branches: [main]   # adv-rewrite（2026-10-04）：旧项目 CI 只守 main；新工作区由 adv.yml 守
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 # 最小权限：CI 只读仓库内容（本仓没有需要写权限的步骤）——与 RUST WL 仓同款纪律。  # naming:allow
