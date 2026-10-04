@@ -81,10 +81,13 @@ pub fn run(root: &Path, base: &str, update: bool, timeout_secs: u64) -> Result<V
         ])
         .current_dir(root)
         .output()?;
+    // cargo-mutants 退出码契约：0 = 全捕获；2 = 存在未捕获变异（正文在 stdout）。
+    // 两者都继续走棘轮比对；其余退出码才是真失败（fail-closed）。
     anyhow::ensure!(
-        out.status.success(),
-        "cargo mutants 失败：{}",
-        String::from_utf8_lossy(&out.stderr)
+        matches!(out.status.code(), Some(0) | Some(2)),
+        "cargo mutants 失败（exit {:?}）：{}",
+        out.status.code(),
+        String::from_utf8_lossy(&out.stdout) + String::from_utf8_lossy(&out.stderr)
     );
     // cargo-mutants 把结果写在 <out>/mutants.out/outcomes.json
     let outcomes_path = out_dir.join("mutants.out").join("outcomes.json");
