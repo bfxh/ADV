@@ -18,6 +18,17 @@
   构建**，不污染全局；xtask 加断言（rustc-dev 组件缺失时给可读报错）。
 - 前置动作（一次性）：`rustup component add rustc-dev llvm-tools`（约 200MB，
   gnu/msvc 两侧都要，CI 缓存成本记入验收）。
+  - **片A1 实测修正（2026-10-05）：体积差一个量级，且 llvm-tools 不要**。
+    本机 1.99.0-gnu 装两件实测 C 盘 4.84GB→3.3GB（≈1.5GB，非 200MB）：
+    `rustc-dev` 单件含 `rustc_driver-<hash>.dll` **325MB ×2**（`bin/` 与
+    `lib/rustlib/<host>/lib/` 各一份）+ rustc-src 41MB + host rmeta（libcore 65MB 等）；
+    `llvm-tools` 是 `lib/rustlib/<host>/bin/` 下 rust-lld 208MB / opt 196MB / llc 196MB /
+    llvm-* 一把 ≈**700MB**，且 `bin/` 无独立 LLVM dll ⇒ `rustc_driver.dll` 已内联 LLVM，
+    MIR 分析用不到它 ⇒ 已 `rustup component remove llvm-tools`（回滚 = 再加回，一条命令）。
+    本机 C 盘 99% 满（剩 4.0GB），多占 700MB 不是省钱问题而是故障面问题（盘满写过 NUL 空洞）。
+  - **组件声明落点修正**：只写 `rustup component add` 不够——CI 由 `rust-toolchain.toml`
+    触发的自动补装走 minimal，只认该文件的 `components` 清单（教训锚②，见那个文件里的注释）。
+    故 `rustc-dev` 已进 `rust-toolchain.toml`，`llvm-tools` 明确不列。代价：每轮 CI 多装 325MB。
 
 ## 2. 驱动形态
 

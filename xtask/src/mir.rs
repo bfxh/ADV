@@ -1,7 +1,9 @@
 //! 深轨边车前置断言（docs/PLAN-deep-track.md §1）：rustc-dev 组件在位则绿，
 //! 缺失即红并给一次性修法——不做"编不出来才知道"的静默降级。
-//! 判据与 `crates/adv-ast-rust/build.rs` 同尺：sysroot 的 host lib 目录里有 rustc_driver 库工件。
+//! 判据取自 `adv_ast_rust::driver_probe`（与 build.rs 同一把尺）；
+//! 本模块只有 `rustc_print`/`run` 两个 IO 壳不可单测，判定逻辑在 driver_probe 里受断言。
 
+use adv_ast_rust::driver_probe;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use std::process::Command;
@@ -34,27 +36,9 @@ fn rustc_print(args: &[&str], key: Option<&str>) -> Result<String> {
 pub fn run() -> Result<Vec<String>> {
     let sysroot = PathBuf::from(rustc_print(&["--print", "sysroot"], None)?);
     let host = rustc_print(&["-vV"], Some("host:"))?;
-    let lib_dir = sysroot.join("lib/rustlib").join(&host).join("lib");
-    let candidates = [lib_dir.clone(), lib_dir.join("bin")];
-    let found = candidates.iter().any(|dir| {
-        PathBuf::from(dir)
-            .read_dir()
-            .map(|mut entries| {
-                entries.any(|entry| match entry {
-                    Ok(entry) => {
-                        let name = entry.file_name().to_string_lossy().into_owned();
-                        name.starts_with("rustc_driver-") || name.starts_with("librustc_driver-")
-                    }
-                    Err(_) => false,
-                })
-            })
-            .unwrap_or(false)
-    });
-    if found {
+    let dirs = driver_probe::artifact_dirs(&sysroot, &host);
+    if driver_probe::find_driver_artifact(&dirs).is_some() {
         return Ok(Vec::new());
     }
-    Ok(vec![format!(
-        "缺 rustc-dev 组件（{} 下无 rustc_driver 库工件）。一次性前置：rustup component add rustc-dev --toolchain {host}",
-        lib_dir.display()
-    )])
+    Ok(vec![driver_probe::missing_message(&dirs[0], &host)])
 }

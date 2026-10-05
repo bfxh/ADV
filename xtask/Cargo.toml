@@ -14,6 +14,7 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+adv-ast-rust = { path = "../crates/adv-ast-rust" }
 adv-core = { path = "../crates/adv-core" }
 adv-parse = { path = "../crates/adv-parse" }
 adv-rules = { path = "../crates/adv-rules" }
