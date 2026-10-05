@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use xtask::god::{MAX_FN_LINES, analyze_source, hard_violations, ratchet_violations};
 use xtask::lockstep::check_lockstep;
-use xtask::mutants::{new_missed, unverifiable_keys};
+use xtask::mutants::{keys_by_summary, new_missed, unverifiable_keys};
 use xtask::suppress::file_violations;
 
 fn long_fn_source(lines: usize) -> String {
@@ -156,4 +156,75 @@ fn canary_mutants_flags_baseline_key_that_lost_verifiability() {
     assert!(unverifiable_keys(&[], &verifiable).is_empty());
     // 旧判据仍在位：新增 missed 依然报。
     assert_eq!(new_missed(&["a::b".into()], &[]), vec!["a::b".to_string()]);
+}
+
+/// 从期望文件里取 `SECTION` 段下的键（期望文件由 cargo-mutants 真实产物生成）。
+fn expected_section(text: &str, section: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut inside = false;
+    for line in text.lines() {
+        if line.starts_with('#') {
+            continue;
+        }
+        if line.trim().is_empty() {
+            continue;
+        }
+        if !line.starts_with(' ') && !line.contains("::") {
+            inside = line.trim() == section;
+            continue;
+        }
+        if inside {
+            out.push(line.trim().to_string());
+        }
+    }
+    out.sort();
+    out
+}
+
+#[test]
+fn mutants_key_extraction_matches_cargo_mutants_real_output() {
+    // 语料 = cargo-mutants 27 在一整轮真实运行里的 outcomes 切片（102 条，含
+    // Missed/Caught/Unviable 三类）；期望值由该产物自己的 summary 字段导出，
+    // 不是门作者按"我以为键长什么样"手写。file::function 的顺序、
+    // `<impl T for X>::method` 这种函数名形态、Unviable 不该进可验证集，都在这里钉住。
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("data");
+    let raw = std::fs::read_to_string(dir.join("outcomes-sample.json"))
+        .expect("读变异语料（xtask/tests/data/outcomes-sample.json）");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("语料应为 JSON");
+    let want_raw = std::fs::read_to_string(dir.join("outcomes-sample.expected.txt"))
+        .expect("读期望（xtask/tests/data/outcomes-sample.expected.txt）");
+
+    let want_missed = expected_section(&want_raw, "MISSED");
+    let want_verifiable = expected_section(&want_raw, "VERIFIABLE");
+    assert!(
+        want_missed.len() >= 10 && want_verifiable.len() > want_missed.len(),
+        "语料退化（期望 missed {} 键、可验证 {} 键）——期望为空会让本测试假绿",
+        want_missed.len(),
+        want_verifiable.len()
+    );
+
+    let got_missed = keys_by_summary(&parsed, |s| s == "MissedMutant").expect("取 missed 键");
+    assert_eq!(
+        got_missed, want_missed,
+        "未捕获键提取与工具产物不一致（键形态：file::function）"
+    );
+    let got_verifiable = keys_by_summary(&parsed, |s| {
+        ["CaughtMutant", "MissedMutant", "TimeoutMutant"].contains(&s)
+    })
+    .expect("取可验证键");
+    assert_eq!(
+        got_verifiable, want_verifiable,
+        "可验证键集应含 caught+missed+timeout、排除全 unviable 的键"
+    );
+    // 可验证判据在这份真语料上的实际效果：基线取可验证集之外还含一个"本轮没判定"的旧键
+    let mut baseline = got_verifiable.clone();
+    baseline.push("xtask/src/mutants.rs::missed_key".to_string());
+    let lost = unverifiable_keys(&baseline, &got_verifiable);
+    assert_eq!(
+        lost,
+        vec!["xtask/src/mutants.rs::missed_key".to_string()],
+        "旧键 missed_key 在本轮无任何可判定变异，必须被点名"
+    );
 }

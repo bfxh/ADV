@@ -31,7 +31,7 @@ struct Baseline {
 }
 
 /// 变异键：`file::function`（从 outcomes 条目提取，cargo-mutants 27 格式）。
-fn outcome_key(outcome: &serde_json::Value) -> Option<String> {
+pub fn outcome_key(outcome: &serde_json::Value) -> Option<String> {
     let file = outcome
         .pointer("/scenario/Mutant/file")?
         .as_str()?
@@ -159,7 +159,10 @@ pub fn run(root: &Path, base: &str, update: bool, timeout_secs: u64) -> Result<V
 }
 
 /// 按 summary 谓词从 outcomes 提取键（排序去重）。
-fn keys_by_summary(parsed: &serde_json::Value, take: impl Fn(&str) -> bool) -> Result<Vec<String>> {
+pub fn keys_by_summary(
+    parsed: &serde_json::Value,
+    take: impl Fn(&str) -> bool,
+) -> Result<Vec<String>> {
     let mut keys: Vec<String> = parsed["outcomes"]
         .as_array()
         .context("outcomes 应为数组")?
