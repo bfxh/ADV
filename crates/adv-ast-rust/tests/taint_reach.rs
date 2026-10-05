@@ -29,6 +29,21 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
+/// 夹具里 `after_needle` 之后首次出现 `needle` 的行号（1 起）。
+fn line_after(fixture_name: &str, after_needle: &str, needle: &str) -> usize {
+    let text = std::fs::read_to_string(fixture(fixture_name)).expect("读夹具");
+    let mut seen = false;
+    for (idx, line) in text.lines().enumerate() {
+        if seen && line.contains(needle) {
+            return idx + 1;
+        }
+        if line.contains(after_needle) {
+            seen = true;
+        }
+    }
+    panic!("夹具 {fixture_name} 里 {after_needle} 之后找不到 {needle}");
+}
+
 /// 跑污点档（产品规则集 rules/），返回解析后的 finding 列表。
 fn findings(fixture_name: &str) -> Vec<serde_json::Value> {
     findings_with_rules(fixture_name, &repo_root().join("rules"))
@@ -85,18 +100,27 @@ fn direct_flow_is_found() {
     assert_eq!(hits[0]["function"], serde_json::json!("direct"));
     assert_eq!(hits[0]["engine"], serde_json::json!("mir"));
     assert_eq!(
-        hits[0]["line"],
+        hits[0]["start_line"],
         serde_json::json!(line_of("taint_direct.rs", "Command::new")),
         "发现没锚在汇点那一行"
     );
 }
 
 #[test]
-fn sanitized_input_reports_nothing() {
+fn sanitizer_kills_taint_and_control_still_reports() {
+    // 同一文件两函数：sanitized 走 len（净化）、unsanitized 不走。
+    // 期望恰 1 条且落在 unsanitized 的汇点行——多报说明 sanitizer 失效或被恒真污染，
+    // 少报说明对照流断了。
     let hits = findings("taint_sanitized.rs");
-    assert!(
-        hits.is_empty(),
-        "过了 len 净化工却仍报发现（假阳性）：{hits:?}"
+    let want = line_after("taint_sanitized.rs", "pub fn unsanitized", "Command::new");
+    let got: Vec<u64> = hits
+        .iter()
+        .map(|h| h["start_line"].as_u64().unwrap_or_default())
+        .collect();
+    assert_eq!(
+        got,
+        vec![want as u64],
+        "sanitized 应零发现、unsanitized 应恰 1 条（汇点行 {want}），实得 {hits:?}"
     );
 }
 
@@ -110,7 +134,7 @@ fn taint_crosses_basic_blocks() {
     );
     assert_eq!(hits[0]["function"], serde_json::json!("branch"));
     assert_eq!(
-        hits[0]["line"],
+        hits[0]["start_line"],
         serde_json::json!(line_of("taint_branch.rs", "Command::new")),
         "跨块流没报在合流后的汇点行"
     );
@@ -125,7 +149,10 @@ fn propagation_forms_are_covered() {
         .join("fixtures")
         .join("rules");
     let hits = findings_with_rules("taint_operators.rs", &rules);
-    let got: Vec<u64> = hits.iter().map(|h| h["line"].as_u64().unwrap()).collect();
+    let got: Vec<u64> = hits
+        .iter()
+        .map(|h| h["start_line"].as_u64().unwrap())
+        .collect();
     let mut want = lines_of("taint_operators.rs", "Command::new")
         .into_iter()
         .map(|l| l as u64)

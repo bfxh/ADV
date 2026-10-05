@@ -18,6 +18,19 @@ use rustc_mir_dataflow::{Analysis, Forward};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+/// 源码位置（行 1 起、列 0 起），字段名对齐快轨 `Finding` 以便直接映射。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SpanPos {
+    /// 起始行。
+    pub start_line: usize,
+    /// 起始列。
+    pub start_col: usize,
+    /// 结束行。
+    pub end_line: usize,
+    /// 结束列。
+    pub end_col: usize,
+}
+
 /// 实参对本分析的可见形态：某个局部，或常量（常量不带污点）。
 #[derive(Clone, Copy, Debug)]
 pub enum ArgKind {
@@ -36,9 +49,8 @@ pub struct CallPlan {
     pub dest: usize,
     /// 实参局部索引。
     pub args: Vec<ArgKind>,
-    /// 调用点所在源码行（1 起，来自 terminator 的 span）——finding 要能锚到行，
-    /// 否则对不上仓里"ruleid 注释逐行一致"的夹具门禁口径。
-    pub line: usize,
+    /// 调用点源码位置（与快轨 `Finding` 同名同口径：行 1 起、列 0 起）。
+    pub span: SpanPos,
 }
 
 /// 单个函数的分析输入：调用点表 + 局部数。
@@ -60,8 +72,21 @@ pub struct Hit {
     pub function: String,
     /// 汇点所在 `bbN.M`。
     pub location: String,
-    /// 汇点源码行（1 起）。
-    pub line: usize,
+    /// 汇点源码位置（快轨 Finding 同名字段）。
+    pub span: SpanPos,
+}
+
+/// 从 span 取快轨同名口径的位置（`lookup_char_pos`：行 1 起、列 0 起）。
+fn span_pos(tcx: TyCtxt<'_>, span: rustc_span::Span) -> SpanPos {
+    let sm = tcx.sess.source_map();
+    let lo = sm.lookup_char_pos(span.lo());
+    let hi = sm.lookup_char_pos(span.hi());
+    SpanPos {
+        start_line: lo.line,
+        start_col: lo.col.0,
+        end_line: hi.line,
+        end_col: hi.col.0,
+    }
 }
 
 fn arg_kind(op: &Operand<'_>) -> ArgKind {
@@ -100,11 +125,7 @@ pub fn build_plan(tcx: TyCtxt<'_>, def: LocalDefId, function: &str) -> Plan {
                 callee,
                 dest: destination.local.index(),
                 args: args.iter().map(|a| arg_kind(&a.node)).collect(),
-                line: tcx
-                    .sess
-                    .source_map()
-                    .lookup_char_pos(term.source_info.span.lo())
-                    .line,
+                span: span_pos(tcx, term.source_info.span),
             },
         );
     }
@@ -189,7 +210,7 @@ impl<'a, 'tcx> Analysis<'tcx> for Reach<'a> {
                     rule: spec.id.clone(),
                     function: self.plan.function.clone(),
                     location: format!("bb{}.{}", loc.block.index(), loc.statement_index),
-                    line: call.line,
+                    span: call.span,
                 });
             }
         }

@@ -408,12 +408,13 @@ pub(crate) fn root_var(ast: &GenericAst, id: AstId) -> Option<String> {
 fn new_finding(rule: &Rule, file: &Path, span: adv_parse::Span) -> Finding {
     Finding {
         rule: rule.id.clone(),
-        severity: format!("{:?}", rule.severity).to_lowercase(),
+        severity: crate::matcher::severity_name(rule.severity),
         message: rule.message.clone(),
         file: file.to_string_lossy().replace('\\', "/"),
         start_line: span.start_line,
         start_col: span.start_col,
         end_line: span.end_line,
         end_col: span.end_col,
+        engine: crate::matcher::ENGINE_FAST.to_string(),
     }
 }

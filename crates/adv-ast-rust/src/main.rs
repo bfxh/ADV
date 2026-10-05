@@ -176,7 +176,10 @@ fn emit(probe: &MirProbe, rules_dir: Option<&Path>) {
                     "rule": hit.rule,
                     "function": hit.function,
                     "location": hit.location,
-                    "line": hit.line,
+                    "start_line": hit.span.start_line,
+                    "start_col": hit.span.start_col,
+                    "end_line": hit.span.end_line,
+                    "end_col": hit.span.end_col,
                     "engine": "mir",
                 })
             );

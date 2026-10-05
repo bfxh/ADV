@@ -3,7 +3,7 @@
 //! 性能注记：朴素全遍历；aho-corasick 字面量预过滤按 RESEARCH X4 待基线后加
 //!（先量后改，扫视层计账不预优化）。
 
-use crate::rule::{Rule, rule_language};
+use crate::rule::{Rule, Severity, rule_language};
 use crate::suppression;
 use crate::taint;
 use adv_parse::{AstKind, GenericAst, Language};
@@ -30,6 +30,8 @@ pub struct Finding {
     pub end_line: usize,
     /// 结束列（0-based）。
     pub end_col: usize,
+    /// 产出该发现的引擎：快轨为 `tree-sitter`，深轨为 `mir`（对拍分账口径，PLAN-deep-track §3）。
+    pub engine: String,
 }
 
 impl Finding {
@@ -203,15 +205,27 @@ fn kwargs_satisfied(
     })
 }
 
+/// 快轨引擎名（行契约字段值；深轨侧用 `mir`）。
+pub const ENGINE_FAST: &str = "tree-sitter";
+
+/// 深轨引擎名（行契约字段值）。
+pub const ENGINE_MIR: &str = "mir";
+
+/// 严重级的行契约写法（lowercase Debug）——快轨、深轨、adv-cli 共用一处，避免三处各写各的。
+pub fn severity_name(severity: Severity) -> String {
+    format!("{severity:?}").to_lowercase()
+}
+
 fn new_finding(rule: &Rule, file: &Path, sl: usize, sc: usize, el: usize, ec: usize) -> Finding {
     Finding {
         rule: rule.id.clone(),
-        severity: format!("{:?}", rule.severity).to_lowercase(),
+        severity: severity_name(rule.severity),
         message: rule.message.clone(),
         file: file.to_string_lossy().replace('\\', "/"),
         start_line: sl,
         start_col: sc,
         end_line: el,
         end_col: ec,
+        engine: ENGINE_FAST.to_string(),
     }
 }
