@@ -5,6 +5,8 @@
     "crates/adv-rules/src/taint.rs::root_var",
     "crates/adv-rules/src/taint.rs::summarize",
     "xtask/src/main.rs::main",
+    "xtask/src/mir.rs::run",
+    "xtask/src/mir.rs::rustc_print",
     "xtask/src/mutants.rs::git_diff_patch",
     "xtask/src/mutants.rs::missed_key",
     "xtask/src/mutants.rs::run"

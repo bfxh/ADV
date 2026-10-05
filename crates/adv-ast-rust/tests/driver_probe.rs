@@ -3,8 +3,9 @@
 //! 期望值的锚：**不是**规则作者的同假设自证，而是 2026-10-05 在本机
 //! 1.99.0-gnu sysroot 里 `ls` 到的真实文件名（`librustc_driver-1a029222508e0d37.dll.a`
 //! 落在 `lib/rustlib/<host>/lib/`，`rustc_driver-1a029222508e0d37.dll` 同时落 `bin/` 与该 lib 目录）。
-//! msvc 侧的 `.lib` 导入库形态在此**未经观测**（本机未装 msvc 的 rustc-dev，C 盘 99% 满），
-//! 由 CI 的 msvc 档坐实——见 eval/FP-LEDGER-m2s4.md。
+//! msvc 侧的 `.lib` 导入库形态在本机**未经直接观测**（没装 msvc 的 rustc-dev，C 盘 99% 满），
+//! 只有间接坐实：CI 的 msvc 档（run 37307126960）编译通过，而 build.rs 在判据不匹配时 panic，
+//! ⇒ 这把尺在 msvc 布局上也认得出工件。别把它读成"已验证 msvc 文件名"。
 
 use adv_ast_rust::driver_probe::{
     artifact_dirs, find_driver_artifact, is_driver_artifact, missing_message,

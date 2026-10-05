@@ -5,7 +5,7 @@
     "file:crates/adv-ast-rust/src/driver_probe.rs": 48,
     "file:crates/adv-ast-rust/src/lib.rs": 5,
     "file:crates/adv-ast-rust/src/main.rs": 72,
-    "file:crates/adv-ast-rust/tests/driver_probe.rs": 101,
+    "file:crates/adv-ast-rust/tests/driver_probe.rs": 102,
     "file:crates/adv-ast-rust/tests/fixtures/m1_probe.rs": 18,
     "file:crates/adv-ast-rust/tests/mir_probe.rs": 63,
     "file:crates/adv-bin/src/lib.rs": 19,
