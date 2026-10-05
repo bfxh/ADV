@@ -271,5 +271,66 @@ msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两
 2. **片B**：cargo 集成（RUSTC_WORKSPACE_WRAPPER）+ 对拍 `rust/` 旧引擎出真三方账。
    深轨当前只能吃自包含文件（见"适用边界"），片B 才是价值证明的那一步。
 
+---
+
+# 片A4（5dd4211 / e4c3a53，2026-10-05）：门补强——"基线键可验证性"判据
+
+> 交付：变异门第二道判据 + 用 cargo-mutants 真实产物锚定的键提取测试 + `--update` 移除点名。
+> 复现：`cargo test -p xtask`（9 条金丝雀）；`cargo run -p xtask -- mutants --base 6201ea4`。
+
+## 判据
+
+基线里的键本轮必须有 ≥1 个变异跑到判定环节（`CaughtMutant` / `MissedMutant` / `TimeoutMutant`）。
+全判 Unviable、或压根不在本轮差异面上 ⇒ 判红"基线键本轮无可判定变异"。
+旧判据只看新增 missed，所以"债变得不可测"这件事在门眼里等于没问题。
+
+## 三条实测（顺序就是发现顺序）
+
+| 主张 | 判据 | 结果 |
+|------|------|------|
+| 上一轮的 `mutants: 绿` 含假象 | 读 `log/xtask__src__mir.rs_line_13_col_5.log` | `ld.exe: final link failed: No space left on device`（C 盘剩 4.1GB，cargo-mutants 在 C 盘 Temp 建产物）⇒ 17 条变异没进测试阶段 |
+| 把 TMP 挪到 D 盘（剩 38GB）就能区分环境性与真 unviable | 同面复跑对比 | unviable **44 → 30**、caught **141 → 147**、missed 条目 **9 → 26**；基线 5 个"消失"的键里 4 个恢复出判定结果 ⇒ 盘满定性成立 |
+| 新判据不是纸上的 | 复跑当场报红 | 抓到 `xtask/src/mutants.rs::missed_key`——它在片A4 被我改名成 `outcome_key`，本轮无任何可判定变异 |
+| 片A3 搬判据真有效 | 同轮 outcomes 分类 | `tainted_operand`、`all_sanitizers` 均由 Missed 转 **CaughtMutant**（不只我手动验过） |
+
+## 键提取的语料锚定（防"门作者自证"）
+
+`xtask/tests/data/outcomes-sample.json` = 真产物切片（102 条，Missed/Caught/Unviable 三类，
+保留外层 `{"outcomes":[…]}` 形态与 `file::function`、`<impl T for X>::method` 这些真实键形态）；
+`.expected.txt` 由**同一产物的 summary 字段**导出 MISSED / VERIFIABLE 两份期望键清单。
+测试含语料退化守卫（期望 missed ≥10 且可验证数 > missed 数）——否则"空语料"能让它假绿。
+
+## 基线 10 → 9（有意识重录，移除被点名）
+
+`--update` 输出即证据：`注意：本次重录从基线移除了 1 个键：xtask/src/mutants.rs::missed_key`。
+合法性核过：`rg missed_key xtask/src/` **零命中** ⇒ 该键指向的函数已改名，退账不是洗债；
+新增键 **0**（我新写的 `keys_by_summary`/`outcome_key` 被上面那套语料测试杀掉了）。
+重录后逐键比对：本轮 missed 键集与基线**完全相等**（双向无漂移）。
+
+## 变异面走势（同一条 `--base 6201ea4` 口径）
+
+同一口径（`--base 6201ea4`）各轮实测，逐轮标明当时 HEAD：
+
+| HEAD | 总变异 | 捕获 | 未捕获条目 | unviable | 门结论 / 基线键数 |
+|------|--------|------|------------|----------|-------------------|
+| 片3 首录（cdc36b7 后） | 75 | 48 | 16 | — | 首录 8 键 |
+| cef520d（A1 补断言后） | 96 | 56 | 22 | 17 | 重录 → 10 键 |
+| 5f5c7b0（A2） | 146 | 88 | 33 | 25 | 红：新增 5 键候选（后全部补断言杀掉，未入账） |
+| a9e8212（A3 前段） | 194 | 141 | 9 | 44 | **绿——但是假绿**：5 个基线键的变异全判 unviable（盘满） |
+| 5dd4211（A4 门补强，TMP 挪 D 盘） | 203 | 147 | 26 | 30 | 红 3 条：新代码 2 键未捕获 + 改名旧键不可验证 |
+| e4c3a53（A4 语料测试后） | **203** | **153** | 20 | **30** | 绿；重录 10 → **9 键**（移除 1、新增 0） |
+
+## 遗留（下次再做，别忘）
+
+`xtask mutants` 目前不检查 TMP 所在盘的余量，盘满会以 unviable 的形式伪装成"没问题"。
+新判据已经能把后果抓住（报红而不是报绿），但报错文案对使用者不够直白：
+值得在跑之前加一次盘量预检并把"unviable 异常增多"写进提示。这是体验改进，不是判据缺口。
+
+## 本片重放记录
+
+`cargo test --workspace` 37 档 55 条全过 · clippy `--all-targets -D warnings` 干净 · fmt 0 ·
+`xtask gate`（god+lockstep+suppress）绿 · `xtask mir` 绿 · god 基线 346 → 352（涨 3、新面 2）。
+
+
 
 
