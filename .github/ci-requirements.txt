@@ -4,5 +4,5 @@ jedi==0.20.0
 pyflakes==4.0.0
 ruff==0.16.9
 mypy==2.3.1
-typos==1.50.2
+typos==1.50.3
 vigilo==0.3.4
