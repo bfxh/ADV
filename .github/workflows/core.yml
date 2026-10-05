@@ -249,7 +249,7 @@ jobs:
       # 无 profiler runtime / msvc 无 link.exe，测不了——coverage_gate.py 文档串有实测记录）。
       # install-action 钉 SHA（test_s124 机器锁要求）；llvm-cov 版本 0.9.1（与 BSHSQ 同钉）。
       - name: Install cargo-llvm-cov 0.9.1
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-llvm-cov@0.9.1
       - name: Coverage gate（行覆盖率——只准升；无基线=只观测）
