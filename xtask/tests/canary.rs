@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use xtask::god::{MAX_FN_LINES, analyze_source, hard_violations, ratchet_violations};
 use xtask::lockstep::check_lockstep;
-use xtask::mutants::new_missed;
+use xtask::mutants::{new_missed, unverifiable_keys};
 use xtask::suppress::file_violations;
 
 fn long_fn_source(lines: usize) -> String {
@@ -125,4 +125,35 @@ fn canary_new_missed_mutants_are_red() {
     );
     // 全捕获 = 绿
     assert!(new_missed(&[], &baseline).is_empty());
+}
+
+#[test]
+fn canary_mutants_flags_baseline_key_that_lost_verifiability() {
+    // 真值语料锚到 2026-10-05 实测那一轮：基线含 5 个 xtask 键，而本轮它们的变异
+    // 全部没跑到判定环节（判 Unviable——实为 `ld.exe: No space left on device`），
+    // 旧判据只看"新增 missed"，那一轮照样报绿。
+    let baseline: Vec<String> = ["xtask/src/mir.rs::run", "xtask/src/mutants.rs::missed_key"]
+        .into_iter()
+        .map(String::from)
+        .collect();
+    let verifiable: Vec<String> = ["crates/adv-rules/src/taint.rs::expr_taint"]
+        .into_iter()
+        .map(String::from)
+        .collect();
+
+    let got = unverifiable_keys(&baseline, &verifiable);
+    assert_eq!(
+        got, baseline,
+        "金丝雀失败：基线键本轮一个可判定变异都没有，却没被判红"
+    );
+
+    // 反例：同键本轮有可判定结果（哪怕仍是 missed）就不该报——否则门会把存量债重复计。
+    assert!(
+        unverifiable_keys(&baseline, &baseline).is_empty(),
+        "金丝雀失败：可验证的键被误报"
+    );
+    // 空基线不该产红（新仓第一录时没有既有债可核）。
+    assert!(unverifiable_keys(&[], &verifiable).is_empty());
+    // 旧判据仍在位：新增 missed 依然报。
+    assert_eq!(new_missed(&["a::b".into()], &[]), vec!["a::b".to_string()]);
 }
