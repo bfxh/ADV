@@ -36,6 +36,9 @@ pub struct CallPlan {
     pub dest: usize,
     /// 实参局部索引。
     pub args: Vec<ArgKind>,
+    /// 调用点所在源码行（1 起，来自 terminator 的 span）——finding 要能锚到行，
+    /// 否则对不上仓里"ruleid 注释逐行一致"的夹具门禁口径。
+    pub line: usize,
 }
 
 /// 单个函数的分析输入：调用点表 + 局部数。
@@ -57,6 +60,8 @@ pub struct Hit {
     pub function: String,
     /// 汇点所在 `bbN.M`。
     pub location: String,
+    /// 汇点源码行（1 起）。
+    pub line: usize,
 }
 
 fn arg_kind(op: &Operand<'_>) -> ArgKind {
@@ -95,6 +100,11 @@ pub fn build_plan(tcx: TyCtxt<'_>, def: LocalDefId, function: &str) -> Plan {
                 callee,
                 dest: destination.local.index(),
                 args: args.iter().map(|a| arg_kind(&a.node)).collect(),
+                line: tcx
+                    .sess
+                    .source_map()
+                    .lookup_char_pos(term.source_info.span.lo())
+                    .line,
             },
         );
     }
@@ -179,6 +189,7 @@ impl<'a, 'tcx> Analysis<'tcx> for Reach<'a> {
                     rule: spec.id.clone(),
                     function: self.plan.function.clone(),
                     location: format!("bb{}.{}", loc.block.index(), loc.statement_index),
+                    line: call.line,
                 });
             }
         }

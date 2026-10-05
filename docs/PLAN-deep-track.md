@@ -34,6 +34,10 @@
 
 - adv-ast-rust 是**二进制 crate**（adv-ast-rust-driver）：经 `rustc_driver::RunCompiler`
   以库方式驱动 rustc，Callbacks 里在 after_analysis 阶段取 MIR。
+  **片A1 实测修正（2026-10-05）**：1.99 无 `RunCompiler` 结构体，入口是
+  `rustc_driver::run_compiler(&args, &mut dyn Callbacks + Send)`；`Callbacks` trait 定义在
+  `rustc_driver_impl/src/lib.rs`，形态正是这里假设的经典四段（含 `after_analysis`）⇒ 本行设计成立，
+  只是名字要改。
 - 输入形态（分两步走）：
   1. 片A：合成 crate 驱动——参数收 .rs 文件列表，拼 `--crate-type=lib --edition=2024`
      调 rustc（自包含文件可分析；真实仓库按 crate 驱动，片B）。
@@ -45,12 +49,20 @@
 ## 3. 分析内容（片A 最小闭环）
 
 - MIR 数据流：借用 rustc_mir::dataflow 框架的 GenKill 分析实现「污点值到达」：
+  **片A2 实测否证（2026-10-05，5f5c7b0）**：1.99 已删 `GenKillAnalysis`（框架源码原话"它并不比
+  `Analysis` 快"），只剩 `Analysis` trait；框架项从 crate 根再导出（`framework` 模块私有）；
+  起分析用 `analysis.iterate_to_fixpoint(tcx, body, pass_name)` 而非 `Framework::new(...)`；
+  另需实现 `const NAME`。**`Rvalue` 已无 `Call` 变体** ⇒ 下一条"传播"里的 `Rvalue::Use` 仍在，
+  但调用点全部只出现在 `TerminatorKind::Call` 一处。
   - 源点：`extern fn` 调用返回值（规则集与 adv-rules 的 taint spec 同源——
     从 YAML 读，单一事实源）。
   - 传播：move/copy/引用 deref；`Rvalue::Use`/`UnaryOp`/`BinaryOp` 直传。
   - 汇点：调用图匹配 spec 的 sinks（callee 路径按 DefPathInfo 拼）。
+    **片A2 实测补充**：实际取的是 `tcx.def_path_str(FnDef)`，泛型段会留在名字里
+    （`std::result::Result::<T, E>::unwrap_or_default`）⇒ 规则匹配须带 `::`/`.` 后缀档。
 - 产出 findings 与 adv-taint 快轨同 schema（复用 Finding::to_jsonl），来源字段
-  加 `"engine": "mir"` 供对拍分账。
+  加 `"engine": "mir"` 供对拍分账。**片A2 状态**：finding 已是 JSON 且带 `engine: mir`，
+  但**尚未与快轨 `Finding::to_jsonl` 对齐**——对齐归片A3。
 
 ## 4. 对拍（验收核心）
 

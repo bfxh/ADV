@@ -119,6 +119,77 @@
 dll 体积，msvc 同量级）。这是计划 §6"组件缓存策略待测"的首个数：本轮先原样付，若 CI 时长涨幅
 >2 分钟再走 §6 的周期档方案（深轨只在周期档编）。
 
+## 片A2（5f5c7b0）：MIR 污点到达——计划稿又被否证四处
+
+`rustc_mir_dataflow/src/framework/mod.rs:3` 原文（读 rustc-src，不是记忆）：
+*"There used to be a `GenKillAnalysis` alternative trait for gen-kill analyses that would
+pre-compute the transfer function for each block. It was intended as an optimization, but it
+ended up not being any faster than `Analysis`."* ⇒ 计划 §3 的"借用 GenKill 框架"在 1.99 不成立。
+
+| 计划稿假设 | 1.99 实况 | 影响 |
+|------------|----------|------|
+| 实现 `GenKillAnalysis` | 该 trait 已删，只剩 `Analysis`（`Domain: Clone + JoinSemiLattice`，不是旧名 `DataflowStruct`） | 照写编译不过 |
+| `Framework::new(...)` 起分析 | 扩展方法 `analysis.iterate_to_fixpoint(tcx, body, pass_name)`（框架 doc 与 `rustc_peek.rs` 两处一致） | 入口换法 |
+| 源/汇在 `Rvalue::Call` 与 terminator 两处都有 | **`Rvalue` 已无 `Call` 变体**，调用一律 `TerminatorKind::Call` | 转移面比计划更小；实测 `_2 = var::<&str>(…) -> [return: bb1, unwind continue]` 就是终结点 |
+| —（计划未提） | `Analysis` 还要求 `const NAME: &'static str`（区分同一分析的多轮结果）；框架项从 **crate 根**再导出，`framework` 模块私有（按 `::framework::` 写报 E0603） | 两项补齐 |
+
+### 规则同源与"名字从哪来"
+
+四要素一律经 `adv_rules::rule::load_rules` 从 `rules/**.yaml` 读，深轨**不自带规则表**。
+新规则 `rules/rust/taint-command.yaml` 里每个 callee 名都取自本片第一个动作的取证输出
+（驱动加 `--dump-calls` 档，实测 `def_path_str`）：
+
+```
+run  std::env::var                                  _2   const
+run  std::result::Result::<T, E>::unwrap_or_default _1   _2
+run  std::process::Command::new                     _7   _3
+run  std::vec::Vec::<T, A>::len                     _0   _10
+```
+
+泛型段会留在路径里（`Result::<T, E>::unwrap_or_default`），所以 `callee_matches` 必须带
+`::`/`.` 后缀档，规则里才能只写用户可见的 `unwrap_or_default`、`len`。
+
+### 判据（三条合成夹具，全部起子进程跑真驱动）
+
+| 夹具 | 意图 | 实测 |
+|------|------|------|
+| `taint_direct.rs` | 源点→声明过的 propagator→汇点实参 | 报 1 条，`location = bb2.0`，rule=RS-TAINT-COMMAND，engine=mir |
+| `taint_sanitized.rs` | 源点→`len`（sanitizer）→`to_string`（此时输入已无污点） | **零发现**——这条是假阳性尺：把 sanitizer 当传播子就会报 |
+| `taint_branch.rs` | 源点在 `if` 的 then 块、汇点在合流之后 | 报 1 条，`location = bb7.2`——抓"只看单基本块"的实现 |
+
+保守口径如实进账：**未声明的调用杀目的局部**，`Aggregate/Discriminant/Downcast/Len/
+ThreadLocalRef` 等 Rvalue 形态本片不追 ⇒ 深轨在这些形态上是 **FN（漏报）面**，
+片B 对拍时逐条落账，不写成"已覆盖"。
+
+### 适用边界（实测，防止"深轨已能扫真仓"的误读）
+
+计划 §2 写的片A 限制是"自包含文件可分析"。本片实测两个真实文件：
+
+| 输入 | 结果 |
+|------|------|
+| `crates/adv-rules/src/taint.rs` | exit=101，`error[E0433]: too many leading 'super' keywords within 'crate'`，**finding 0 行** |
+| `xtask/src/mutants.rs` | exit=101，`error[E0432]: unresolved import 'anyhow'`，finding 0 行 |
+
+两点都要记：① 单文件驱动不带依赖解析 ⇒ 深轨现在**扫不了本仓真实代码**（片B 的
+cargo 集成才是解）；② 失败是**响的**——非零退出且不出 finding，不是静默返回空清单。
+若哪天它改成"报错也打印空结果"，就是假绿入口，届时须按这条否证。
+
+### 快轨侧影响（实测，不是推断）
+
+`rule_language()` 把 `languages: [rust]` 映射成 `Language::Rust` 供 matcher 过滤
+⇒ 新规则对 rust 文件即进入快轨规则集。加规则后 `cargo test --workspace` 36 档全过，
+含片1 的报告层金标准 ⇒ **未见快轨输出变化**。此判据只到"金标准没被推翻"，
+不等于快轨的 rust 污点实现已可用（那是另一片的事）。
+
+### god 基线（片A2 登记）
+
+258 → 304 项 = 新面 46 / 涨 4 / 降 1 / 掉 0。涨的 4 条全在驱动 bin（`--dump-calls`、
+`--taint` 两档接进 `main.rs`：文件 72→237、`main` 32→38、`MirProbe` 字段 1→5、lib 5→6）；
+降的 1 条是 `MirProbe::after_analysis` 12→8（逻辑搬进 `harvest`）。
+
 ## 下一步
 
-片A2：GenKill 污点到达分析（源/汇同源 YAML，复用夹具的 `flow`）。
+片A3：子进程隔离 + JSON 对接 adv-taint（`adv-cli --engine mir` 档、快/深三方账）。
+本片 finding 已是 JSON（`rule`/`function`/`location`/`engine`），但**尚未与快轨
+`Finding::to_jsonl` 对齐**——对齐是 A3 的活，不在这里充数。
+

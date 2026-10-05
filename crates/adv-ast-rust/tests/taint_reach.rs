@@ -29,11 +29,16 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// 跑污点档，返回解析后的 finding 列表。
+/// 跑污点档（产品规则集 rules/），返回解析后的 finding 列表。
 fn findings(fixture_name: &str) -> Vec<serde_json::Value> {
+    findings_with_rules(fixture_name, &repo_root().join("rules"))
+}
+
+/// 跑污点档，规则目录由调用方给（夹具专用规则放 tests/fixtures/rules，不进产品规则集）。
+fn findings_with_rules(fixture_name: &str, rules_dir: &std::path::Path) -> Vec<serde_json::Value> {
     let out = driver()
         .arg("--taint")
-        .arg(repo_root().join("rules"))
+        .arg(rules_dir)
         .arg(fixture(fixture_name))
         .output()
         .expect("启动 adv-ast-rust-driver 失败");
@@ -53,6 +58,25 @@ fn findings(fixture_name: &str) -> Vec<serde_json::Value> {
         .collect()
 }
 
+/// 在夹具源码里找 `needle` 所在行（1 起）。期望值锚到夹具文本，
+/// 不是按"我认为分析会报在哪"手写——这是仓里 ruleid 逐行一致口径的最小实现。
+fn line_of(fixture_name: &str, needle: &str) -> usize {
+    lines_of(fixture_name, needle)[0]
+}
+
+/// 夹具里出现 `needle` 的所有行号（1 起）——多条汇点的夹具要逐行对账。
+fn lines_of(fixture_name: &str, needle: &str) -> Vec<usize> {
+    let text = std::fs::read_to_string(fixture(fixture_name)).expect("读夹具");
+    let out: Vec<usize> = text
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains(needle))
+        .map(|(idx, _)| idx + 1)
+        .collect();
+    assert!(!out.is_empty(), "夹具 {fixture_name} 里没有 {needle}");
+    out
+}
+
 #[test]
 fn direct_flow_is_found() {
     let hits = findings("taint_direct.rs");
@@ -60,6 +84,11 @@ fn direct_flow_is_found() {
     assert_eq!(hits[0]["rule"], serde_json::json!("RS-TAINT-COMMAND"));
     assert_eq!(hits[0]["function"], serde_json::json!("direct"));
     assert_eq!(hits[0]["engine"], serde_json::json!("mir"));
+    assert_eq!(
+        hits[0]["line"],
+        serde_json::json!(line_of("taint_direct.rs", "Command::new")),
+        "发现没锚在汇点那一行"
+    );
 }
 
 #[test]
@@ -80,4 +109,71 @@ fn taint_crosses_basic_blocks() {
         "污点在 then 块产生、合流点后消费，应报 1 条，实得 {hits:?}"
     );
     assert_eq!(hits[0]["function"], serde_json::json!("branch"));
+    assert_eq!(
+        hits[0]["line"],
+        serde_json::json!(line_of("taint_branch.rs", "Command::new")),
+        "跨块流没报在合流后的汇点行"
+    );
+}
+
+#[test]
+fn propagation_forms_are_covered() {
+    // 夹具④：整型源点穿 BinaryOp + Cast、以及经 Ref 的两条汇点。
+    // 变异门实测过：这三条 Rvalue arm 删掉都不影响前三条夹具的结论，故单独钉住。
+    let rules = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("rules");
+    let hits = findings_with_rules("taint_operators.rs", &rules);
+    let got: Vec<u64> = hits.iter().map(|h| h["line"].as_u64().unwrap()).collect();
+    let mut want = lines_of("taint_operators.rs", "Command::new")
+        .into_iter()
+        .map(|l| l as u64)
+        .collect::<Vec<u64>>();
+    want.sort();
+    let mut sorted_got = got.clone();
+    sorted_got.sort();
+    assert_eq!(
+        sorted_got, want,
+        "传播形态夹具的汇点行不符（实得 {got:?}，应为 {want:?}；完整 finding：{hits:?}）"
+    );
+}
+
+#[test]
+fn dump_calls_reports_real_callee_paths() {
+    let out = driver()
+        .arg("--dump-calls")
+        .arg(fixture("taint_direct.rs"))
+        .output()
+        .expect("启动驱动失败");
+    assert!(
+        out.status.success(),
+        "取证档退出码非零：{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let lines: Vec<Vec<String>> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(|line| -> Vec<String> { line.split('\t').map(str::to_string).collect() })
+        .filter(|f| f.len() == 4)
+        .collect();
+    let callees: Vec<&str> = lines.iter().map(|f| f[1].as_str()).collect();
+    for expected in ["std::env::var", "std::process::Command::new"] {
+        assert!(
+            callees.contains(&expected),
+            "取证档没列出 {expected}，实得 {callees:?}"
+        );
+    }
+    // 目的局部与实参列必须是 `_N`/`const` 形态：换成空串或 "xyzzy" 都会在这里红。
+    for f in &lines {
+        assert!(
+            f[2].starts_with('_') && f[2][1..].chars().all(|c| c.is_ascii_digit()),
+            "目的局部列形态不符：{f:?}"
+        );
+        for token in f[3].split(',') {
+            assert!(
+                token.starts_with('_') || token == "const",
+                "实参列形态不符：{f:?}"
+            );
+        }
+    }
 }

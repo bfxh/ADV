@@ -1,0 +1,14 @@
+id: RS-TAINT-FIXTURE-INT
+languages: [rust]
+severity: error
+message: "夹具专用：整型源点经 BinaryOp/Cast 传播到进程创建"
+# 本规则只服务深轨夹具（tests/fixtures），不进产品规则集：夹具要考的是
+# "整数污点穿过 BinaryOp/Cast/Ref 还在不在"，需要一个能产出整型的源点，
+# 而产品规则里的源点（std::env::var）返回 Result<String>，套不进这条判据。
+# 产品侧真实规则见 rules/rust/taint-command.yaml。
+match:
+  taint:
+    sources: [source_int, std::env::var]
+    sinks: [std::process::Command::new]
+    propagators: [to_string, unwrap_or_default]
+    sanitizers: []

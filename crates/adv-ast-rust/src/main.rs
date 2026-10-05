@@ -23,6 +23,8 @@ extern crate rustc_index;
 extern crate rustc_interface;
 extern crate rustc_middle;
 extern crate rustc_mir_dataflow;
+extern crate rustc_session;
+extern crate rustc_span;
 
 mod taint_reach;
 
@@ -174,6 +176,7 @@ fn emit(probe: &MirProbe, rules_dir: Option<&Path>) {
                     "rule": hit.rule,
                     "function": hit.function,
                     "location": hit.location,
+                    "line": hit.line,
                     "engine": "mir",
                 })
             );
