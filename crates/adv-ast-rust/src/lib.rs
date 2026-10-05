@@ -3,3 +3,4 @@
 //! 而驱动本体（需要不稳定 API 的部分）留在 bin 目标 `src/main.rs`。
 
 pub mod driver_probe;
+pub mod spec;

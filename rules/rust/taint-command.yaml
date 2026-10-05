@@ -1,0 +1,14 @@
+id: RS-TAINT-COMMAND
+languages: [rust]
+severity: error
+message: "不可信输入流入进程创建（std::process::Command::new）；请白名单化参数或留抑制四要素"
+# 片A2：callee 路径一律按 1.99.0 实测 `def_path_str` 形态写（取证命令见 eval/FP-LEDGER-m2s4.md）：
+#   源点 std::env::var / std::result::Result::<T, E>::unwrap_or_default / std::vec::Vec::<T, A>::len
+#   汇点 std::process::Command::new
+# 后缀匹配让 `unwrap_or_default`、`len` 这类带 `::<T, E>` 段的实现路径也能命中（spec::callee_matches）。
+match:
+  taint:
+    sources: [std::env::var]
+    sinks: [std::process::Command::new]
+    propagators: [unwrap_or_default, clone, to_string]
+    sanitizers: [len]

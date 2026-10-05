@@ -6,7 +6,9 @@ version = 4
 name = "adv-ast-rust"
 version = "0.1.0"
 dependencies = [
+ "adv-rules",
  "anyhow",
+ "serde_json",
 ]
 
 [[package]]
