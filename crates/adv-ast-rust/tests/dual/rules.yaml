@@ -1,0 +1,14 @@
+id: RS-TAINT-DUAL
+languages: [rust]
+severity: error
+message: "夹具专用：同一名字同时是 propagator 与 sanitizer 时的优先级（sanitizer 赢）"
+# 深轨的分支顺序是 源点 → 净化工 → 传播子 → 未声明即杀。本规则把 `to_string`
+# 同时放进 propagators 与 sanitizers，专门用来钉住"净化工优先"这一条：
+# 若 all_sanitizers 退化成空表，这里就会从"零发现"翻成"报一条"。
+# 单独放一个目录是为了不和 taint-ops 规则在同目录里并集（那会互相污染）。
+match:
+  taint:
+    sources: [std::env::var]
+    sinks: [std::process::Command::new]
+    propagators: [unwrap_or_default, to_string]
+    sanitizers: [to_string]

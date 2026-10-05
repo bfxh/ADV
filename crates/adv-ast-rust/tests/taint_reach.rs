@@ -46,15 +46,19 @@ fn line_after(fixture_name: &str, after_needle: &str, needle: &str) -> usize {
 
 /// 跑污点档（产品规则集 rules/），返回解析后的 finding 列表。
 fn findings(fixture_name: &str) -> Vec<serde_json::Value> {
-    findings_with_rules(fixture_name, &repo_root().join("rules"))
+    findings_at(&fixture(fixture_name), &repo_root().join("rules"))
 }
 
-/// 跑污点档，规则目录由调用方给（夹具专用规则放 tests/fixtures/rules，不进产品规则集）。
-fn findings_with_rules(fixture_name: &str, rules_dir: &std::path::Path) -> Vec<serde_json::Value> {
+/// 跑污点档，规则目录由调用方给（夹具专用规则放 tests/fixtures/rules、tests/dual，
+/// 都不进产品规则集，也不进 adv-cli 测试所扫的语料）。
+fn findings_at(
+    fixture_path: &std::path::Path,
+    rules_dir: &std::path::Path,
+) -> Vec<serde_json::Value> {
     let out = driver()
         .arg("--taint")
         .arg(rules_dir)
-        .arg(fixture(fixture_name))
+        .arg(fixture_path)
         .output()
         .expect("启动 adv-ast-rust-driver 失败");
     assert!(
@@ -148,7 +152,7 @@ fn propagation_forms_are_covered() {
         .join("tests")
         .join("fixtures")
         .join("rules");
-    let hits = findings_with_rules("taint_operators.rs", &rules);
+    let hits = findings_at(&fixture("taint_operators.rs"), &rules);
     let got: Vec<u64> = hits
         .iter()
         .map(|h| h["start_line"].as_u64().unwrap())
@@ -203,4 +207,43 @@ fn dump_calls_reports_real_callee_paths() {
             );
         }
     }
+}
+
+#[test]
+fn product_rules_do_not_source_the_int_chain() {
+    // 夹具④的整型源点 `source_int` 不在产品规则集里 ⇒ 产品规则下只该报 env::var 那条流。
+    // 这条断言是专门用来在**本包内**杀 `tainted_operand -> true` 的：那个变异会让
+    // BinaryOp/Cast 把无源点的整型也染上污点，命中数从 1 顶到 2。（此前它只有 adv-cli
+    // 的跨包测试能杀，而 cargo-mutants 默认只跑变异所在包的测试，于是长期漏网。）
+    let hits = findings("taint_operators.rs");
+    let want = line_after(
+        "taint_operators.rs",
+        "let raw = std::env::var",
+        "Command::new",
+    );
+    let got: Vec<u64> = hits
+        .iter()
+        .map(|h| h["start_line"].as_u64().unwrap_or_default())
+        .collect();
+    assert_eq!(
+        got,
+        vec![want as u64],
+        "整型链在产品规则集下不该被当作有源点（应只报 {want} 行），实得 {hits:?}"
+    );
+}
+
+#[test]
+fn sanitizer_wins_over_propagator_for_same_name() {
+    // 分支顺序 源点 → 净化工 → 传播子 → 未声明即杀；同名两列时净化工优先。
+    // 这条钉住 all_sanitizers：它退化成空表/杂串时，此处从"零发现"翻成"报一条"。
+    // 夹具与规则都放在 tests/dual/，**不进** adv-cli 测试所扫的 tests/fixtures 语料
+    // （否则产品规则下这条流会多算一条，adv-cli 的条数断言会被我改动夹具这件事弄红）。
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("dual");
+    let hits = findings_at(&dir.join("taint_dual_role.rs"), &dir);
+    assert!(
+        hits.is_empty(),
+        "to_string 同时列为净化工与传播子时应零发现（净化工优先），实得 {hits:?}"
+    );
 }
