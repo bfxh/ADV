@@ -70,6 +70,7 @@ fn finds_artifact_in_dir_and_stays_red_when_absent() {
         "目录不存在时应判不在位（fail-closed），不是崩"
     );
     let _ = std::fs::remove_dir_all(&hit);
+    let _ = std::fs::remove_dir_all(&miss);
 }
 
 #[test]
