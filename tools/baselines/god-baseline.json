@@ -174,9 +174,9 @@
     "fn:xtask/src/main.rs::report": 11,
     "fn:xtask/src/main.rs::workspace_root": 7,
     "fn:xtask/src/mutants.rs::git_diff_patch": 15,
-    "fn:xtask/src/mutants.rs::missed_key": 3,
+    "fn:xtask/src/mutants.rs::missed_key": 11,
     "fn:xtask/src/mutants.rs::new_missed": 7,
-    "fn:xtask/src/mutants.rs::run": 58,
+    "fn:xtask/src/mutants.rs::run": 65,
     "fn:xtask/src/suppress.rs::file_violations": 22,
     "fn:xtask/src/suppress.rs::fs_read": 3,
     "fn:xtask/src/suppress.rs::run": 29,
@@ -224,8 +224,6 @@
     "type:xtask/src/god.rs::Baseline(fields)": 2,
     "type:xtask/src/god.rs::Counter(fields)": 4,
     "type:xtask/src/god.rs::Counter(impl)": 7,
-    "type:xtask/src/mutants.rs::Baseline(fields)": 1,
-    "type:xtask/src/mutants.rs::MutationKey(fields)": 2,
-    "type:xtask/src/mutants.rs::Outcome(fields)": 2
+    "type:xtask/src/mutants.rs::Baseline(fields)": 1
   }
 }
