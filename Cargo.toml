@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-# adv-rewrite 分支（蓝图 docs/BLUEPRINT.md §4）。adv-ast-rust（nightly 边车）按里程碑 M2 再入列。
+# adv-rewrite 分支（蓝图 docs/BLUEPRINT.md §4）。
+# adv-ast-rust（深轨边车）2026-10-05 片A1 入列：走 RUSTC_BOOTSTRAP=1 + rustc-dev，
+# 不引入 nightly（裁定与理由见 docs/PLAN-deep-track.md §1）。
 members = [
     "crates/adv-core",
     "crates/adv-parse",
@@ -13,6 +15,7 @@ members = [
     "crates/adv-sandbox",
     "crates/adv-bin",
     "crates/adv-cli",
+    "crates/adv-ast-rust",
     "xtask",
 ]
 # 旧仓 Rust 引擎是独立 package，不并入新 workspace（切换日随旧代码整体移除）。

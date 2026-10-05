@@ -7,4 +7,10 @@
 # 教训锚②：toolchain 文件触发的自动补装走 minimal——组件必须显式声明，
 # 否则 CI 的 fmt/clippy 步骤找不到 cargo-fmt.exe（2026-10-04 实测）。
 channel = "1.99.0"
-components = ["rustfmt", "clippy"]
+# 教训锚③（2026-10-05 片A1）：深轨边车（crates/adv-ast-rust）用 rustc_private，需要 rustc-dev。
+# 组件必须在**本文件**声明——adv.yml 的 `components: clippy, rustfmt` 装到的是 stable 元工具链，
+# 而本文件把 channel 钉到 1.99.0；首次 cargo 调用触发的自动补装走 minimal，只认这里的清单
+# （同教训锚②）。代价实测：rustc-dev 单件 325MB dll（gnu），CI msvc 侧同量级 ⇒ 每轮多约 1 分钟，
+# 记入 FP 账。**llvm-tools 不列**：gnu 侧实测 rustc_driver.dll 已内联 LLVM（bin/ 无独立 LLVM dll），
+# MIR 分析用不到它，而它白占 ~700MB（本机 C 盘 99% 满，装完 4.84GB→3.3GB，已退掉）。
+components = ["rustfmt", "clippy", "rustc-dev"]

@@ -1,0 +1,17 @@
+[package]
+name = "adv-ast-rust"
+description = "深轨边车：MIR 级数据流驱动（rustc_private + RUSTC_BOOTSTRAP=1；蓝图 M2 片4，PLAN-deep-track §1–§3）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "adv-ast-rust-driver"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true

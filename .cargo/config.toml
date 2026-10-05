@@ -7,3 +7,9 @@
 # 若未来路径再含非 ASCII，恢复 ASCII 绝对路径并在此留痕。
 [build]
 target-dir = "target"
+
+# 深轨边车（docs/PLAN-deep-track.md §1）：stable 1.99.0 上用 `rustc_private` 需放开 feature gate。
+# RUSTC_BOOTSTRAP=1 是 clippy/miri 自用档，只在本仓被 cargo 发现的本文件内生效，不污染全局，
+# 也不引入 nightly（避免 rust-toolchain.toml 的单一事实源被破）。
+[env]
+RUSTC_BOOTSTRAP = "1"

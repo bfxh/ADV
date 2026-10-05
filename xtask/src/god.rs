@@ -42,6 +42,7 @@ pub const MEMBER_DIRS: &[&str] = &[
     "crates/adv-sandbox",
     "crates/adv-bin",
     "crates/adv-cli",
+    "crates/adv-ast-rust",
     "xtask",
 ];
 

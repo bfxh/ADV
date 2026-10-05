@@ -3,6 +3,13 @@
 version = 4
 
 [[package]]
+name = "adv-ast-rust"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "adv-bin"
 version = "0.1.0"
 dependencies = [
