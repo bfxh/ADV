@@ -3,6 +3,6 @@ python-lsp-server==1.15.0
 jedi==0.20.0
 pyflakes==4.0.0
 ruff==0.16.9
-mypy==2.3.1
+mypy==2.4.0
 typos==1.50.2
 vigilo==0.3.4
