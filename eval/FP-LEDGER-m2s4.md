@@ -187,9 +187,80 @@ cargo 集成才是解）；② 失败是**响的**——非零退出且不出 fi
 `--taint` 两档接进 `main.rs`：文件 72→237、`main` 32→38、`MirProbe` 字段 1→5、lib 5→6）；
 降的 1 条是 `MirProbe::after_analysis` 12→8（逻辑搬进 `harvest`）。
 
+---
+
+# 片A3（a9e8212 / 9425f11，2026-10-05）：两轨共用一个 Finding + `adv scan --engine`
+
+> 交付：`Finding` 增 `engine` 字段（A 案由用户拍板）；adv-cli 出 `--engine ast|mir|both` 三档，
+> 深轨以子进程边车接入并把输出**构造回同一个 `Finding`**；`both` 档 stderr 出三方账。
+> 复现：`cargo test -p adv-cli`（4 条，全走真进程）。
+
+## 金标准重录（有意识动冻结值，逐行核对）
+
+机制用的是门自己给的通道：`ADV_UPDATE_GOLDEN=1 cargo test -p adv-rules`（见 golden.rs 头注释）。
+改前留了 `target/scan.jsonl.pre-engine` 快照，核对是**脚本比字段**而不是肉眼看 diff：
+
+| 主张 | 判据 | 结果 |
+|------|------|------|
+| 行数没变 | `len(pre) == len(post)` | 5 → 5 ✓ |
+| 除 `engine` 外零漂移 | 逐行去掉 engine 键后与旧行全等 | 有差异行数 = **0** ✓ |
+| 新增键只有 `engine` | 键集差 | `['engine']` ✓ |
+| 取值一致 | 集合 | 全 `tree-sitter` ✓ |
+
+改 `Finding` 前先确认了构造点只有两处（`matcher.rs::new_finding`、`taint.rs::new_finding`），
+并把散落两处的 `format!("{:?}", sev).to_lowercase()` 收成 `matcher::severity_name()` 一处。
+
+## 三方账的实测起点（不是"深轨更强"的证据）
+
+`adv scan crates/adv-ast-rust/tests/fixtures --engine both`：stdout 4 条、
+stderr「三方账：两边都报 **0** / 仅快轨 **0** / 仅深轨 **4**」。
+快轨在这批 rust 夹具上 0 条——所以这个 4 只说明"深轨第一次通过统一行契约出了账"，
+**不构成两轨强弱对比**；对拍要等片B 用真实仓 + 同一规则集跑两边。
+
+加规则对快轨的影响也测了：`rule_language()` 会把 `languages: [rust]` 的规则纳入快轨规则集，
+加 `RS-TAINT-COMMAND` 后 `cargo test --workspace` 仍全过（含金标准）⇒ 未见快轨输出变化。
+
+## 变异门：A2 剩的两条存活面为什么"补了断言还活着"
+
+`a9e8212` 干净树复测（base 6201ea4）：194 变异 / 141 捕获 / **9 条未捕获条目（收敛 5 键）** / 44 unviable，
+`mutants: 绿`，且**未用 `--update`**——逐键核对 5 个键全部已在基线内（`keys ⊆ base` 判 True）。
+
+但这里有一条**必须写下来的否证**，不能把"绿"读成"债还了"：
+
+- A2 报的两条 `taint_reach.rs::tainted_operand`、`::Reach::all_sanitizers`，我先误判为"断言不够强"，
+  加了正反同文件对照仍存活。手动把变异打进源码跑本包测试才看清：**能杀它们的断言在 adv-cli 包里**，
+  而 cargo-mutants 默认只跑变异所在包的测试 ⇒ 跨包覆盖对这个门不算数。
+  修法是搬判据（`product_rules_do_not_source_the_int_chain` 搬进 adv-ast-rust、
+  另加夹具⑤ `tests/dual/` 钉"净化工优先于传播子"），不是去配排除项。
+  两条变异在重构后各自被**重新手动验证**一次判红。
+- 同一轮里，基线的 5 个存量键（`xtask/src/mir.rs::run`/`::rustc_print`、
+  `mutants.rs::git_diff_patch`/`::missed_key`/`::run`）**本轮一个 missed 都没产**——
+  查 `unviable.txt` 坐实原因：它们这轮的变异被判 **Unviable（17 条命中这两个文件）**，
+  即变异编不过 ⇒ 按框架规则"不是问题"。所以键消失是**分类变化，不是测试变强**。
+
+⇒ 由此暴露的门的洞（下一片建议补，先记此处）：missed 棘轮只看"新增未捕获键"，
+对"基线键本轮既没 caught 也没 missed（全 unviable）"完全无感——债可以从账上静默蒸发。
+补法应是把它判红/判警告：基线里的键若本轮既不出现在 caught 也不出现在 missed，就报
+"该键失去可验证性"，而不是默认绿。
+
+## CI
+
+`a9e8212` → run 37312377908 **success**；`9425f11` → run 37314107000 **success**。
+msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两轮绿确立。
+
+## 本片重放记录
+
+`cargo test --workspace` 37 档 53 条全过 · `cargo clippy --workspace --all-targets -- -D warnings` 干净 ·
+`cargo fmt --all --check` 0 · `xtask gate`（god+lockstep+suppress）绿 · `xtask mir` 绿 ·
+`xtask mutants --base 6201ea4` 绿。god 基线 342 → 346（涨 1、新面 5、掉 1）。
+
 ## 下一步
 
-片A3：子进程隔离 + JSON 对接 adv-taint（`adv-cli --engine mir` 档、快/深三方账）。
-本片 finding 已是 JSON（`rule`/`function`/`location`/`engine`），但**尚未与快轨
-`Finding::to_jsonl` 对齐**——对齐是 A3 的活，不在这里充数。
+1. **补门的洞**（优先，成本小）：变异门增加一条判据——基线里的键若本轮既不出现在 caught
+   也不出现在 missed（全被判 unviable），报"该键失去可验证性"并判红/警告，不得默认绿。
+   本片实测已经有 5 个存量键因 17 条 unviable 而静默消失，这就是活样本。
+2. **片B**：cargo 集成（RUSTC_WORKSPACE_WRAPPER）+ 对拍 `rust/` 旧引擎出真三方账。
+   深轨当前只能吃自包含文件（见"适用边界"），片B 才是价值证明的那一步。
+
+
 
