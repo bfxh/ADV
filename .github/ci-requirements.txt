@@ -2,7 +2,7 @@ pytest==9.1.1
 python-lsp-server==1.15.0
 jedi==0.20.0
 pyflakes==4.0.0
-ruff==0.16.9
+ruff==0.16.10
 mypy==2.3.1
 typos==1.50.2
 vigilo==0.3.4
