@@ -15,7 +15,11 @@
 | 组件断言 | `cargo run -p xtask -- mir` | 绿 |
 | 全量 | `cargo test --workspace` / `cargo clippy --workspace --all-targets -- -D warnings` / `cargo fmt --all --check` | 35 档 42 条全过 / 干净 / 0 |
 | 门 | `cargo run -p xtask -- gate` | gate + lockstep + suppress 绿 |
-| CI（msvc 档） | `gh run list/view`：670fd70 → run 37306492822、cef520d → run 37307126960 | 两轮均 **success**（fmt/clippy/nextest/coverage/gates/deny 全过） |
+| CI（msvc 档） | `gh run list/view`：670fd70→37306492822、cef520d→37307126960、7f61c73→37307651762 | 三轮均 **success**（fmt/clippy/nextest/coverage/gates/deny 全过） |
+
+**提交后复跑（干净树，7f61c73）**：`cargo run -p xtask -- mutants --base 6201ea4`（**不带** `--update`）
+→ `mutants: 绿`，即棘轮从"已入库基线"这一状态成立，而不是靠 `--update` 的自证；
+`gate`/`lockstep`/`suppress` 绿、`cargo test --workspace` 35 档全过、`git status` 干净。
 
 **msvc 侧的间接坐实**：本机没有 msvc 的 rustc-dev（C 盘 99% 满，不装），`.lib` 命名是**假设**；
 但 build.rs 在判据不匹配时直接 panic ⇒ CI 的 msvc 档编过 = 那把尺在 msvc 上也认得出工件。
