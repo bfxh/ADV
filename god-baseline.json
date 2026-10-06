@@ -1888,5 +1888,10 @@
   "file_lines": 116,
   "max_fn_lines": 13,
   "max_type_members": 0
+ },
+ "tests/test_debt_gate.py": {
+  "file_lines": 210,
+  "max_fn_lines": 21,
+  "max_type_members": 0
  }
 }

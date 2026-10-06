@@ -57,28 +57,6 @@
       "guards": "无（靠本登记到期判红）"
     },
     {
-      "id": "DD-0006",
-      "surface": "scripts/god_gate.py --write-baseline",
-      "kind": "design",
-      "defect": "基线重录是整表替换：今天量到重录会把 201 条未登记面（含 RESEARCH/.tmp-p1/ 这类遗留垃圾）一并转正，表从 377 涨到 443。也就是说\"跑一下 --write-baseline\"这个动作本身能把噪声洗成基线。",
-      "why_from_design": "棘轮门设计成\"快照 + 只准减\"，但没规定快照的来源必须是**清点过的**登记集——写基线时不区分\"我有意放行的增长\"与\"仓库里恰好有人留下的临时文件\"。片A5 给变异基线补了移除点名，这一侧（新增点名/垃圾识别）还没有对应判据。",
-      "origin": "1fc62d3",
-      "since": "f8cbdaf",
-      "due_after_tasks": 10,
-      "guards": "本次以单条 JSON 更新绕过（只改 scripts/local_gate.py 的 file_lines 230→233，表条目数保持 377）；绕过本身不是判据，故登记。"
-    },
-    {
-      "id": "DD-0007",
-      "surface": "scripts/local_gate.py --fast（伞仓快档门链）",
-      "kind": "design",
-      "defect": "快档默认红：同会话内两次实测 30 步里 13–15 步失败（17:47 那次为 13 步：secrets / naming / data-flow / secrets-history / audit-freshness / tool-evals / cli-golden / mcp-surface / selftest / dupe / lint / typos / gitleaks）。本会话所在的 M2 线只跑 xtask gate，于是【红】变成背景噪声——人人学会跳过它，门就失去牙齿。",
-      "why_from_design": "伞仓与 adv-rewrite 两条工作线共用一套 python 门链，却没有【这条线该看哪几步】的分档层：M2 线的收尾重放是 fmt/clippy/test/gate/mir/mutants，python 侧那 13 步红既不是它引入、也没人负责清。缺的是门链按工作线分组这一层设计，不是某条规则判错。",
-      "origin": "1fc62d3",
-      "since": "f8cbdaf",
-      "due_after_tasks": 10,
-      "guards": "可复算的归属证据：把本片新增的两个 py 文件挪开后 lint-gate 仍报同样的 6 条增长；naming/typos 命中里 grep 本片新文件为 0；local_gate.py 的 C901 命中在 main()，本片没碰它。"
-    },
-    {
       "id": "DD-0008",
       "surface": "提交路径（.githooks/pre-commit）与 README/docs 关于它的陈述",
       "kind": "design",
@@ -122,6 +100,16 @@
       "id": "DD-0001",
       "evidence": "观察面补在代码所在包（xtask/tests/canary.rs 两条金丝雀：df 通道核\"跑成功且语料解析拿得出数 ⇒ 通道必须给数\"；预检用 1e9 GiB 的不可能下限逼它点名，并要求文案含\"余量不足\"与可抄的 TMP= 修法，查不到余量时必须 fail-open）。变异门实测（HEAD 7680abd，384 条面）：free_bytes_via_df 的 4 条变异全 CaughtMutant、precheck_scratch 的 3 条全 CaughtMutant，门自己点名把两键从基线移除（13 → 11）。手打变异另验 4 条存活形态逐个红过。",
       "retired_in": "7680abd"
+    },
+    {
+      "id": "DD-0006",
+      "evidence": "判据补在写基线那条路径上，三件：① ignored_faces() 用 git ls-files --others --ignored --exclude-standard 把被 .gitignore 排除的面挡在基线外——本机实测这类面 17,436 条（RESEARCH/.tmp-*/ 等），旧版一次 --write-baseline 就把它们一并转正；它们也不再参与判红；② 在 git 仓里问不出清单（unknowable）时拒绝重录——清点不出在册面就没有资格整表替换；根目录不是 git 仓（测试用 tmp 树）则不过滤但如实播报；③ 重录前打「重录对账：基线 A→B 键（新增 n、移除 m、行数变大 k）」并逐键点名。反向用例 2 条（gitignored 大文件不进基线；新增/移除/变大必须点名），tests/test_s167_god_gate.py 从 5 条增到 7 条。本轮实证：探针重录打印「377 → 442 键（新增 65、移除 0、行数变大 2）」并点名——那 65 条是真在册文件，未整表吸收，只按实测值更新自己动的 3 个键（god_gate.py 463/68、local_gate.py 287/70、新增 test_gate_lines.py 116/13，表 377→378）：一次重写等于把\"这些面该不该被门管\"的判断权交给工具，那正是本条债要防的。",
+      "retired_in": "a7de7db"
+    },
+    {
+      "id": "DD-0007",
+      "evidence": "按工作线分组的归属层建成：spec/gate-lines.json（adv-m2 深轨线 14 步 / umbrella-py 伞仓 python 产品面 23 步，每条线必须写 why）+ local_gate.load_gate_lines() 三条 fail-closed（表缺失即红 / 有步骤无归属即红 / 表里名字漂出 STEPS 即红）+ --line 只做纯过滤（被滤掉的步子不进 skipped 名单，所以\"红变少\"必须来自归属而不是藏）。实测两侧对照：默认档 --fast 仍 30 步、失败 15 步（一步没少跑 ⇒ 没有任何一步因分组而变得不判）；--fast --line adv-m2 跑 11 步、只剩 debt-gate 红，而那条红正是DD-0002/0003/0004/0005 的超期账——红从\"13 步背景噪声\"变成\"一步、指名道姓\"。反向用例 7 条在 tests/test_gate_lines.py（孤儿步骤/漂移名字/缺表/未知线名/纯过滤/默认档不缩水/真仓自检）。伞仓那 14 条红仍挂在 umbrella-py 线上，归属明确。",
+      "retired_in": "a7de7db"
     }
   ]
 }

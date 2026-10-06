@@ -162,10 +162,26 @@ def test_maturity_pattern_validation():
 
 
 def test_real_repository_registry_is_green_via_subprocess():
-    """真仓自检：走子进程真路径（含真 git），不是只测内部函数。"""
-    out = subprocess.run([PY, "-X", "utf8", str(GATE)], cwd=str(ROOT), capture_output=True, text=True)
-    assert out.returncode == 0, f"今天这份 registry 应该绿，实得：{out.stdout}{out.stderr}"
-    assert "DEBT-GATE OK" in out.stdout, out.stdout
+    """真仓自检：走子进程真路径（含真 git），不是只测内部函数。
+
+    2026-10-06 改过一次口径，理由要留档：原本要求"今天这份 registry 全绿"，结果债的钟
+    一超期（D5）这条测试就红——于是**每次本地 pytest 都被过期债挡住**。那正是 DD-0007
+    刚治失败的模式：把一个人人不关心的红塞进人人都跑的通道，红就变成噪声。
+    现在的分工是：
+      · 报警位 = CI（adv.yml 的 Debt gate 步骤，合并层）——超期必须在那里红；
+      · 本测试 = **结构完整性**：除 D5（计时超期）之外的任何违规都算红，
+        且超期清单必须被打出来（看得见，不静默）。
+    也就是说：这条测试管的是"账本坏没坏"，"账拖没拖"由 CI 判。
+    """
+    out = subprocess.run([PY, "-X", "utf8", str(GATE)], cwd=str(ROOT), capture_output=True,
+                         text=True)
+    lines = [ln.strip() for ln in out.stdout.splitlines() if ln.strip().startswith("❌")]
+    non_timing = [ln for ln in lines if not ln.startswith("❌ D5")]
+    assert not non_timing, f"registry 结构违规（不是超期）：{non_timing}\n{out.stdout}"
+    for ln in lines:
+        print(ln)
+    assert out.returncode == 0 or lines, f"退出码非 0 却没有一条超期说明：{out.stdout}{out.stderr}"
+    assert "DEBT-GATE" in out.stdout, out.stdout
 
 
 def test_real_repository_has_real_entries():
