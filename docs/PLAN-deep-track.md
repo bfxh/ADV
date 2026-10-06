@@ -45,6 +45,23 @@
      调 rustc（自包含文件可分析；真实仓库按 crate 驱动，片B）。
   2. 片B：cargo 集成——RUSTC_WORKSPACE_WRAPPER 环境变量方式挂进目标仓构建
      （对拍 rust/ 时用）。
+     **片B1 前置实测（2026-10-06）**：直通档在 1.99 上可行，依据三条实况——
+     ① `run_compiler` 会**丢掉 args[0]**（`rustc_driver_impl/src/lib.rs:183`，注释原话
+     "Throw away the first argument, the name of the binary"），而 cargo 调包装器的形态正是
+     `driver.exe <rustc 路径> <rustc 参数…>` ⇒ 那个 rustc 路径天然当占位，其余参数原样转发即可；
+     ② `Callbacks` trait 只有 `config`/`after_crate_root_parsing`/`after_expansion`/
+     `after_analysis` 四段，**没有退出钩子**，成功路径靠 `run_compiler` 返回后 main 正常结束、
+     失败由 rustc 自身的诊断出口定退出码 ⇒ 只要 `after_analysis` 返回
+     `Compilation::Continue`（现在恒返回 `Stop`，`crates/adv-ast-rust/src/main.rs:76-83`），
+     工件与退出码就是 rustc 本来的行为，cargo 的 `-vV` 探测同理走 `handle_options` 原路；
+     ③ findings 要带**文件路径**才有用：现在 `Hit` 只有行/列（`taint_reach.rs:68-77`），
+     文件名是 CLI 侧按"一次一个文件"假设塞进去的（`crates/adv-cli/src/mir.rs:117`），
+     整 crate 一档这个假设就断了 ⇒ 取径实测为
+     `tcx.sess.source_map().span_to_filename(span).prefer_local_unconditionally()
+     .to_string_lossy()`（`rustc_span/src/lib.rs:561` 与 `:611`，1.99 的 `RealFileName`
+     已是 struct、`FileNameDisplayPreference` 私有，不能自己构造 pref）。
+     ⇒ 本片不自带规则表：规则目录与输出目录一律走环境变量（`ADV_MIR_RULES`/`ADV_MIR_OUT`），
+     缺任一个即非零退出（静默产空 = 假绿入口）。
 - 输出：MIR 事实 → JSON → 主引擎（adv-taint）消费；**边车不进主进程**
   （nightly/不稳定 API 崩溃隔离在子进程——RESEARCH 01 边车纪律的实现形态）。
 
