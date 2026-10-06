@@ -8,3 +8,4 @@ pub mod maturity;
 pub mod mir;
 pub mod mutants;
 pub mod suppress;
+pub mod verdict;

@@ -264,6 +264,44 @@ pub fn ratchet_violations(
     v
 }
 
+/// 重录对账文案：逐键点名新增 / 移除 / 变大。
+///
+/// 与 `scripts/god_gate.py` 的重录口径同款（DD-0006）：整表替换如果只说"写了 N 项"，
+/// 那就分不清"我有意放行的增长"与"条目被搬走/消失了"。今天实测兑现过一次——
+/// 把金丝雀按门拆成三个文件后，基线 diff 有 24 条删除，全是**改名**，
+/// 没有这份点名就只能逐行读 JSON 才知道没丢面。
+pub fn rerecord_note(old: &BTreeMap<String, u64>, new: &BTreeMap<String, u64>) -> String {
+    let added: Vec<String> = new
+        .keys()
+        .filter(|k| !old.contains_key(*k))
+        .cloned()
+        .collect();
+    let dropped: Vec<String> = old
+        .keys()
+        .filter(|k| !new.contains_key(*k))
+        .cloned()
+        .collect();
+    let grown: Vec<String> = new
+        .iter()
+        .filter(|(k, v)| old.get(*k).is_some_and(|b| *v > b))
+        .map(|(k, v)| format!("{k}: {} → {v}", old.get(k).copied().unwrap_or_default()))
+        .collect();
+    let mut out = vec![format!(
+        "重录对账：基线 {} → {} 项（新增 {}、移除 {}、变大 {}）",
+        old.len(),
+        new.len(),
+        added.len(),
+        dropped.len(),
+        grown.len()
+    )];
+    for (label, items) in [("新增", added), ("移除", dropped), ("变大", grown)] {
+        for it in items.into_iter().take(20) {
+            out.push(format!("  - {label}：{it}"));
+        }
+    }
+    out.join("\n")
+}
+
 /// 写基线：先过硬阈再落盘（旧仓教训：`--write-baseline` 会吞掉新超标面 ⇒ 先拆到阈内再记）。
 pub fn write_baseline(root: &Path, entries: &BTreeMap<String, u64>) -> Result<()> {
     let hard = hard_violations(entries);
@@ -276,6 +314,11 @@ pub fn write_baseline(root: &Path, entries: &BTreeMap<String, u64>) -> Result<()
     let path = root.join(BASELINE_PATH);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
+    }
+    if let Ok(raw) = fs::read_to_string(&path)
+        && let Ok(prev) = serde_json::from_str::<Baseline>(&raw)
+    {
+        println!("{}", rerecord_note(&prev.entries, entries));
     }
     let baseline = Baseline {
         tool: "xtask god v0".to_string(),

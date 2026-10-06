@@ -268,8 +268,9 @@ fn git_diff_patch(root: &Path, base: &str) -> Result<PathBuf> {
         .output()?;
     anyhow::ensure!(
         out.status.success(),
-        "git diff 失败：{}",
-        String::from_utf8_lossy(&out.stderr)
+        "--base {base} 取不到 diff（git 退出码 {:?}）：{}",
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr).trim()
     );
     std::fs::create_dir_all(patch.parent().expect("parent"))?;
     std::fs::write(&patch, &out.stdout)?;
