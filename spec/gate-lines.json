@@ -17,7 +17,8 @@
         "quality-pact",
         "cargo-test",
         "clippy",
-        "coverage-gate"
+        "coverage-gate",
+        "ci-wiring-gate"
       ]
     },
     "umbrella-py": {

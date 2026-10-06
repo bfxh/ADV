@@ -53,6 +53,8 @@ STEPS = [
      "外加 spec/maturity.json 试验面登记格式）"),
     ("arch-gate",   [PY, "-X", "utf8", "scripts/arch_gate.py"], "fast",
      "架构守卫（声明式 import 禁向规则；违规定位到行；规则文件 fail-closed）"),
+    ("ci-wiring-gate", [PY, "-X", "utf8", "scripts/ci_wiring_gate.py"], "fast",
+     "CI 接线完整性门（spec/ci-wiring.json：分支真被触发 + 清单里的门真在 workflow 步骤里 + 无主门步即红）"),
     ("claim-gate",  [PY, "-X", "utf8", "scripts/claim_gate.py"], "fast",
      "主张可复算门（文档里的数字主张 ↔ 真值源；不一致/找不到即红）"),
     ("guard-gate",  [PY, "-X", "utf8", "scripts/guard_gate.py"], "fast",

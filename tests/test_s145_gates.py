@@ -20,6 +20,8 @@ import server
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GATE = os.path.join(ROOT, "scripts", "local_gate.py")
 CORE = os.path.join(ROOT, ".github", "workflows", "core.yml")
+ADV = os.path.join(ROOT, ".github", "workflows", "adv.yml")
+
 
 # 门步在 CI 的落点里有三类按**脚本名**查不到：CI 把 pytest 交给分片计划展开，
 # cargo/clippy 是 cargo 子命令而非仓内脚本。显式登记而非靠名字子串蒙混——
@@ -79,18 +81,32 @@ def test_local_gate_covers_every_ci_gate_script():
     assert not missing, f"CI 有而本地门没有（漂移）: {sorted(missing)}"
 
 
+def _ci_union():
+    """两份 workflow 的并集文本。
+
+    2026-10-06 的实测教训（DD-0010）：core.yml 的 on.push 只列 main，本分支由 adv.yml 守。
+    只看 core.yml 会把"接在 adv.yml 上的门"判成没落点，而"接在 core.yml 上的门"对本分支
+    其实一步都没跑——两个方向都错。逐分支的精确口径由 scripts/ci_wiring_gate.py 管，
+    这里只保证"每道门至少在某条 CI 上真跑"。
+    """
+    return _read(CORE) + "\n" + _read(ADV)
+
+
 def test_every_gate_step_has_a_ci_landing():
     """反向锁：STEPS 的每一步都必须在 CI 有落点——「本地加门、CI 不跑」同样是漂移。"""
-    core = _read(CORE)
-    never = [r["name"] for r in _steps() if not _runs_in_ci(r, core)]
-    assert not never, f"这些门步在 CI 找不到落点（本地绿 CI 空转）: {sorted(never)}"
+    never = [r["name"] for r in _steps() if not _runs_in_ci(r, _ci_union())]
+    assert not never, f"这些门步在两份 workflow 里都找不到落点: {sorted(never)}"
 
 
 def test_reverse_lock_has_teeth() -> None:
     """反假绿：把 CI 里某一步的落点抹掉，反向锁必须点名到那一步（否则它是个装饰）。"""
     victim = next(r for r in _steps() if r["script"] and r["name"] not in CI_INDIRECT)
-    tampered = "\n".join(ln for ln in _read(CORE).splitlines()
-                         if victim["script"].split("/")[-1] not in ln)
+    here = _read(CORE)
+    needle = victim["script"].split("/")[-1]
+    src = CORE if needle in here else ADV
+    assert needle in _read(src), f"{victim['name']} 的落点在两份 workflow 里都找不到，测了个空"
+    other = _read(ADV) if src == CORE else _read(CORE)
+    tampered = "\n".join(ln for ln in _read(src).splitlines() if needle not in ln) + "\n" + other
     caught = [r["name"] for r in _steps() if not _runs_in_ci(r, tampered)]
     assert victim["name"] in caught, f"抹掉 {victim['name']} 的 CI 落点却没判红: {caught}"
 

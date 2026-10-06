@@ -1,0 +1,38 @@
+{
+  "note": "分支 × 生效门集合（DD-0010 的处置）。判据 scripts/ci_wiring_gate.py：W1 workflow 文件存在且非空 / W2 该分支真被 on.push.branches 触发 / W3 清单里每道门都能在该 workflow 的步骤里找到 / W4 登记为逐门认领的 workflow 不许有无主门步 / W5 门名不许漂出 local_gate 的 STEPS 与 indirect 之外。",
+  "orphan_checked": [
+    ".github/workflows/adv.yml"
+  ],
+  "indirect": {
+    "pytest": "shard_plan.py --plan",
+    "cargo-test": "cargo test",
+    "nextest": "cargo nextest run",
+    "clippy": "clippy",
+    "xtask-gate": "xtask -- gate",
+    "coverage-gate": "cargo llvm-cov",
+    "ci-wiring-gate": "scripts/ci_wiring_gate.py"
+  },
+  "branches": {
+    "adv-rewrite": {
+      "workflow": ".github/workflows/adv.yml",
+      "why": "新工作区（M2 深轨线）唯一的守门 workflow。core.yml 的 on.push 只列 main，所以接在那边的门对本分支等于没接——这句话就是 DD-0010 的由来。",
+      "gates": [
+        "xtask-gate",
+        "ci-wiring-gate",
+        "debt-gate",
+        "clippy",
+        "nextest",
+        "coverage-gate"
+      ]
+    },
+    "main": {
+      "workflow": ".github/workflows/core.yml",
+      "why": "旧伞仓（python 产品面）的守门 workflow。这里只声明「这几道门确实在 main 上跑」；W4 的无主门步检查不对它生效（那边 20+ 步按伞仓线归属，见 spec/gate-lines.json）。",
+      "gates": [
+        "debt-gate",
+        "claim-gate",
+        "path-gate"
+      ]
+    }
+  }
+}
