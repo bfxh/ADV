@@ -45,7 +45,12 @@ fn canary_gate_binary_always_ends_with_a_verdict_line() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert!(text.contains("mutants: 判不了"), "{text}");
-    assert!(text.contains("--base"), "要点名是哪个参数坏了：{text}");
+    // 点名要指到**具体哪个口径取不到**（旧文案只说 --base，改成 diff 口径后这条必须跟着改，
+    // 否则它就是条只会绿不会叫的断言——增量档第一轮就是这么抓到我的）。
+    assert!(
+        text.contains("no-such-ref-xyzzy-die"),
+        "要把坏掉的 diff 口径原样打出来：{text}"
+    );
 
     // 空 diff 那一步**不能照搬本地断言**：变异门会把树复制到没有 `.git` 的临时目录，
     // 那里 `git diff HEAD...HEAD` 本身就取不到 ⇒ 门给出"判不了"而不是"红（skip）"。

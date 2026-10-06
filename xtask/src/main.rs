@@ -79,7 +79,15 @@ fn main() {
                 .map(|w| w[1].clone())
                 .unwrap_or_else(|| "main".to_string());
             let update = args.contains(&"--update".to_string());
-            emit("mutants", mutants::run(&root, &base, update, 60));
+            let since = args
+                .windows(2)
+                .find(|w| w[0] == "--since")
+                .map(|w| w[1].clone());
+            let name = mutants::verdict_name(since.as_deref());
+            emit(
+                &name,
+                mutants::run(&root, &base, since.as_deref(), update, 60),
+            );
         }
         Some("mir") => emit("mir", mir::run()),
         _ => {

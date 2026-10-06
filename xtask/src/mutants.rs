@@ -260,21 +260,50 @@ pub fn unviable_disk_failures(parsed: &serde_json::Value, out_dir: &Path) -> Vec
     hits
 }
 
-fn git_diff_patch(root: &Path, base: &str) -> Result<PathBuf> {
+fn git_diff_patch(root: &Path, spec: &str) -> Result<PathBuf> {
     let patch = root.join("target/mutants-diff.patch");
     let out = std::process::Command::new("git")
-        .args(["diff", "--binary", &format!("{base}...HEAD")])
+        .args(["diff", "--binary", spec])
         .current_dir(root)
         .output()?;
     anyhow::ensure!(
         out.status.success(),
-        "--base {base} 取不到 diff（git 退出码 {:?}）：{}",
+        "diff 口径 {spec} 取不到（git 退出码 {:?}）：{}",
         out.status.code(),
         String::from_utf8_lossy(&out.stderr).trim()
     );
     std::fs::create_dir_all(patch.parent().expect("parent"))?;
     std::fs::write(&patch, &out.stdout)?;
     Ok(patch)
+}
+
+/// 变异面用哪个 diff 口径：**默认全档**（`base...HEAD` 的全部改动），`--since` 才走增量。
+///
+/// 为什么增量用两点 `since..HEAD` 而不是三点：三点会退回 merge-base，把"上次绿之后
+/// 我又改了 400 行"重新算成整个片的面——那正是这笔债要省的墙钟（DD-0004 实测：单轮
+/// 17–40 分钟，一片里跑了 8 轮，其中 6 轮只需要看当轮改动的 15 个文件里的一部分）。
+pub fn diff_spec(base: &str, since: Option<&str>) -> String {
+    match since {
+        Some(s) => format!("{s}..HEAD"),
+        None => format!("{base}...HEAD"),
+    }
+}
+
+/// 裁决行的名字：增量档必须**在裁决行里自称增量档**，否则"绿"会被抄成收尾绿。
+/// （与 DD-0009 同一条纪律：看不见"没判"的门会骗人，看不见面目的门也一样。）
+pub fn verdict_name(since: Option<&str>) -> String {
+    match since {
+        None => "mutants".to_string(),
+        Some(s) => format!("mutants·增量档({s}..HEAD，只测本次改动·不作收尾绿)"),
+    }
+}
+
+/// 增量档 + `--update` = 拒绝：整表替换会拿"只跑了一小片面"的结果去**删掉**全档才有的键。
+pub fn refuse_incremental_update(since: Option<&str>, update: bool) -> Option<String> {
+    (since.is_some() && update).then(|| {
+        "增量档不许重录基线：本轮没跑全档，missed 集天然偏小，整表替换会把全档才有的键静默删掉         （想重录请去掉 --since 跑全档）"
+            .to_string()
+    })
 }
 
 /// cargo-mutants 退出码里"这一轮真跑完了"的那些：0 全捕获、2 有未捕获、3 有超时。
@@ -299,12 +328,22 @@ pub fn timeout_note(timeouts: &[String]) -> Option<String> {
 }
 
 /// 跑变异门。`base` 为 diff 基线 ref；`update` 重录基线（披露通道）。
-pub fn run(root: &Path, base: &str, update: bool, timeout_secs: u64) -> Result<Vec<String>> {
-    let patch = git_diff_patch(root, base)?;
+pub fn run(
+    root: &Path,
+    base: &str,
+    since: Option<&str>,
+    update: bool,
+    timeout_secs: u64,
+) -> Result<Vec<String>> {
+    if let Some(why) = refuse_incremental_update(since, update) {
+        return Ok(vec![why]);
+    }
+    let spec = diff_spec(base, since);
+    let patch = git_diff_patch(root, &spec)?;
     let patch_text = std::fs::read_to_string(&patch)?;
     if patch_text.trim().is_empty() {
         return Ok(vec![format!(
-            "skip: 与 {base} 无差异，无变异面（skip 不算绿——门在此档视为通过并留痕）"
+            "skip: 与 {spec} 无差异，无变异面（skip 不算绿——门在此档视为通过并留痕）"
         )]);
     }
     let min_gib = min_free_gib(std::env::var("ADV_MUTANTS_MIN_FREE_GIB").ok());
@@ -350,7 +389,10 @@ pub fn run(root: &Path, base: &str, update: bool, timeout_secs: u64) -> Result<V
     let missed = keys_by_summary(&parsed, |s| s == "MissedMutant")?;
     let verifiable = keys_by_summary(&parsed, |s| VERIFIABLE_SUMMARIES.contains(&s))?;
     let [total, caught, missed_n, unviable_n] = tally(&parsed);
-    println!("变异面 总={total} 捕获={caught} 未捕获={missed_n} unviable={unviable_n}");
+    println!(
+        "变异面 总={total} 捕获={caught} 未捕获={missed_n} unviable={unviable_n} 档={}",
+        if since.is_some() { "增量" } else { "全档" }
+    );
     if unviable_n > 0 {
         println!(
             "提示：unviable {unviable_n} 条的日志在 {}/mutants.out/log/；条数增多先怀疑 scratch 盘满/链接失败，别把缺测读成没问题",

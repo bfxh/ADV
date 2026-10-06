@@ -1,10 +1,11 @@
 //! 金丝雀（变异门 `xtask mutants`）：键抽取、可验证标签、退出码、盘满签名、盘量预检逐个证明会红。
 
 use xtask::mutants::{
-    VERIFIABLE_SUMMARIES, completed_status, df_args, disk_failure_signature, drive_letter,
-    free_bytes_probe, free_bytes_via_df, human_bytes, keys_by_summary, min_free_gib, new_missed,
-    parse_df_avail, parse_u64_lines, powershell_args, precheck_scratch, scratch_is_short,
-    short_message, tally, timeout_note, unverifiable_keys, unviable_disk_failures,
+    VERIFIABLE_SUMMARIES, completed_status, df_args, diff_spec, disk_failure_signature,
+    drive_letter, free_bytes_probe, free_bytes_via_df, human_bytes, keys_by_summary, min_free_gib,
+    new_missed, parse_df_avail, parse_u64_lines, powershell_args, precheck_scratch,
+    refuse_incremental_update, scratch_is_short, short_message, tally, timeout_note,
+    unverifiable_keys, unviable_disk_failures, verdict_name,
 };
 
 #[test]
@@ -536,4 +537,31 @@ fn canary_precheck_names_shortfall_and_stays_quiet_when_roomy() {
             "测不到余量时必须说'不判'而不是编数：{absurd:?}"
         ),
     }
+}
+
+#[test]
+fn canary_incremental_tier_cannot_pass_itself_off_as_the_closing_run() {
+    // DD-0004：一片里 8 轮全档（单轮 17–40 分钟）里大部分只需要看当轮改动。
+    // 但增量档一旦被抄成"收尾绿"就是洗白，所以两条都判死：
+    // ① 裁决行自己必须写着"增量档·不作收尾绿"；② 增量档 + --update 直接违规。
+    assert_eq!(diff_spec("6201ea4", None), "6201ea4...HEAD");
+    assert_eq!(diff_spec("6201ea4", Some("abc1234")), "abc1234..HEAD");
+    assert_eq!(verdict_name(None), "mutants");
+    let name = verdict_name(Some("abc1234"));
+    assert!(name.starts_with("mutants·增量档(abc1234..HEAD"), "{name}");
+    assert!(name.contains("不作收尾绿"), "{name}");
+
+    assert_eq!(
+        refuse_incremental_update(None, true),
+        None,
+        "全档重录是正当通道"
+    );
+    assert_eq!(
+        refuse_incremental_update(Some("x"), false),
+        None,
+        "增量跑但不重录 = 允许"
+    );
+    let why = refuse_incremental_update(Some("x"), true).expect("增量档重录必须被拒");
+    assert!(why.contains("整表替换"), "{why}");
+    assert!(why.contains("--since"), "要给出改法：{why}");
 }
