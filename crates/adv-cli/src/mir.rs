@@ -230,3 +230,52 @@ fn collect_crate_findings(mir_out: &Path, rules: &[Rule]) -> Result<Vec<Finding>
     }
     Ok(found)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 一条合法的深轨记录，只把 file 字段换成传进来的值。
+    fn record(file: &str) -> String {
+        format!(
+            "{{\"rule\":\"RS-UNWRAP-USE\",\"file\":\"{file}\",\"start_line\":3,\"start_col\":4,\"end_line\":3,\"end_col\":12}}"
+        )
+    }
+
+    /// `expect_file` 交叉核对的三态。缺任何一态都会放过一条变异：
+    /// `!= → ==` 由第三态杀（片E 实测是 deep_cargo 的金样在杀它，本条把归属搬回本包），
+    /// `&& → ||` 由第二态杀——只有"同文件名、不同目录"这个形状能区分两者。
+    #[test]
+    fn expect_file_guard_splits_three_ways() {
+        let rules = adv_rules::load_rules(Path::new("../../rules")).expect("载规则");
+        let want = Path::new("src/lib.rs");
+        assert!(
+            parse_finding(&record("src/lib.rs"), Some(want), &rules).is_ok(),
+            "同路径必须放行"
+        );
+        assert!(
+            parse_finding(&record("inner/src/lib.rs"), Some(want), &rules).is_ok(),
+            "只比文件名这条容忍是给 cargo 档的相对路径形状，写成 || 就会在这里误判红"
+        );
+        let err = parse_finding(&record("src/other.rs"), Some(want), &rules)
+            .expect_err("记录的文件不是本次扫描对象 ⇒ 必须红");
+        assert!(err.contains("不是本次扫描对象"), "{err}");
+        // 没有 expect_file（cargo 档一次扫整个 crate）时不该有任何交叉核对可跳过。
+        assert!(parse_finding(&record("whatever.rs"), None, &rules).is_ok());
+    }
+
+    /// `toolchain_bin` 是深轨运行期找 `rustc_driver` DLL 的那条路：把它换成空路径
+    /// （门报的存活变异之一）在本包此前完全不可观察。
+    #[test]
+    fn toolchain_bin_points_at_a_real_bin_dir() {
+        match toolchain_bin() {
+            Ok(dir) => {
+                assert!(dir.is_dir(), "sysroot 的 bin 不是目录：{}", dir.display());
+                let has_rustc = ["rustc.exe", "rustc"].iter().any(|n| dir.join(n).is_file());
+                assert!(has_rustc, "bin 里没有 rustc：{}", dir.display());
+            }
+            // 本机没有 rustc-dev 工具链时如实失败——那也是判定，不是空转。
+            Err(e) => panic!("本机 rustc --print sysroot 应当可用，实得：{e}"),
+        }
+    }
+}

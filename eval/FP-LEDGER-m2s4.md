@@ -937,3 +937,104 @@ DD-0010 按这次实测扩写：接进 CI 只是第一步，"接线形状对不�
 重放：pytest test_debt_gate **14 条过**（+1 反向用例）· ruff 对 debt_gate/测试 0 命中 ·
 本地 debt_gate 红 5 处（DD-0002/0003/0004/0005 拖 17+、DD-0008 拖 13）· god OK（表 379→380，
 补登记 debt_gate.py 222/29 这一漏面 + test_debt_gate 按实测 234/22）· claim/path OK。
+
+# 片H（2026-10-06）：DD-0009——把"门没说话"变成不可能的一种终点
+
+## 契约
+
+`xtask::verdict` 把每条门路径的终点钉成三态，且**没有第四种"没输出"**：
+
+| 态 | 行 | 退出码 |
+|---|---|---|
+| 绿 | `<门>: 绿` | 0 |
+| 红 | `<门>: 红（N 条）` + 逐条 | 1 |
+| 判不了 | `<门>: 判不了（本轮没出判定，别把别的数当结论）：<原因>` | 3 |
+
+判不了用独立退出码，是为了让包装器能把它与红分开处置——红是"有问题"，判不了是"这条判定
+根本没发生"，两者混成一个码就等于把今天两次踩到的坑写进接口。
+
+## 金丝雀（先证红再改绿）
+
+- 纯函数：三态各一条断言 + "多行原因必须压成一行"（否则"看最后一行"这个动作没意义）；
+- **起真二进制**：`mutants --base <不存在的 ref>` ⇒ 判不了 / exit 3；`--base HEAD`（空 diff）
+  ⇒ 红（1 条）+ "skip 不算绿"；未知子命令 ⇒ exit 2。
+- 验红：把 `Err` 分支临时改成返回 `("…: 绿", 0)` ⇒ 两条金丝雀**同时** FAILED
+  （"取不到 diff 该判「判不了」"、"判不了必须与红用不同退出码"），换回真实现才绿。
+
+## 这一片被门挡住两次，两次都是门说得对
+
+1. `cargo run -p xtask -- god --write` 直接拒绝：`canary.rs` 863 行 > 硬阈 800。
+   按门拆成 `canary.rs` / `canary_mutants.rs` / `canary_verdict.rs`（23 条测试 → 26 条，
+   核对过 `#[test]` 计数与总行数才敢说"一条没丢"）。试验面放松只管 `tests/data|fixtures`，
+   测试代码本身是承重观察面——这条口径今天第二次兑现。
+2. `clippy --workspace --all-targets -- -D warnings` 抓到我自己新写的 `collapsible_if`。
+   这也是今天第二次被"强制重扫"抓到东西：不带 `-D warnings` 的本地 clippy 会因为增量缓存
+   一声不响地返回，而我把"没输出"当成"没告警"过一次（见片F 订正）。
+
+## Rust 侧也补了逐键点名（和 python 侧对齐）
+
+`god::rerecord_note`：整表重录前打印「重录对账：基线 A → B 项（新增 / 移除 / 变大）」并逐键列出。
+触发点很具体——拆文件让基线 diff 出现 24 条删除，全是**改名**，没有这份点名我只能逐行读 JSON
+才能确认没丢面。最终一轮打印 `440 → 440 项（新增 0、移除 0、变大 0）`。
+
+## 变异门（HEAD `4acf75e`）
+
+（待填：门自己那几行原文 + missed 键集与在册基线的双向核对）
+
+## 第三次兑现：裁决行把**我自己的测试**写错的地方指出来了
+
+第一次重放（HEAD `4acf75e`）门直接给：
+
+```
+mutants: 判不了（本轮没出判定，别把别的数当结论）：cargo mutants 没跑完（exit Some(4)）…
+FAILED   Unmutated baseline …
+```
+
+`exit 4` 在上游契约里是"基线本身就红，所以一个变异都没测"。失败点 `canary_verdict.rs:55`
+正是我上一笔刚加的断言 `--base HEAD ⇒ exit 1（skip 必须判红）`：cargo-mutants 把树复制到
+**没有 `.git`** 的临时目录，那里 `git diff HEAD...HEAD` 取不到 ⇒ 门给出"判不了"（对的），
+而我的测试只接受"红"（错的）。
+
+修法只动测试、不动契约：两种环境下都断言同一个不变式（终点必须有一行裁决），
+在 git 仓里继续跑强口径（无差异 ⇒ 红 + "skip 不算绿"），在无 .git 的复制树里断言另一条正确
+行为（判不了 + exit 3），分支由 `git rev-parse --git-dir` 实测决定并打印走了哪一支——不静默。
+
+这件事反过来证明片H 值得做：`exit 4` 在旧 `ensure!` 下会被抛成裸 anyhow 错误、只剩上游转储，
+我大概又会去别处找原因；现在它自己说"本轮没出判定"，一步就定位到自己的断言。
+（`5ea7a15`）
+
+# 片I（2026-10-06）：门第二次抓到我自己写错的账
+
+## 先撤回一句假话（片E 的分诊表有一行是编的）
+
+片E 我写：「`parse_finding != → ==` 由 `mir.rs` 新单测 `expect_file_guard_splits_three_ways` 杀」，
+提交信息（`502a77f`）也这么说。**那个单测从来没有存在过**：验证循环里我跑了一次
+`git checkout -- crates/adv-cli/src/mir.rs` 还原变异，顺手把还没提交的测试一起抹掉了，
+而我之后只看了"测试全绿"就落笔。本轮实测坐实：
+
+```
+$ git log -S"expect_file_guard_splits_three_ways" -- crates/adv-cli/src/mir.rs
+（空）
+$ grep -c expect_file_guard_splits_three_ways HEAD 版 mir.rs
+0
+```
+
+真实归属是：`!= → ==` 由 `deep_cargo.rs` 的金样测试杀掉（本轮日志
+`cargo_mode_golden_freezes_the_lines … FAILED`、`cargo_mode_reports_cross_module_flows… FAILED`），
+不是本包单测。历史提交里的这句话不能改（已推送），就在这里点名作废。
+
+**同一个坑一天内踩两次**（片E 一次、本片补测试时又一次 `git checkout --` 把我新写的测试抹掉）：
+凡是"手打变异 → 验证 → 还原"的循环，还原必须用**逐字节反向替换**或先提交，不能用 `git checkout --`。
+
+## 本轮 6 个新增未捕获键的分诊（门报红，HEAD 5ea7a15）
+
+门自己的话：`变异面 总=409 捕获=336 未捕获=34 unviable=36` + `mutants: 红（6 条）`。
+
+| 键 / 存活变异 | 性质 | 处置 |
+|---|---|---|
+| `mir.rs::parse_finding`（`&& → \|\|`） | 断言弱：没有测试喂"同文件名、不同目录"这个形状，而只有它能区分 `&&`/\|\| | 补本包三态单测（第二态专杀此变异） |
+| `mir.rs::toolchain_bin`（换成空路径） | 断言弱：深轨找 DLL 的那步没人看 | 补单测：返回的 bin 目录必须存在且含 rustc |
+| `adv-cli/main.rs::scan`（`\|\|` → `&&`） | 断言弱：`--exclude` 排除面没有测试 | 补 report_counts 同族断言 |
+| `xtask/main.rs::emit`（`== → !=`） | 断言弱：测试只读合并流，分不清 stdout/stderr | 补流别断言（绿→stdout；红/判不了→stderr） |
+| `xtask/main.rs::gate_run`（3 条） | 半归属：`vec![]` 在干净树上是**等价变异**；`""`/`xyzzy` 可杀 | 用交叉核对钉（`gate` 的裁决必须与单独跑 `god`/`suppress` 的结果一致） |
+| `xtask/god.rs::write_baseline`（换成 Ok(())） | 断言弱：没人验证它真写了文件、硬阈真能拦住 | 补本包单测（临时根目录建基线 + 硬阈拒写） |
