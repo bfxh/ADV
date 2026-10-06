@@ -467,10 +467,49 @@ msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两
 2. **sysroot 必须注入**：rustc 缺省按**自身 exe 位置**推 sysroot，而驱动 exe 在
    `target/debug`，那儿没有 `lib/rustlib/<host>/lib` ⇒ 找不到 `core`。cargo 不传
    `--sysroot`，而 `run_compiler` 会丢掉 args[0]（`rustc_driver_impl/src/lib.rs:183`），
-   所以注入位置是 1（`wrapper_args`）。
+   所以注入位置是 1（`forwarded_args`）。
 
+---
 
+# 片B1（c76b1f1，2026-10-06）：cargo 包装器直通档——深轨第一次扫真实 crate
 
+> 交付：驱动加直通档（`ADV_MIR_WRAPPER=1` 触发，`--as-rustc` 留给测试），发现按 crate 落
+> `<crate>.jsonl` 且**自带文件名**；工件照常产出（`Compilation::Continue`）。
+> 复现：`RUSTC_WORKSPACE_WRAPPER="$PWD/target/debug/adv-ast-rust-driver.exe" ADV_MIR_WRAPPER=1
+> ADV_MIR_RULES="$PWD/rules" ADV_MIR_OUT=D:/tmp/mir-out cargo build -p adv-cli`。
+> 设计与两处被实测改掉的假设写在 `docs/PLAN-deep-track.md` §2。
 
+## 深轨第一次碰真实代码就炸出的真缺陷
 
+`optimized_mir` 对 const 上下文 panic：断言在 `rustc_mir_transform/src/lib.rs:790-797`，
+按 `tcx.hir_body_const_context` 分派，`Some(非 ConstFn)` 直接炸。实测炸在 `adv-core` 的
+`Const { allow_const_fn_promotion: true }`。改法照 rustc 自己的 `instance_mir`
+（`rustc_middle/src/ty/mod.rs:1955-1977`）：新增 `mir_body()`，const 项/static/anon const 走
+`mir_for_ctfe`，`const fn` 仍走优化版；三处取 body（`main.rs::call_sites`、
+`taint_reach::build_plan`、`taint_reach::analyze`）统一走它。
 
+## 一条 0 发现是**对的**，不是漏报
+
+`adv-cli` 那轮 `adv.jsonl` 是 0 字节。核对后确认成因：`crates/adv-cli/src/mir.rs:59` 用的是
+`std::env::var_os`，而规则源点写的是 `std::env::var`（`rules/rust/taint-command.yaml:11`）
+⇒ 不是同一条 callee 路径，不该命中。**先量再判**，别把"符合规则的 0"记成"深轨漏报"。
+
+## 一个观察面空洞（记账，归片B2 补）
+
+`mir_body` 这轮只生成 1 条变异且判 Unviable，而它的 `mir_for_ctfe` 分支**没有任何测试覆盖**——
+它是我在真实 crate 上撞出来的，新增的三条测试用的夹具（`taint_direct.rs`）没有 const 上下文。
+这正是片A6 刚处理过的那一类："分支观察不到 ⇒ 门对它的态度是沉默"。
+⇒ 片B2 要在带 const 上下文的真实 crate 上跑一遍直通档，把这条臂变成有实测证据的面
+（顺带就是三方账的输入面）。
+
+## 本片重放记录
+
+`cargo fmt --all --check` 0 · `cargo clippy --workspace --all-targets -- -D warnings` 干净 ·
+`cargo test --workspace` 70 条全过（含本片新增 3 条：工件+jsonl、缺环境变量判红、三个纯判据）·
+`xtask gate` 绿 · `xtask mir` 绿 · god 基线 388 → 406（新增 18 面、涨 12、降 1、移除 0）。
+
+`xtask mutants --base 6201ea4`（不带 `--update`，HEAD=`c76b1f1`，TMP 在 D 盘）：
+总 **316** / 捕获 **253** / 未捕获条目 30 / unviable 32，**门绿**。
+双向漂移核对：本轮 missed 键 11 条 == 基线 11 条 ⇒ 新债 0、可划账 0、不可验证 0。
+本片新代码的 6 个键（`is_wrapper`、`forwarded_args`、`crate_output_name`、`mir_body` 之外的
+`span_file`、`finding_json`、`emit_wrapper`）全部进可验证集且**无一留在 missed** ⇒ 都被杀掉。
