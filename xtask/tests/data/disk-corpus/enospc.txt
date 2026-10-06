@@ -1,0 +1,14 @@
+# 本文件是 2026-10-05 实测那一轮盘满失败的**日志重建**（不是那一轮的原始文件）。
+
+原始产物目录 `target/mutants-out/` 在同一天的复跑中被覆盖，盘满日志没能留档。
+以下两行是从 `eval/FP-LEDGER-m2s4.md` 记录的实测原话逐字取出的（该轮 C 盘剩 4.1GB）：
+
+```
+error: linking with `x86_64-w64-mingw32-gcc` failed: exit code: 1
+ld.exe: final link failed: No space left on device
+```
+
+格式（首行变异名 + `*** result:` 结尾）照 `mutants.out/log/` 下的真产物形态。
+配对的 `outcomes.json` 条目取自同一天真实运行的 Unviable 条目，因此**场景是真的、
+日志文本是重建的**——这条判据要钉的是"日志里出现盘满签名就必须判红"，
+签名文本本身有账可查。

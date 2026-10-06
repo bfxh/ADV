@@ -1,0 +1,97 @@
+
+*** xtask/src/mutants.rs:180:5: replace read_baseline -> Result<Baseline> with Ok(Default::default())
+
+*** mutation diff:
+--- xtask/src/mutants.rs
++++ replace read_baseline -> Result<Baseline> with Ok(Default::default())
+@@ -172,11 +172,10 @@
+         .collect();
+     keys.sort();
+     keys.dedup();
+     Ok(keys)
+ }
+ 
+ /// 读基线（缺失即红——不允许"没有基线"当成"没有债"）。
+ fn read_baseline(path: &Path) -> Result<Baseline> {
+-    let raw = std::fs::read_to_string(path).with_context(|| format!("读 {}", path.display()))?;
+-    Ok(serde_json::from_str(&raw)?)
++    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+ }
+
+
+*** C:\\Users\\lbx13\\.rustup\\toolchains\\1.99.0-x86_64-pc-windows-gnu\\bin\\cargo.exe test --no-run --verbose --package=xtask@0.1.0
+       Fresh shlex v2.0.1
+       Fresh find-msvc-tools v0.1.14
+       Fresh unicode-ident v1.0.26
+       Fresh memchr v2.8.3
+       Fresh equivalent v1.0.2
+       Fresh hashbrown v0.17.1
+       Fresh itoa v1.0.18
+       Fresh regex-syntax v0.8.11
+       Fresh streaming-iterator v0.1.9
+       Fresh windows-link v0.2.1
+       Fresh unsafe-libyaml v0.2.11
+       Fresh ryu v1.0.23
+       Fresh adv-core v0.1.0 (D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\crates\adv-core)
+       Fresh cc v1.6.0
+       Fresh indexmap v2.14.2
+       Fresh aho-corasick v1.1.5
+       Fresh windows-sys v0.61.2
+       Fresh winnow v1.0.4
+       Fresh winnow v0.7.15
+       Fresh toml_writer v1.1.2+spec-1.1.0
+       Fresh zmij v1.0.23
+       Fresh serde_core v1.0.229
+       Fresh tree-sitter-language v0.1.8
+       Fresh regex-automata v0.4.18
+       Fresh winapi-util v0.1.11
+       Fresh proc-macro2 v1.0.107
+       Fresh anyhow v1.0.104
+       Fresh toml_parser v1.1.3+spec-1.1.0
+       Fresh regex v1.13.1
+       Fresh serde_json v1.0.151
+       Fresh toml_datetime v0.7.5+spec-1.1.0
+       Fresh quote v1.0.47
+       Fresh serde_spanned v1.1.1
+       Fresh same-file v1.0.6
+       Fresh syn v3.0.6
+       Fresh tree-sitter-rust v0.24.2
+       Fresh tree-sitter-python v0.23.6
+       Fresh walkdir v2.5.0
+       Fresh toml v0.9.12+spec-1.1.0
+       Fresh syn v2.0.119
+       Fresh serde_derive v1.0.229
+       Fresh serde v1.0.229
+       Fresh tree-sitter v0.25.10
+       Fresh serde_yaml_ng v0.10.0
+       Fresh adv-parse v0.1.0 (D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\crates\adv-parse)
+       Fresh adv-rules v0.1.0 (D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\crates\adv-rules)
+       Fresh adv-ast-rust v0.1.0 (D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\crates\adv-ast-rust)
+       Dirty xtask v0.1.0 (D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\xtask): the file `xtask\src\mutants.rs` has changed (13435706246.466915800s, 6s after last build at 13435706240.415635300s)
+   Compiling xtask v0.1.0 (D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\xtask)
+     Running `C:\Users\lbx13\.rustup\toolchains\1.99.0-x86_64-pc-windows-gnu\bin\rustc.exe --crate-name xtask --edition=2024 'xtask\src\lib.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 '--warn=clippy::all' --deny=unsafe_code --warn=missing_docs --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=e1a37efa315341bb -C extra-filename=-cca22177a56fc506 --out-dir 'D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps' -L 'dependency=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps' --extern 'adv_ast_rust=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_ast_rust-5d3fdaea2a9b9e03.rlib' --extern 'adv_core=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_core-1e3ce840fea14ceb.rlib' --extern 'adv_parse=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_parse-520119bf3080fb5b.rlib' --extern 'adv_rules=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_rules-7e9104025590522a.rlib' --extern 'anyhow=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libanyhow-5e4f5368d78a621c.rlib' --extern 'proc_macro2=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libproc_macro2-1d9e913f762849cd.rlib' --extern 'serde=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libserde-0498b47a6e6f2c85.rlib' --extern 'serde_json=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libserde_json-52a8d759e1a2f539.rlib' --extern 'syn=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libsyn-d4d56ce58f5d1079.rlib' --extern 'toml=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libtoml-fa26ad236ec960f0.rlib' --extern 'walkdir=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libwalkdir-939618917c4e718d.rlib' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-7f9b7df95d0e77f1\out' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-python-4058b75e5d64b291\out' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-rust-51a48032834e4880\out' -L 'native=C:\Users\lbx13\.rustup\toolchains\1.99.0-x86_64-pc-windows-gnu\lib/rustlib\x86_64-pc-windows-gnu\lib'`
+     Running `C:\Users\lbx13\.rustup\toolchains\1.99.0-x86_64-pc-windows-gnu\bin\rustc.exe --crate-name xtask --edition=2024 'xtask\src\lib.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 '--warn=clippy::all' --deny=unsafe_code --warn=missing_docs --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=c4177d2b79508f20 -C extra-filename=-cb11cf8bef76b08b --out-dir 'D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps' -L 'dependency=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps' --extern 'adv_ast_rust=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_ast_rust-5d3fdaea2a9b9e03.rmeta' --extern 'adv_core=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_core-1e3ce840fea14ceb.rmeta' --extern 'adv_parse=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_parse-520119bf3080fb5b.rmeta' --extern 'adv_rules=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_rules-7e9104025590522a.rmeta' --extern 'anyhow=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libanyhow-5e4f5368d78a621c.rmeta' --extern 'proc_macro2=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libproc_macro2-1d9e913f762849cd.rmeta' --extern 'serde=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libserde-0498b47a6e6f2c85.rmeta' --extern 'serde_json=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libserde_json-52a8d759e1a2f539.rmeta' --extern 'syn=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libsyn-d4d56ce58f5d1079.rmeta' --extern 'toml=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libtoml-fa26ad236ec960f0.rmeta' --extern 'walkdir=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libwalkdir-939618917c4e718d.rmeta' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-7f9b7df95d0e77f1\out' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-python-4058b75e5d64b291\out' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-rust-51a48032834e4880\out' -L 'native=C:\Users\lbx13\.rustup\toolchains\1.99.0-x86_64-pc-windows-gnu\lib/rustlib\x86_64-pc-windows-gnu\lib'`
+error[E0277]: the trait bound `mutants::Baseline: std::default::Default` is not satisfied
+   --> xtask\src\mutants.rs:180:8
+    |
+180 |     Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+    |        ^^^^^^^^^^^^^^^^^^ the trait `std::default::Default` is not implemented for `mutants::Baseline`
+    |
+help: consider annotating `mutants::Baseline` with `#[derive(Default)]`
+    |
+ 29 + #[derive(Default)]
+ 30 | struct Baseline {
+    |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `xtask` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `C:\Users\lbx13\.rustup\toolchains\1.99.0-x86_64-pc-windows-gnu\bin\rustc.exe --crate-name xtask --edition=2024 'xtask\src\lib.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 '--warn=clippy::all' --deny=unsafe_code --warn=missing_docs --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=c4177d2b79508f20 -C extra-filename=-cb11cf8bef76b08b --out-dir 'D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps' -L 'dependency=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps' --extern 'adv_ast_rust=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_ast_rust-5d3fdaea2a9b9e03.rmeta' --extern 'adv_core=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_core-1e3ce840fea14ceb.rmeta' --extern 'adv_parse=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_parse-520119bf3080fb5b.rmeta' --extern 'adv_rules=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_rules-7e9104025590522a.rmeta' --extern 'anyhow=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libanyhow-5e4f5368d78a621c.rmeta' --extern 'proc_macro2=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libproc_macro2-1d9e913f762849cd.rmeta' --extern 'serde=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libserde-0498b47a6e6f2c85.rmeta' --extern 'serde_json=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libserde_json-52a8d759e1a2f539.rmeta' --extern 'syn=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libsyn-d4d56ce58f5d1079.rmeta' --extern 'toml=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libtoml-fa26ad236ec960f0.rmeta' --extern 'walkdir=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libwalkdir-939618917c4e718d.rmeta' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-7f9b7df95d0e77f1\out' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-python-4058b75e5d64b291\out' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-rust-51a48032834e4880\out' -L 'native=C:\Users\lbx13\.rustup\toolchains\1.99.0-x86_64-pc-windows-gnu\lib/rustlib\x86_64-pc-windows-gnu\lib'` (exit code: 1)
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `xtask` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `C:\Users\lbx13\.rustup\toolchains\1.99.0-x86_64-pc-windows-gnu\bin\rustc.exe --crate-name xtask --edition=2024 'xtask\src\lib.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 '--warn=clippy::all' --deny=unsafe_code --warn=missing_docs --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=e1a37efa315341bb -C extra-filename=-cca22177a56fc506 --out-dir 'D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps' -L 'dependency=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps' --extern 'adv_ast_rust=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_ast_rust-5d3fdaea2a9b9e03.rlib' --extern 'adv_core=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_core-1e3ce840fea14ceb.rlib' --extern 'adv_parse=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_parse-520119bf3080fb5b.rlib' --extern 'adv_rules=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libadv_rules-7e9104025590522a.rlib' --extern 'anyhow=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libanyhow-5e4f5368d78a621c.rlib' --extern 'proc_macro2=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libproc_macro2-1d9e913f762849cd.rlib' --extern 'serde=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libserde-0498b47a6e6f2c85.rlib' --extern 'serde_json=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libserde_json-52a8d759e1a2f539.rlib' --extern 'syn=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libsyn-d4d56ce58f5d1079.rlib' --extern 'toml=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libtoml-fa26ad236ec960f0.rlib' --extern 'walkdir=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\deps\libwalkdir-939618917c4e718d.rlib' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-7f9b7df95d0e77f1\out' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-python-4058b75e5d64b291\out' -L 'native=D:\tmp\adv-mut\cargo-mutants-ADV-UGl4yY.tmp\target\debug\build\tree-sitter-rust-51a48032834e4880\out' -L 'native=C:\Users\lbx13\.rustup\toolchains\1.99.0-x86_64-pc-windows-gnu\lib/rustlib\x86_64-pc-windows-gnu\lib'` (exit code: 1)
+
+*** result: Failure(101)

@@ -236,19 +236,30 @@ fn mutants_key_extraction_matches_cargo_mutants_real_output() {
 fn canary_disk_full_in_unviable_log_is_named_while_compile_error_stays_clear() {
     // 语料见 xtask/tests/data/disk-corpus/README.md：三条都是真产物逐字切片，
     // 只有盘满那条的日志是重建（原始文件被下一轮覆盖，签名文本有账可查）。
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/disk-corpus");
-    let raw = std::fs::read_to_string(root.join("outcomes.json")).expect("读盘满语料");
+    // 语料在仓里摊平存、用 .txt 后缀、测试期拼进临时目录，绕开两条实测到的坑：
+    // ① cargo-mutants 的 copy_tree.rs:109 无条件跳过名为 `mutants.out` 的目录，随仓建
+    //    这层目录会让 scratch 树里缺语料（实测：未变异树自测即失败，门如实中止）；
+    // ② 本仓 .gitignore 第 6 行的 *.log 不收日志文件，用 .log 存语料等于没提交，
+    //    CI 上 cargo test --workspace 会缺文件。
+    let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/disk-corpus");
+    let raw = std::fs::read_to_string(corpus.join("outcomes.json")).expect("读盘满语料");
     let parsed: serde_json::Value = serde_json::from_str(&raw).expect("语料应为 JSON");
 
-    // 退化守卫：两个日志真在盘上、签名各在其位，否则"读不到就跳过"会让本测试空转。
-    let enospc = root
-        .join("mutants.out")
-        .join("log/reconstructed-2026-10-05-enospc.log");
-    let compile = root
-        .join("mutants.out")
-        .join("log/xtask__src__mutants.rs_line_180_col_5.log");
-    let enospc_text = std::fs::read_to_string(&enospc).expect("盘满语料日志缺失");
-    let compile_text = std::fs::read_to_string(&compile).expect("对照日志缺失");
+    let out_dir = std::env::temp_dir().join(format!(
+        "adv-disk-corpus-{}-{}",
+        std::process::id(),
+        file!().replace(['/', '.', '\\'], "_")
+    ));
+    let log_dir = out_dir.join("mutants.out").join("log");
+    std::fs::create_dir_all(&log_dir).expect("建临时产物面");
+    let enospc = log_dir.join("reconstructed-2026-10-05-enospc.log");
+    let compile = log_dir.join("xtask__src__mutants.rs_line_180_col_5.log");
+    std::fs::copy(corpus.join("enospc.txt"), &enospc).expect("摆盘满语料日志");
+    std::fs::copy(corpus.join("compile-error.txt"), &compile).expect("摆对照日志");
+
+    // 退化守卫：日志里真有/真没有签名，否则判据"读不到就跳过"会让本测试空转。
+    let enospc_text = std::fs::read_to_string(&enospc).expect("读盘满日志");
+    let compile_text = std::fs::read_to_string(&compile).expect("读对照日志");
     assert!(
         disk_failure_signature(&enospc_text).is_some(),
         "语料退化：盘满日志里已找不到签名"
@@ -259,7 +270,8 @@ fn canary_disk_full_in_unviable_log_is_named_while_compile_error_stays_clear() {
         "对照退化：真编译错误日志里混进了盘满签名"
     );
 
-    let hits = unviable_disk_failures(&parsed, &root);
+    let hits = unviable_disk_failures(&parsed, &out_dir);
+    let _ = std::fs::remove_dir_all(&out_dir);
     assert_eq!(
         hits.len(),
         1,
@@ -273,6 +285,11 @@ fn canary_disk_full_in_unviable_log_is_named_while_compile_error_stays_clear() {
     assert!(
         hits[0].contains("No space left on device"),
         "报错要带上命中的原话：{}",
+        hits[0]
+    );
+    assert!(
+        hits[0].contains("mutants.out"),
+        "报错要能让人顺路找到日志：{}",
         hits[0]
     );
 }
