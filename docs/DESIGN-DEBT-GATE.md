@@ -71,12 +71,17 @@
 
 ## 5. 落在"请求合并那一层"
 
-- **CI**：`core.yml` 加一步 `Debt gate`；同一把尺挂在 `scripts/local_gate.py` 的 fast 档 ⇒ pre-commit 自动覆盖。
+- **CI**：`core.yml` 加一步 `Debt gate`；同一把尺挂在 `scripts/local_gate.py` 的 fast 档
+  （fast 档只有在钩子装上才进提交路径——实测本机未装，见本节末与 DD-0008）。
 - **必需检查**：branch protection 把它设为合并前必需——⚠️ 这是改共享状态，
   要单独授权；命令给出来但默认不执行。
 - **PR 模板**（本仓现在没有 `.github/PULL_REQUEST_TEMPLATE.md`，新建）两栏：
   ① 这次碰到试验面了吗？登记/引用了哪条 DD？② 处置了哪条旧债（写 DD-id）？
-- **提交路径**：`.githooks` 已启用 ⇒ 同一把尺也挂在 pre-commit，让"忘了"在提交时炸而不是合并时。
+- **提交路径**：⚠️ 2026-10-06 实测**未生效**——`git config core.hooksPath` 在本工作副本的任何
+  配置域里都没有值，`.git/hooks/` 只剩 `.sample`。`.githooks/pre-commit` 是**版本化的文件**，
+  不等于**装好的钩子**；今天这道门的牙齿只在 CI（合并层）与手工跑 `local_gate --fast` 时有。
+  不顺手 `git config` 一下是因为快档本身还红着（DD-0007），装了会把手艺全钉住——先把
+  "声称已设"这句话改掉，缺口按 DD-0008 限期处置。
 - 文档：本文件 + `AGENTS-ADV.md` 一行摘要（门的存在理由要写在Agent会读的地方）。
 
 ## 6. 拍板结果（2026-10-06，用户选定三格全 A）
@@ -92,14 +97,16 @@
 判据落在 **Python 侧**（与既有 26 道门同层）而不是 `xtask debt`：pre-commit 里跑 Rust
 要先编译，而这道门只需要 JSON + git 计数。放松那一半仍在 Rust 侧（god 计量）。
 
-- `scripts/debt_gate.py`：七条判据 D1–D7——必填缺 / `why_from_design` 空 / 限期 > 10 /
-  **SHA 在 git 里不存在** / 超期 / id 重复 / 销账无 evidence。纯判据函数接受注入的
+- `scripts/debt_gate.py`：八条判据 D1–D8——必填缺 / `why_from_design` 空 / 限期 > 10 /
+  **SHA 在 git 里不存在** / 超期 / id 重复 / 销账无 evidence /
+  **登记表自带的 `required_fields` 少开门内置下限**（最后一条是补的：D1 的尺子挂在数据文件上，
+  删短它就等于把 D1 关掉——判据能被数据放宽的门不算门）。纯判据函数接受注入的
   `counter`/`exists`，所以"超期"是不是真来自 commit 计数可被单独测（`tests/test_debt_gate.py`）。
 - `spec/maturity.json`：试验面 pattern 登记（`why`/`guards` 空即红；`**` 至少吃一层 ⇒
   放松不许比登记字面更宽）。
 - `xtask/src/maturity.rs` + `xtask god`：跳过登记的 pattern——②的实际生效点。
 - `.github/workflows/core.yml` 的 `Debt gate` 一步 + `scripts/local_gate.py` fast 档
-  （⇒ `.githooks/pre-commit` 自动覆盖，不另挂一次）。
+  （钩子装了才顺带进 pre-commit；本机实测未装 ⇒ 当前生效面 = CI + 手工跑，见 DD-0008）。
 - `.github/PULL_REQUEST_TEMPLATE.md`：两栏（碰到试验面？处置了哪条 DD？）+ 证据栏。
 
 ## 7.1 重录基线的纪律（本次实测逼出来的，见 DD-0006）

@@ -82,12 +82,23 @@
       "id": "DD-0007",
       "surface": "scripts/local_gate.py --fast（伞仓快档门链）",
       "kind": "design",
-      "defect": "快档默认红：实测 30 步里 15 步失败（secrets / naming / claim / data-flow / typos / gitleaks / god / dupe / lint / selftest 等）。本会话所在的 M2 线只跑 xtask gate，于是【红】变成背景噪声——人人学会跳过它，门就失去牙齿。",
+      "defect": "快档默认红：同会话内两次实测 30 步里 13–15 步失败（17:47 那次为 13 步：secrets / naming / data-flow / secrets-history / audit-freshness / tool-evals / cli-golden / mcp-surface / selftest / dupe / lint / typos / gitleaks）。本会话所在的 M2 线只跑 xtask gate，于是【红】变成背景噪声——人人学会跳过它，门就失去牙齿。",
       "why_from_design": "伞仓与 adv-rewrite 两条工作线共用一套 python 门链，却没有【这条线该看哪几步】的分档层：M2 线的收尾重放是 fmt/clippy/test/gate/mir/mutants，python 侧那 15 步红既不是它引入、也没人负责清。缺的是门链按工作线分组这一层设计，不是某条规则判错。",
       "origin": "1fc62d3",
       "since": "f8cbdaf",
       "due_after_tasks": 10,
       "guards": "可复算的归属证据：把本片新增的两个 py 文件挪开后 lint-gate 仍报同样的 6 条增长；naming/typos 命中里 grep 本片新文件为 0；local_gate.py 的 C901 命中在 main()，本片没碰它。"
+    },
+    {
+      "id": "DD-0008",
+      "surface": "提交路径（.githooks/pre-commit）与 README/docs 关于它的陈述",
+      "kind": "design",
+      "defect": "三处文档（README.md 双门段、docs/DESIGN-DEBT-GATE.md §5/§7、docs/STRESS-AND-PR-GATES.md §2 表）都写着 core.hooksPath 已设 / 钩子已启用 ⇒ 门真在提交路径上。2026-10-06 实测：git config --get core.hooksPath 无值、git config --list --show-origin 全域无 hook 项、.git/hooks/ 只剩 .sample ⇒ 提交路径上一道门都没装。\"版本化的钩子文件\"被当成\"装好的钩子\"，是本仓最贵的一类假绿：门看着在，其实不在。",
+      "why_from_design": "门链设计把本地生效面写成一次性的手工安装（git config core.hooksPath .githooks），却没给这一步配自证：既没有\"钩子是否真在跑\"的可判据，也没有安装动作的落盘凭证（hooksPath 是机器级 .git/config，不进 git）。于是文档陈述与生效面之间没有任何东西把它们钉在一起——文档漂移是必然，不是偶发。",
+      "origin": "13afeae",
+      "since": "25c51c9",
+      "due_after_tasks": 10,
+      "guards": "本次只把陈述改成实测口径并指向本条债；生效面本身仍无判据（缺的正是这条债要补的：一道能判\"提交路径当前装没装门\"的检查 + 快档不再恒红后才允许装）。"
     }
   ],
   "retired_fields": [

@@ -38,7 +38,9 @@ Bootstrap 95% 区间 → 三态**（`pass` / `inconclusive` 噪声带不算真�
 **门清单 37 步**：本地门 37 步（快档 30 步 ~21s）+ pytest 内门套件，CI 与本地同源。
 **自提交 PR 的双门**：**key 门**（明文红线：工作树 + 历史 diff 两路）与**路径门**
 （`scripts/path_gate.py`：无符号链接 / 文件名卫生 / ≤1MB / 无越界写路径 / 无软链接逃逸），
-两者都在 `.githooks/pre-commit` 的快门上（`core.hooksPath=.githooks` 已设）。
+两者都写进了 `.githooks/pre-commit` 的快门脚本，但**提交路径当前没装上**：2026-10-06 实测本
+工作副本 `git config core.hooksPath` 无值、`.git/hooks/` 只剩 `.sample` ⇒ 生效面是 CI 与
+`python scripts/local_gate.py --fast`（缺口按 `spec/design-debt.json` 的 DD-0008 限期处置）。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
 一条命令跑完与 CI **同一套脚本**的全部门禁——快档 30 步（secrets / self-attack /

@@ -35,7 +35,7 @@ key 门（明文红线）早就在提交路径上，**路径门**本轮新建并
 
 | 门 | 内容 | 位置 | 状态 |
 |---|---|---|---|
-| **key 门** | 明文红线两路：`ci_secrets_gate.py`（工作树）+ `secrets_history.py`（近 50 提交 diff） | 快档 + CI | ✅ 已有；`git config core.hooksPath=.githooks` **已设** ⇒ 真在我的提交路径上 |
+| **key 门** | 明文红线两路：`ci_secrets_gate.py`（工作树）+ `secrets_history.py`（近 50 提交 diff） | 快档 + CI | ✅ 已有；~~`git config core.hooksPath=.githooks` **已设** ⇒ 真在我的提交路径上~~ **2026-10-06 复核作废**：本工作副本 `core.hooksPath` 无值、`.git/hooks/` 只剩 `.sample` ⇒ 提交路径没装钩子，生效面 = CI + 手工跑 `local_gate --fast`（DD-0008） |
 | **路径门** | `scripts/path_gate.py`：P1 无符号链接 / P2 文件名卫生（`..`、绝对路径形态、Windows 设备名、结尾空格点、控制字符）/ P3 单文件 ≤1MB / P4 源码越界写路径（`..` 与写原语同现）/ P5 工作树无软链接逃逸 | 快档（提交前）+ CI（core.yml 新步）+ `test_s124` needle 锁 | ✅ 本轮新建 |
 
 **为什么路径门不是明文门的重复**：本仓是"80 个工具在大量目录上读写"的项目，逃逸面在**路径**

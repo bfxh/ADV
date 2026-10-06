@@ -6,7 +6,7 @@
 
 判据两头都有（沿用 test_s194_claim_gate 的三段式）：
 1. **真仓自检**：今天这份 registry 必须绿，且绿得有内容（在册 5 条，不是空表蒙过）；
-2. **金丝雀红**：D1–D7 每条各造一个反例，必须红且点名到 id；
+2. **金丝雀红**：D1–D8 每条各造一个反例，必须红且点名到 id；
 3. **fail-closed**：registry 缺失 / 空 entries / 坏 pattern 一律红，不静默放行。
 
 计时判据用注入的 `counter`/`exists` 走，不 mock git ⇒ 能证明"超期"真的来自 commit 计数。
@@ -90,6 +90,16 @@ def test_missing_required_field_is_red_and_named():
         assert hit, f"缺 {field} 没判红：{fails}"
         want = "<无 id" if field == "id" else "DD-9001"
         assert want in hit[0], f"没点名到条目：{hit[0]}"
+
+
+def test_registry_cannot_shrink_its_own_required_fields():
+    """D8：登记表把必填字段删短等于把 D1 关掉——不拦的话"改数据"就能松门。"""
+    fails = G.check_entries(
+        healthy(), [], required=["id", "since"], counter=lambda s: 0, exists=lambda s: True
+    )
+    hit = [f for f in fails if f.startswith("D8")]
+    assert hit, f"required_fields 缩水没判红：{fails}"
+    assert any("why_from_design" in f for f in hit), f"要点名缺的那一项：{hit}"
 
 
 def test_empty_design_cause_is_red():

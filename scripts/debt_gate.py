@@ -13,7 +13,9 @@
      本门作者 2026-10-06 就连着写错过两次，这条判据是那次教训的固化）；
   D5 超期即红：`git rev-list --count <since>..HEAD > due_after_tasks`；
   D6 id 唯一，且不许同时出现在册与已退役两处；
-  D7 已退役条目必须带非空 `evidence`——销账要有交代，不许一删了之。
+  D7 已退役条目必须带非空 `evidence`——销账要有交代，不许一删了之；
+  D8 登记表自带的 `required_fields` 不许少开门内置下限——否则"把必填字段删掉"
+     就等于把 D1 关掉（判据被登记表自己放宽，是这类门最常见的死法）。
 
 计时口径：`since` = 登记那次的 commit（既不往前倒推里程，也不许重开刷新计时）；
 `origin` = 设计成因所在的 commit（只追溯、不计时）。
@@ -105,7 +107,11 @@ def check_entries(entries, retired, *, required, counter, exists):
     不读文件、不调 git ⇒ 每条判据都有对应的反向用例（少一个字段、超期、编造的 SHA
     各自要能单独红）。
     """
-    fails = []
+    fails = [
+        f"D8 required_fields 少了门内置下限：{f}（登记表不许自行放宽必填）"
+        for f in REQUIRED
+        if f not in required
+    ]
     seen = set()
     for seq, e in enumerate(entries, 1):
         eid = e.get("id") or f"<无 id #{seq}>"
