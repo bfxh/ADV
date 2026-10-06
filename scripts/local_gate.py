@@ -25,7 +25,9 @@
 要跑就设 `UNIFIED_RX_TIMING_GATES=1`（拿独占锁时），CI 那边逐条显式调用、不受本表档位影响 ⇒ 覆盖不丢。
 `cli-bench` 原本一步混了"输出金标准 + 计时"，已拆成 `cli-golden`（纯比对，永远跑）+ `cli-bench`（计时）。
 """
+import json
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -117,6 +119,34 @@ def _child_env(step_name):
     return env
 
 
+GATE_LINES_PATH = pathlib.Path(__file__).resolve().parent.parent / "spec" / "gate-lines.json"
+
+
+def load_gate_lines(path=GATE_LINES_PATH):
+    """读工作线归属表；返回 (lines dict, 违规文案列表)。
+
+    fail-closed 的三种情形都判红而不是"当没这回事"：
+      · 表不存在 ⇒ 门链在裸奔（谁都能说"那一步不归我管"却没人管）；
+      · 有步骤没人认领 ⇒ 新增步骤忘了登记，正是"门看着在其实不在"的形状；
+      · 表里写了不存在的步骤名 ⇒ 归属表与 STEPS 漂移（改了名字没同步，红比静默好）。
+    """
+    if not path.is_file():
+        return {}, [f"缺门链归属表 {path}（正常路径应是 spec/gate-lines.json——没有它每条线"
+                    f"都能说「那一步不归我管」，而没人管）"]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    lines = data.get("lines") or {}
+    problems = []
+    owned = set()
+    for entry in lines.values():
+        owned |= set(entry.get("steps") or [])
+    problems += [f"步骤无归属：{s}" for s in sorted({s for s, *_ in STEPS} - owned)]
+    problems += [f"归属表里的步骤名不存在于 STEPS：{s}" for s in sorted(owned - {s for s, *_ in STEPS})]
+    for name, entry in lines.items():
+        if not (entry.get("why") or "").strip():
+            problems.append(f"工作线 {name} 没写 why（凭什么管这些步要说清）")
+    return lines, problems
+
+
 def _step_budget_s():
     """单步时间预算：默认 3600s 沿用既有宽松口径（不许拿慢当回归）；env 可压小，
     用于演练这条超时路径本身（S208 的金丝雀就这么触发）。"""
@@ -149,13 +179,16 @@ def _run_step(name, argv, force_fail=None):
     return cp.returncode == 0, time.time() - t0, out
 
 
-def _skip_why(name, tier, want_fast, no_cargo, timing_ok, coverage_ok, only):
+def _skip_why(name, tier, want_fast, no_cargo, timing_ok, coverage_ok, only, line_steps=None):
     """返回 (动作, 说明)：动作 ∈ {"skip", "fail", "run"}——档位/选择器/工具链的跳过与硬失败。
 
     顺序承重：计时/覆盖率档判定必须在 `--fast` 档位过滤**之前**（否则被档位静默吃掉，
     `skipped` 里看不到——实测首版顺序反了，快档跑完 skipped=[] ⇒ 等于静默跳过）；
     fast 过滤要放行**显式开档**的 tier（否则"开开关"被 --fast 静默吞掉，金丝雀会空过——
     S172 补的洞）。skip 且 note 为 None = 纯过滤（不打印、不进 skipped）。
+
+    `line_steps`（DD-0007）是给定的工作线步骤集合 ⇒ 不在集合内的**纯过滤**。这不减轻什么：
+    不带 `--line` 时它是 None（全跑），而归属表本身由 `load_gate_lines` 做覆盖率核对。
     """
     if tier == "timing" and not timing_ok:
         return "skip", "计时档：需独占机器（设 UNIFIED_RX_TIMING_GATES=1，或交给 CI）"
@@ -165,6 +198,8 @@ def _skip_why(name, tier, want_fast, no_cargo, timing_ok, coverage_ok, only):
         return "skip", "覆盖率档：本机测量受限（设 UNIFIED_RX_COVERAGE_GATES=1，或交给 CI）"
     explicit_on = (tier == "timing" and timing_ok) or (tier == "coverage" and coverage_ok)
     if want_fast and tier != "fast" and not explicit_on:
+        return "skip", None
+    if line_steps is not None and name not in line_steps:
         return "skip", None
     if only is not None and name not in only:
         return "skip", None
@@ -188,10 +223,29 @@ def main(argv):
     for i, a in enumerate(argv):
         if a == "--only" and i + 1 < len(argv):
             only = {s.strip() for s in argv[i + 1].split(",") if s.strip()}
+    line = None
+    for i, a in enumerate(argv):
+        if a == "--line" and i + 1 < len(argv):
+            line = argv[i + 1]
+    lines, line_problems = load_gate_lines()
+    if line_problems:
+        for p in line_problems[:20]:
+            print(f"  ✗ {p}")
+        print(f"LOCAL-GATE FAIL 门链归属不完整（{len(line_problems)} 处，见 spec/gate-lines.json）")
+        return 1
+    line_steps = None
+    if line is not None:
+        if line not in lines:
+            print(f"LOCAL-GATE FAIL 未知工作线 {line!r}（在册：{sorted(lines)}）")
+            return 1
+        line_steps = set(lines[line]["steps"])
+        print(f"工作线 {line}：只跑这 {len(line_steps)} 步（其余步骤按归属表过滤；"
+              f"归属完整性已核对，默认档仍跑全表）")
     force_fail = os.environ.get("UNIFIED_RX_GATE_FORCE_FAIL")
     rows, failed, skipped = [], [], []
     for name, cmd, tier, why in STEPS:
-        act, note = _skip_why(name, tier, want_fast, no_cargo, timing_ok, coverage_ok, only)
+        act, note = _skip_why(name, tier, want_fast, no_cargo, timing_ok, coverage_ok, only,
+                              line_steps)
         if act != "run":
             if note:                       # 纯过滤（fast/only）不打印、不进 skipped
                 print(f"{'SKIP' if act == 'skip' else 'FAIL'} {name:12s} {note}")

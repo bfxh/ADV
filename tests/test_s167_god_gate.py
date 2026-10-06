@@ -97,3 +97,54 @@ def test_mask_handles_lifetimes_and_byte_literals():
     js = "function f() {\n  var a = '}';\n  var b = '{';\n  return 1;\n}\n"
     assert [m for m in gg.brace_metrics(js, js=True) if m[2] == "fn"] == [("f", 5, "fn")], \
         gg.brace_metrics(js, js=True)
+
+
+def _git_repo(tmp_path):
+    """建一个最小 git 仓（不用 commit——`ls-files --others --ignored` 无需索引历史）。"""
+    import subprocess
+
+    r = subprocess.run(["git", "init", "-q", str(tmp_path)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    return tmp_path
+
+
+def test_write_baseline_never_absorbs_gitignored_faces(tmp_path):
+    """DD-0006 的判据：一次 `--write-baseline` 不许把别人留下的临时件洗成基线。
+
+    这条不是假想：本机实测被 ignore 排除的面有 17,436 条（`RESEARCH/.tmp-*/` 之类），
+    旧版整表替换会把它们一并转正。现在它们既不进基线、也不判红，但**数量必须播报**——
+    看不见数目的过滤等于悄悄缩小度量面。
+    """
+    _git_repo(tmp_path)
+    (tmp_path / ".gitignore").write_text("scratch/\n", encoding="utf-8")
+    (tmp_path / "god.gate.json").write_text(json.dumps({"max_file_lines": 800}), encoding="utf-8")
+    (tmp_path / "kept.py").write_text("a = 1\n", encoding="utf-8")
+    junk = tmp_path / "scratch"
+    junk.mkdir()
+    (junk / "huge.py").write_text("\n".join(f"x{i} = {i}" for i in range(500)) + "\n",
+                                  encoding="utf-8")
+
+    cp = _run("--root", str(tmp_path), "--write-baseline")
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+    assert "门外未登记面" in cp.stdout and "1 条" in cp.stdout, cp.stdout
+    base = json.loads((tmp_path / "god-baseline.json").read_text(encoding="utf-8"))
+    assert list(base) == ["kept.py"], f"被 ignore 的面进了基线：{list(base)}"
+
+
+def test_write_baseline_names_added_and_dropped_keys(tmp_path):
+    """整表替换必须逐键点名：新增/移除/变大都要有名字，否则"重录"就是无条件覆盖。"""
+    _git_repo(tmp_path)
+    (tmp_path / "god.gate.json").write_text(json.dumps({"max_file_lines": 800}), encoding="utf-8")
+    (tmp_path / "a.py").write_text("a = 1\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("b = 1\n", encoding="utf-8")
+    assert _run("--root", str(tmp_path), "--write-baseline").returncode == 0
+
+    (tmp_path / "b.py").unlink()
+    (tmp_path / "c.py").write_text("c = 1\n", encoding="utf-8")
+    (tmp_path / "a.py").write_text("a = 1\n" * 12, encoding="utf-8")
+    cp = _run("--root", str(tmp_path), "--write-baseline")
+    out = cp.stdout
+    assert cp.returncode == 0, out + cp.stderr
+    assert "重录对账" in out, out
+    assert "新增 1" in out and "移除 1" in out and "行数变大 1" in out, out
+    assert "新增：c.py" in out and "移除：b.py" in out and "变大：a.py" in out, out

@@ -28,6 +28,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 
 DEFAULT_CFG = {
@@ -222,8 +223,37 @@ def brace_metrics(src: str, js: bool = False) -> list[tuple[str, int, str]]:
     return out
 
 
-def scan(root: pathlib.Path, cfg: dict) -> dict:
-    """返回 {relpath: {"file_lines": n, "max_fn_lines": m, "max_type_members": k, "hot": "名字"}}。"""
+def ignored_faces(root: pathlib.Path):
+    """`.gitignore` 排除的相对路径集。
+
+    返回 `(集合 | None, 状态, 说明)`：
+      · 状态 `ok` ⇒ 集合可用（可能是空集）；
+      · 状态 `no-repo` ⇒ 根目录根本不是 git 仓（测试用的 tmp 树）——不过滤，如实播报；
+      · 状态 `unknowable` ⇒ 在 git 仓里却问不出结果 ⇒ **`--write-baseline` 必须被拒**：
+        分不清"清点过的登记集"与"恰好有人在角落里留了垃圾"，写基线就是把噪声洗成基线。
+    """
+    cp = subprocess.run(
+        ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z"],
+        cwd=str(root),
+        capture_output=True,
+    )
+    if cp.returncode == 0:
+        names = frozenset(
+            p.decode("utf-8", "replace") for p in cp.stdout.split(b"\0") if p
+        )
+        return names, "ok", ""
+    err = cp.stderr.decode("utf-8", "replace").strip().replace("\n", " ")
+    if "not a git repository" in err:
+        return None, "no-repo", f"根目录不是 git 仓 ⇒ 不按 ignore 过滤（{err[:60]}）"
+    return None, "unknowable", f"git 问不出 ignore 清单 ⇒ 无法清点（{err[:100]}）"
+
+
+def scan(root: pathlib.Path, cfg: dict, skip: frozenset = frozenset()) -> dict:
+    """返回 {relpath: {"file_lines": n, "max_fn_lines": m, "max_type_members": k, "hot": "名字"}}。
+
+    `skip` = 被 .gitignore 排除的相对路径集（见 `ignored_faces`）：**门只管在册内容**，
+    否则一次 `--write-baseline` 就能把别人留下的临时件洗成基线（DD-0006 的实测成因）。
+    """
     files = {}
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in {".git", "node_modules", "target",
@@ -231,7 +261,7 @@ def scan(root: pathlib.Path, cfg: dict) -> dict:
         for fn in filenames:
             fp = pathlib.Path(dirpath) / fn
             rel = fp.relative_to(root).as_posix()
-            if not included(rel, cfg):
+            if not included(rel, cfg) or rel in skip:
                 continue
             try:
                 src = fp.read_text(encoding="utf-8", errors="replace")
@@ -330,6 +360,53 @@ def load_baseline(path: pathlib.Path) -> dict:
         sys.exit(2)
 
 
+def _scan_guarded(root: pathlib.Path, cfg: dict, will_write: bool):
+    """按 ignore 过滤后测量；返回 (files, 退出码或 None)。
+
+    单列成函数有两个理由：`main` 的复杂度已经贴着门自己的上限（C901>10 就是本门的红线），
+    以及"能不能清点"这件事只在这一处判定，别处不会漂移。
+    """
+    skip, status, note = ignored_faces(root)
+    if status == "unknowable" and will_write:
+        print(f"GOD-GATE FAIL: {note}\n  ⇒ 清点不出「在册面」就不许整表重录（DD-0006）")
+        return {}, 1
+    files = scan(root, cfg, frozenset(skip or ()))
+    if status == "ok":
+        print(f"门外未登记面（被 .gitignore 排除，不进基线也不判红）：{len(skip)} 条")
+    else:
+        print(f"（{note}）")
+    return files, None
+
+
+def _rerecord(files: dict, bpath: pathlib.Path) -> int:
+    """整表重录：先**逐键点名**再原子写入。
+
+    分成两个列表看是刻意的：`新增` 回答"这次放行了什么"，`移除`/`变大` 回答"旧账还在不在"。
+    片A5 给变异基线补过移除点名，这一侧（新增点名 + 垃圾不吸收）是 DD-0006 的那一半。
+    """
+    payload = json.dumps({k: {kk: v[kk] for kk in
+                              ("file_lines", "max_fn_lines", "max_type_members")}
+                          for k, v in sorted(files.items())},
+                         ensure_ascii=False, indent=1) + "\n"
+    old = load_baseline(bpath) if bpath.is_file() else {}
+    added = sorted(set(files) - set(old))
+    dropped = sorted(set(old) - set(files))
+    grown = sorted(k for k in set(old) & set(files)
+                   if old[k].get("file_lines", 0) < files[k]["file_lines"])
+    print(f"重录对账：基线 {len(old)} → {len(files)} 键"
+          f"（新增 {len(added)}、移除 {len(dropped)}、行数变大 {len(grown)}）")
+    for label, keys in (("新增", added), ("移除", dropped), ("变大", grown)):
+        for k in keys[:20]:
+            print(f"  - {label}：{k}")
+        if len(keys) > 20:
+            print(f"  - {label}：…另 {len(keys) - 20} 条（--list 看全表）")
+    tmp = bpath.with_suffix(bpath.suffix + ".tmp")
+    tmp.write_text(payload, encoding="utf-8")
+    os.replace(tmp, bpath)              # 原子替换：中断也不会留下半截基线
+    print(f"已写基线 {bpath}（{len(files)} 个文件）——此后只准减")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
@@ -343,7 +420,9 @@ def main() -> int:
     root = pathlib.Path(a.root).resolve()
     cfg = load_cfg(root, a.config)
     bpath = pathlib.Path(a.baseline) if a.baseline else root / cfg["baseline"]
-    files = scan(root, cfg)
+    files, rc = _scan_guarded(root, cfg, a.write_baseline)
+    if rc is not None:
+        return rc
     # 注意：**别在这里读基线**——`--write-baseline` 不需要旧基线，先读会让"基线坏了"变成自锁
     # （实测：一次中断写入把基线截断，于是连修复用的 --write-baseline 也被拒）。
     # 读取推迟到 evaluate 之前。
@@ -361,15 +440,7 @@ def main() -> int:
     if a.list:
         return 0
     if a.write_baseline:
-        payload = json.dumps({k: {kk: v[kk] for kk in
-                                  ("file_lines", "max_fn_lines", "max_type_members")}
-                              for k, v in sorted(files.items())},
-                             ensure_ascii=False, indent=1) + "\n"
-        tmp = bpath.with_suffix(bpath.suffix + ".tmp")
-        tmp.write_text(payload, encoding="utf-8")
-        os.replace(tmp, bpath)          # 原子替换：中断也不会留下半截基线
-        print(f"已写基线 {bpath}（{len(files)} 个文件）——此后只准减")
-        return 0
+        return _rerecord(files, bpath)
 
     base = load_baseline(bpath)          # 到这里才读（见上：写基线/列清单都不该被坏基线挡住）
     bad, grew, shrank = evaluate(files, base, cfg)

@@ -1,0 +1,52 @@
+{
+  "note": "门链按**工作线**分组（DD-0007 的处置）。为什么要有这张表：伞仓 python 产品线与 adv-rewrite 深轨线共用 30 步快档，而快档长期红 13 步——两边都不是自己的账，于是【红】变成背景噪声，人人学会跳过它，门就失去牙齿。分组不是把红藏起来：① 默认档（不带 --line）仍跑全部步骤，红照样红；② 本表由 local_gate 做覆盖率核对，任何步骤没有归属 ⇒ 直接判红，新增步骤忘了登记就红；③ 每条线的 why 要说清它凭什么管这些步。",
+  "lines": {
+    "adv-m2": {
+      "why": "深轨重写线（M2）真正改动的面：Rust 工作区 + 仓库卫生与账本类门。这些步红就是本线的账，收尾重放必须绿。",
+      "steps": [
+        "path-gate",
+        "debt-gate",
+        "arch-gate",
+        "claim-gate",
+        "name-ledger",
+        "deps-lock",
+        "bench-anchor",
+        "handoff-gate",
+        "god-gate",
+        "type-gate",
+        "quality-pact",
+        "cargo-test",
+        "clippy",
+        "coverage-gate"
+      ]
+    },
+    "umbrella-py": {
+      "why": "伞仓 python 产品面（工具/协议/评测/审计）与全仓文本卫生。当前红点集中在这里：RESEARCH 调研语料触发 naming/typos/dupe/lint，gitleaks 命中构建产物 *.o，其余是旧产品面的既有账——它们该被清，但清的人不是 M2 线。",
+      "steps": [
+        "secrets",
+        "secrets-history",
+        "gitleaks-gate",
+        "typos-gate",
+        "lint-gate",
+        "dupe-gate",
+        "naming-gate",
+        "selftest",
+        "mcp-surface",
+        "cli-golden",
+        "tool-evals",
+        "toolface",
+        "data-flow",
+        "self-attack",
+        "guard-gate",
+        "shard-plan",
+        "hub-gate",
+        "model-fit",
+        "audit-freshness",
+        "pytest",
+        "stress",
+        "cli-bench",
+        "perf-gate"
+      ]
+    }
+  }
+}

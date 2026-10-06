@@ -710,7 +710,7 @@
   "max_type_members": 0
  },
  "scripts/god_gate.py": {
-  "file_lines": 392,
+  "file_lines": 463,
   "max_fn_lines": 68,
   "max_type_members": 0
  },
@@ -735,8 +735,8 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 233,
-  "max_fn_lines": 51,
+  "file_lines": 287,
+  "max_fn_lines": 70,
   "max_type_members": 0
  },
  "scripts/mcp_surface_gate.py": {
@@ -1215,7 +1215,7 @@
   "max_type_members": 0
  },
  "tests/test_s167_god_gate.py": {
-  "file_lines": 100,
+  "file_lines": 151,
   "max_fn_lines": 27,
   "max_type_members": 0
  },
@@ -1882,6 +1882,11 @@
  "urx_tia_plugin.py": {
   "file_lines": 122,
   "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "tests/test_gate_lines.py": {
+  "file_lines": 116,
+  "max_fn_lines": 13,
   "max_type_members": 0
  }
 }
