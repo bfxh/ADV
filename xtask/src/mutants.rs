@@ -28,7 +28,10 @@ use std::path::{Path, PathBuf};
 pub const BASELINE_PATH: &str = "tools/baselines/mutants-baseline.json";
 
 /// 说明变异真跑到了判定环节的 summary（Unviable = 变异自身没编译/没运行，不算可验证）。
-const VERIFIABLE_SUMMARIES: &[&str] = &["CaughtMutant", "MissedMutant", "TimeoutMutant"];
+/// 可判定的结果标签。字面量锚到 cargo-mutants 27.1.0 真产物（2026-10-06 一轮 376 条
+/// 实测标签：`Success` / `Unviable` / `CaughtMutant` / `MissedMutant` / `Timeout`）——
+/// 写错一个标签名不会报错，只会让那一类变异从"可验证"里静默消失。
+pub const VERIFIABLE_SUMMARIES: &[&str] = &["CaughtMutant", "MissedMutant", "Timeout"];
 
 /// 盘量预检下限（GiB），可用 `ADV_MUTANTS_MIN_FREE_GIB` 覆盖。
 ///

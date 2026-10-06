@@ -8,9 +8,10 @@ use xtask::god::{
 use xtask::lockstep::check_lockstep;
 use xtask::maturity::{experimental_patterns, pattern_matches};
 use xtask::mutants::{
-    df_args, disk_failure_signature, drive_letter, free_bytes_probe, human_bytes, keys_by_summary,
-    min_free_gib, new_missed, parse_df_avail, parse_u64_lines, powershell_args, scratch_is_short,
-    short_message, tally, unverifiable_keys, unviable_disk_failures,
+    VERIFIABLE_SUMMARIES, df_args, disk_failure_signature, drive_letter, free_bytes_probe,
+    human_bytes, keys_by_summary, min_free_gib, new_missed, parse_df_avail, parse_u64_lines,
+    powershell_args, scratch_is_short, short_message, tally, unverifiable_keys,
+    unviable_disk_failures,
 };
 use xtask::suppress::file_violations;
 
@@ -164,6 +165,43 @@ fn canary_mutants_flags_baseline_key_that_lost_verifiability() {
     assert!(unverifiable_keys(&[], &verifiable).is_empty());
     // 旧判据仍在位：新增 missed 依然报。
     assert_eq!(new_missed(&["a::b".into()], &[]), vec!["a::b".to_string()]);
+}
+
+/// 造一条 outcomes 条目：`summary` 用 cargo-mutants 真标签，键为 `file::fn`。
+fn outcome(summary: &str, file: &str, fname: &str) -> serde_json::Value {
+    serde_json::json!({
+        "summary": summary,
+        "scenario": { "Mutant": { "file": file, "function": { "function_name": fname } } }
+    })
+}
+
+#[test]
+fn canary_mutants_verifiable_labels_are_the_real_ones() {
+    // 标签名写错（曾写成 "TimeoutMutant"）不会报错，只会让超时变异从可验证集里静默消失：
+    // 一个键的变异全超时 ⇒ 本该算"本轮可判定"，却被报成不可验证（假红）或反向漏计。
+    let parsed = serde_json::json!({ "outcomes": [
+        outcome("Timeout", "xtask/src/fake.rs", "only_timeouts"),
+        outcome("CaughtMutant", "xtask/src/fake.rs", "killed"),
+        outcome("Unviable", "xtask/src/fake.rs", "never_compiled"),
+        outcome("MissedMutant", "xtask/src/fake.rs", "survived"),
+    ]});
+    let verifiable =
+        keys_by_summary(&parsed, |s| VERIFIABLE_SUMMARIES.contains(&s)).expect("可验证键集");
+    assert!(
+        verifiable.contains(&"xtask/src/fake.rs::only_timeouts".to_string()),
+        "金丝雀失败：超时也算真跑到判定环节"
+    );
+    assert!(verifiable.contains(&"xtask/src/fake.rs::killed".to_string()));
+    assert!(verifiable.contains(&"xtask/src/fake.rs::survived".to_string()));
+    assert!(
+        !verifiable.contains(&"xtask/src/fake.rs::never_compiled".to_string()),
+        "金丝雀失败：Unviable（没编译/没运行）不该算可验证"
+    );
+    // 门用的标签集必须与 cargo-mutants 真产物一致——漂了这条会红。
+    assert_eq!(
+        VERIFIABLE_SUMMARIES.join(","),
+        "CaughtMutant,MissedMutant,Timeout"
+    );
 }
 
 /// 从期望文件里取 `SECTION` 段下的键（期望文件由 cargo-mutants 真实产物生成）。
