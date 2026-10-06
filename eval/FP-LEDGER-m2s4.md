@@ -331,6 +331,65 @@ msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两
 `cargo test --workspace` 37 档 55 条全过 · clippy `--all-targets -D warnings` 干净 · fmt 0 ·
 `xtask gate`（god+lockstep+suppress）绿 · `xtask mir` 绿 · god 基线 346 → 352（涨 3、新面 2）。
 
+---
+
+# 片A5（5b1d862 / 93b5f4f / 127c186，2026-10-06）：门补强——TMP 盘量预检 + unviable 日志认盘满
+
+> 交付：片A4「遗留」那条做完——变异门跑之前查一次 scratch 盘量，跑之后从 unviable 条目
+> 的日志里认盘满签名。复现：`cargo test -p xtask`（15 条金丝雀）、
+> `ADV_MUTANTS_MIN_FREE_GIB=99999 cargo run -p xtask -- mutants --base 6201ea4`（必红且秒退）。
+
+## 判据
+
+| 判据 | 位置 | 语义 |
+|------|------|------|
+| 盘量预检 | `xtask/src/mutants.rs::precheck_scratch` | 实测 TMP 所在盘余量 < 下限 ⇒ 红 + 一行照抄修法；**查不到余量只播"未知"，不判红**（不拿"查不到"当"没空间"） |
+| 盘满正判据 | `xtask/src/mutants.rs::unviable_disk_failures` | Unviable 条目的日志含 `No space left on device`/`final link failed`/`os error 112` 等签名 ⇒ 点名判红（这才是判据，预检只是提前拦） |
+| 重录拒绝对缺测放行 | 同 `run` 的 `--update` 分支 | 本轮存在盘满缺测 ⇒ **不写基线**并返回红。否则一次盘满就能把 9 条债"重录"成 4 条 |
+
+`DISK_FAILURE_SIGNATURES` 里的原话有账：`eval/FP-LEDGER-m2s4.md` 片A4 节记录的
+`ld.exe: final link failed: No space left on device`（2026-10-05 实测）。
+
+## 五条实测（顺序就是发现顺序）
+
+| 主张 | 判据 | 结果 |
+|------|------|------|
+| 预检查的是真盘不是猜的 | 同一时刻三把尺对读 | `df -k /c` 42,853,012 KiB、`powershell (Get-PSDrive C).Free` 43,881,484,288 字节、门的读数 42.7GB —— **×1024 后逐字节相等**，两把尺互相验 |
+| MSYS 的 `df` 不能作 Windows 路径的唯一查询 | `df -kP "C:\Users\...\Temp"` | 输出把参数吞了、报的是 `/tmp` 那个挂载的行 ⇒ Windows 主通道定成 PowerShell，`df` 只作兜底，并把"带盘符必须走 powershell 通道"钉进断言 |
+| 盘量下限不是恒定红线 | 本会话内 C 盘余量 | 1.9GB（门判红）→ 约 40 分钟后 42.7GB（放行）。中间是另一件事清了 `%TEMP%\unified-rx-pytest`，不是我改的 ⇒ 8GB 这个默认值只表示"低于此当场会缺测"，写进注释并允许 `ADV_MUTANTS_MIN_FREE_GIB` 覆盖 |
+| 语料不能叫 `mutants.out` | 第一次门复跑 | cargo-mutants `copy_tree.rs:109` 无条件跳过该目录名 ⇒ scratch 里没语料、**未变异树自测就失败**、门在"一条变异都没跑"时中止（判红是对的，但白跑一轮） |
+| `.log` 语料等于没提交 | `git ls-files` + `git check-ignore -v` | 本仓 `.gitignore:6` 是 `*.log` ⇒ 5b1d862 里那两个语料文件**根本没进提交**（只有 README 和 outcomes.json），CI 的 `cargo test --workspace` 会因缺文件红。改为 `.txt` 摊平存、测试期拼 `<tmp>/mutants.out/log/<产物名>` |
+
+金丝雀另抓到一条真 bug：`bytes[0].to_ascii_uppercase().to_string()` 给的是 ASCII 码
+`"67"` 而不是盘符 `"C"`（`u8::to_string` 打数字），改 `char::from(bytes[0])` 后
+`canary_scratch_space_query_actually_answers_on_this_machine` 才过。
+
+## 门自己报红一次，然后被补断言杀掉
+
+`--update` 未跑，棘轮如实报 6 个新增未捕获键：`precheck_scratch`、`free_bytes_at`、
+`free_bytes_via_df`、`free_bytes_via_powershell`、`parse_u64_lines`、`drive_letter`。
+处理方式按片A3 的教训（判据要与被变异代码同包）：把**解析与拼参数**从"起子进程"里拆出来
+成纯函数（`parse_df_avail` / `parse_u64_lines` / `powershell_args` / `df_args` /
+`short_message` / `free_bytes_probe`），子进程壳只留"起命令 + 交解析"；语料用同日两把尺的
+逐字真输出（`xtask/tests/data/df-kp-{two,single}.txt`、`powershell-free.txt`），
+断言含"同一块盘两把尺读数必须相等"与"畸形输入一律 None"。
+
+## god 基线两次重录（逐键披露）
+
+| 提交 | 项数 | 新增面 | 涨 | 降 | 移除 |
+|------|------|--------|----|----|------|
+| 5b1d862 | 352 → 368 | 16 | 3（mutants.rs 182→397、canary.rs 230→379、`run` 79→98） | 0 | 0 |
+| 127c186 | 368 → 374 | 7 | 4（mutants.rs 397→421、canary.rs 379→512、两个盘满测试） | 3（三个壳变薄） | **1**：`free_bytes_at`（改名成 `free_bytes_probe`，`grep -rn free_bytes_at --include=*.rs .` 零命中 ⇒ 合法退账，同片A4 的 `missed_key` 案） |
+
+## CI 与一次我自己的流程漏
+
+`93b5f4f` → run 37420836104 **failure**：`xtask gate` 报 god 棘轮
+（`canary.rs` 379→396、盘满测试 43→60）。原因是我在 93b5f4f 改了 `canary.rs` 之后只重放了
+`test/clippy/fmt`，**没重放 `xtask gate`**，基线没跟着重录。这不是门的误报，是我漏步——
+本片起把"改任何被 god 计量的文件 ⇒ 必跑 gate"当作收尾硬条件写在重放记录里。
+`127c186` 起 CI 复绿情况见本节末「重放记录」。
+
+
 
 
 

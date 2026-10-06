@@ -4,6 +4,8 @@
 > 的语义盲区（宏展开后的事实、所有权/借用即传播路径、闭包捕获）。
 > 验收总纲（蓝图 M2 行）：与旧 Rust 引擎对拍（行为等价金样）；旧引擎就在本树
 > `rust/` 目录（已从 workspace exclude，只读作对拍基准）。
+> **← 2026-10-06 实测否证：`rust/` 的污点引擎只扫 Python，Rust 侧无旧数据流引擎可对。
+> 对拍对象改为快/深两轨自身，见 §4「片B 前提否证」与 §5 的片B/片C 改口径行。**
 
 ## 1. 工具链方案（先定，防止重蹈 rust-toolchain.toml 覆辙）
 
@@ -71,6 +73,16 @@
   仅快轨 = 快轨误报或深轨漏报（宏/控制流盲区），逐条进 FP 会计账；
   仅深轨 = 快轨 FN 清单（这正是深轨的价值证明）。
 - 金样：挑 3–5 个含 `unwrap/panic/expect` 的真实文件冻结两端输出。
+  - **片B 前提否证（2026-10-06 实测）**：本节的"基准 = `rust/` 旧引擎"**不成立**——
+    `rust/` 里的污点引擎只吃 Python：`rust/src/taint.rs:131` 按 `.py` 过滤，整个
+    `taint.rs` 里 "rust"/".rs" 零命中；`rust/` 对 `.rs` 的处理只有
+    `rust/src/astscan/rust.rs`（403 行，`mask_rust`/`fn_re_search`/`panic_call_finditer`/
+    `unsafe_count_line` 这类行级+掩码模式匹配），**没有任何 Rust 侧数据流实现**。
+    ⇒ Rust 数据流这一侧不存在可对的旧基准，"深轨 MIR 结果 vs 旧引擎"按字面做不到。
+    对拍对象据此改为**两轨自身**（快轨 tree-sitter vs 深轨 MIR）在真实 crate 上出三方账
+    （判据已在 `crates/adv-cli/src/main.rs:221-247`，键 = 规则/文件/起始行）；
+    "旧引擎 vs 快轨"的账仍然可做，但那是 **Python 侧**的账，与深轨无关，另立一片。
+    本节"仅快轨/仅深轨"的语义、以及金样那句，都按两轨对拍继续成立。
 
 ## 5. 里程碑切分
 
@@ -80,6 +92,8 @@
 | 片A2 | GenKill 污点到达分析（源/汇同源 YAML） | 合成夹具：直接流/ sanitizer 零发现/跨基本块流 |
 | 片A3 | 子进程隔离 + JSON 对接 adv-taint | adv-cli `--engine mir` 档；快轨/深轨三方账出账 |
 | 片B | cargo 集成 + 对拍 rust/ | 行为等价金样 |
+| 片B（2026-10-06 改口径） | cargo 集成（`RUSTC_WORKSPACE_WRAPPER`）让深轨吃带依赖的真实 crate | 本仓某真实 crate 上 `adv scan --engine both` 跑通（不再 exit=101/0 finding）+ 两轨三方账出账 + 快/深两端金样冻结。对拍对象改两轨自身，理由见 §4 的「片B 前提否证」。 |
+| 片C（新增，原"对拍 rust/"可做的部分） | 旧引擎（Python 侧污点）vs 新快轨（tree-sitter）在同一批 Python 文件上出旧/新账 | 规则集对齐口径写清（旧引擎规则在 `rust/` 内部、新仓在 `rules/*.yaml`，不同源）；这条账属快轨，不作为深轨验收。 |
 
 ## 6. 已知风险
 

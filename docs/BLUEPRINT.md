@@ -125,7 +125,7 @@ adv-server (MCP) ───┤（stdio 自研 + 三层渐进披露）
 |--------|------|----------|
 | M0 骨架 | workspace + xtask 门（god/锁步）+ 三件套 + clippy/deny + CI 阶段 0 + AGENTS.md 迁移 | ✅ 2026-10-04（`0f53a99`，CI 绿；suppress 门片3 并入成三门） |
 | M1 规则内核 | adv-parse + 归一 AST + YAML taint spec 编译 + AstKind matcher + 规则测试门禁 | ✅ 2026-10-04 片1–3（`0fd48fb`/`3423c81`/`d5c1e54`；FP 会计账 ×3，方法沉淀 spec/FP-ACCOUNTING.md） |
-| M2 Rust 深轨 | 边车 crate + MIR IFDS + Ascent | 与旧 Rust 引擎对拍（行为等价金样） |
+| M2 Rust 深轨 | 边车 crate + MIR IFDS + Ascent | 与旧 Rust 引擎对拍（行为等价金样）**← 2026-10-06 实测否证：`rust/` 的污点引擎只吃 `.py`（`rust/src/taint.rs:131`），Rust 侧没有旧数据流引擎可对 ⇒ 验收改为快/深两轨在真实 crate 上出三方账 + 两端金样；旧引擎的账另立一片（Python 侧，属快轨）。详见 docs/PLAN-deep-track.md §4/§5** |
 | M3 secrets+SCA | Nosey Parker 内化 + 清单/匹配分离 + OSV/RustSec 本地快照 | 增量扫描降噪比 + 工具间分歧口径明示 |
 | M3b 二进制面（v0.2 新增） | adv-bin L0–L1：ImageFacts（object+pelite+gimli）+ 缓解检查（winchecksec 字段集）+ cargo-auditable 读取；L2–L3（反汇编/函数识别/P-code 深轨）按 M3b 验收后再排 | ImageFacts 原型跑通 PE/ELF；缓解检查字段集逐项判据 + 金丝雀二进制 |
 | M4 检索栈 | Tantivy + SCIP + RRF + cAST chunking + 增量索引（无嵌入层，拍板） | 评测集配对协议（防泄漏）+ 增量正确性判据 |
