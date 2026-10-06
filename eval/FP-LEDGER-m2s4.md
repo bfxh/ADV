@@ -547,4 +547,9 @@ msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两
 `xtask gate` 绿 · `xtask mir` 绿 · god 基线 406 → **423**（新增 17 面、涨 5、降 0、**移除 0**；
 新面含夹具那两个 `.rs`——god 按仓内 .rs 计量，这是有意的）。
 金样：`crates/adv-cli/tests/golden/deep-cargo.jsonl`（3 行，`ADV_UPDATE_GOLDEN=1` 通道重录）。
-`xtask mutants --base 6201ea4`：（待填）
+`xtask mutants --base 6201ea4`（HEAD=`1fc62d3`，不带 `--update`，TMP 在 D 盘）：
+总 **331** / 捕获 **265** / 未捕获条目 30 / unviable 35 ⇒ **门绿**。
+双向漂移核对：本轮 missed 键 11 == 基线 11 ⇒ 新债 **0**、可划账 **0**、不可验证 **0**；
+本片新增的 `scan_crate_via_cargo`、`collect_crate_findings`、`parse_finding`（改动过的）
+全部落在可验证集且不在 missed 里 ⇒ 都被杀掉。
+
