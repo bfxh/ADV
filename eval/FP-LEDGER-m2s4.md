@@ -389,6 +389,87 @@ msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两
 本片起把"改任何被 god 计量的文件 ⇒ 必跑 gate"当作收尾硬条件写在重放记录里。
 `127c186` 起 CI 复绿情况见本节末「重放记录」。
 
+---
+
+# 片A6（2026-10-06）：门会虚计——三方账与深轨失败面的观察面补起来
+
+> 起因不是新代码，是**同一提交连跑两轮变异门对不上账**：总数 283 恒定，
+> caught/missed 却是 221/30 → 218/33，3 条从"被杀"翻成"存活"。
+> 复现：`TMP=D:/tmp/adv-mut cargo run -p xtask -- mutants --base 6201ea4` 连跑两轮对数字。
+
+## 机制（读产物日志坐实，不是猜）
+
+第二轮带变异跑 `crates/adv-cli/tests/engine_mir.rs` 4 条全过（`test result: ok. 4 passed`）。
+为什么过？因为**那批 rust 夹具上快轨 0 发现、深轨 0 失败**，于是三处分支的观察面是空的：
+
+| 变异 | 位置 | 为什么观察不到 |
+|------|------|----------------|
+| `replace != with ==` | `adv-cli/src/main.rs` 快轨开关 `if engine != Engine::Mir` | 快轨在该语料产 0 条，跑与不跑输出一样 |
+| `replace += with *=` | `tally.deep_failed += 1`（配 `:210` 的退出码 2 保护） | 深轨 0 失败 ⇒ 计数恒 0，`0*1 == 0+1-1` |
+| `delete !` | `three_way` 的 `filter(\|k\| !both.contains(k))` | `both` 与 `only_fast` 两桶恒空 |
+
+方向要分清：**虚高的 caught 比漏掉的 missed 危险**。它让门看起来比实际强，而"门能不能拦住东西"
+正是本仓建门的理由。第一轮那 3 个"捕获"因此是虚计——不是随机性好，是那几条分支根本没被看。
+
+## 修法（沿用片A3/片A5 的口径：判据与被变异代码同包）
+
+不靠"等快轨会扫 Rust"（快轨的 rust 污点实现是另一片的事，账在 `FP-LEDGER-m2s4.md:180-182`），
+而是把分支抽成本包纯函数直接喂数据判：
+
+- `fast_runs_for` / `deep_runs_for` / `deep_failure_exit` / `Tally::note_deep_failure` /
+  `three_way_buckets`（+ `LedgerKey` 三元键别名）。
+- 6 条单测进 `main.rs` 的 `#[cfg(test)] mod tests`：档位互斥且穷尽、深轨失败逐个计一次
+  （`+= 1` 变异成 `*= 1` 会让计数恒 0 ⇒ 退出码 2 静默失效，这条正是钉它）、分桶按三元键、
+  **同文件不同行不重合**、**列差不拆桶**（口径写在原注释里：快轨是 AST span、深轨是
+  MIR terminator span）、不同规则不并桶、空输入三桶全空。
+- 空语料那条用例是故意留下的反面记录：老验收就是那个形状，写出来免得后人以为那份语料验过桶逻辑。
+
+## god 基线 374 → 388（逐键披露）
+
+新增 14 面（全部在 `crates/adv-cli/src/main.rs`）、涨 1（该文件 282→453）、
+降 1（`three_way` 27→14，打印与分桶拆开）、**移除 0**。
+
+## 本片重放记录
+
+`cargo test --workspace` 67 条全过 · clippy `--all-targets -D warnings` 干净 · fmt 0 ·
+`xtask gate`（god+lockstep+suppress）绿 · `xtask mir` 绿。
+
+`xtask mutants --base 6201ea4`（不带 `--update`，HEAD=`aa12154`，TMP 在 D 盘）：
+
+| 项 | 上一片（e4c3a53 同口径） | 本片实测 |
+|----|--------------------------|----------|
+| 总变异 | 203 | **299** |
+| 捕获 | 153 | **237** |
+| 未捕获条目 | 20 | 30 |
+| unviable | 30 | 31 |
+| 门结论 | 绿（基线 9 键） | 绿（基线 14 键，无新增） |
+
+**绿不等于杀掉**——那 3 个 adv-cli 键当时已在基线里，棘轮自然不报新增。所以另算一遍真产物：
+本轮 missed 键 11 条，基线 14 条 ⇒
+
+- 基线里有、本轮不再产存活变异（可划账）：`crates/adv-cli/src/main.rs::scan`、`::scan_deep`、
+  `::three_way` —— 正是本片补断言的三个目标，**实测被杀**。
+- 本轮有、基线里没有（新债）：**0**。
+- 基线里本轮不可验证的：**0**。
+
+⇒ 基线随后有意识重录 **14 → 11**（减 3、增 0；`--update` 的移除点名输出留档）。
+留在账上的 11 键里，本片新增的是 `xtask/src/mutants.rs::free_bytes_via_df` 与
+`::precheck_scratch` 两条薄壳（不可杀的理由写在片A5 节）。
+
+## 片B1 的两条实测否证（同一条设计改了两处）
+
+1. **`--as-rustc` 这种自定义 flag 走不通**：cargo 的 `RUSTC_WORKSPACE_WRAPPER` 只会递
+   `<包装器> <rustc 路径> <rustc 参数…>`，没有插自定义参数的位置。实测第一次调用就是
+   目标探测 `rustc.exe -vV` / `rustc.exe - --crate-name ___ --print=file-names`，
+   自定义 flag 被当成输入文件 ⇒ `error: multiple input filenames provided`。
+   ⇒ 触发条件改成环境变量 `ADV_MIR_WRAPPER=1`（`--as-rustc` 保留给手测与单测），
+   且 `-vV` 这类探测没有 `--crate-name`，不能拿它当硬前置。
+2. **sysroot 必须注入**：rustc 缺省按**自身 exe 位置**推 sysroot，而驱动 exe 在
+   `target/debug`，那儿没有 `lib/rustlib/<host>/lib` ⇒ 找不到 `core`。cargo 不传
+   `--sysroot`，而 `run_compiler` 会丢掉 args[0]（`rustc_driver_impl/src/lib.rs:183`），
+   所以注入位置是 1（`wrapper_args`）。
+
+
 
 
 

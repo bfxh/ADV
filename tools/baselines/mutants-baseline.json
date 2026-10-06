@@ -1,8 +1,5 @@
 {
   "missed": [
-    "crates/adv-cli/src/main.rs::scan",
-    "crates/adv-cli/src/main.rs::scan_deep",
-    "crates/adv-cli/src/main.rs::three_way",
     "crates/adv-rules/src/taint.rs::body_touches_source",
     "crates/adv-rules/src/taint.rs::expr_taint",
     "crates/adv-rules/src/taint.rs::root_var",
