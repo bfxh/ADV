@@ -35,17 +35,6 @@
       "guards": "crates/adv-cli/tests/three_way_ledger.rs（钉住\"仅快轨\"非空、\"两边都报\"为空这一事实）；填「两边都报」需要的能力本身无判据。"
     },
     {
-      "id": "DD-0004",
-      "surface": "xtask mutants 全树运行时长",
-      "kind": "design",
-      "defect": "变异门按「base...HEAD 的全部 diff 面」跑，单轮 17–40 分钟（2026-10-06 实测：368 面 ~40 分钟、376 面 17 分钟；同一片跑了 4 轮）。慢的不是测试，是门没有按成熟度/风险分档。",
-      "why_from_design": "片3 装配时只裁了「--in-diff 档进 PR 门」这一刀，把「哪些面值得跑」留给 diff 范围决定，于是测试材料、薄壳、承重代码在门眼里一样贵。",
-      "origin": "630c8b8",
-      "since": "1fc62d3",
-      "due_after_tasks": 10,
-      "guards": "docs/DESIGN-DEBT-GATE.md §3 的分档表（本条即其待实现项）"
-    },
-    {
       "id": "DD-0005",
       "surface": "全仓云端安全扫描",
       "kind": "process",
@@ -109,6 +98,11 @@
       "id": "DD-0010",
       "evidence": "判据建成并接进本分支真跑的 workflow：`scripts/ci_wiring_gate.py` + `spec/ci-wiring.json`（W1 文件存在 / W2 分支真被 on.push.branches 触发 / W3 清单里每道门必须在该 workflow 的步骤里找得到 / W4 逐门认领的 workflow 不许有无主门步 / W5 门名不许漂出 STEPS+indirect，且每条分支必须写 why）。反向用例 7 条（tests/test_ci_wiring_gate.py），其中 test_w2_reproduces_the_real_incident_case 就是把今天的事故形状喂进去：清单说 adv-rewrite 看 core.yml，而 core.yml 只触发 main ⇒ 必须红并打出实际触发分支。同轮修掉旧反向锁自己的同类盲区：test_s145_gates 的落点锁只读 core.yml（会把接在 adv.yml 上的门判成没落点），改为读两份并集，且牙齿测试改成抹在门真正所在的那份文件上（原来抹的是不存在的落点＝测空）。新门自身也在 adv.yml 里占一步（先验接线再验债）+ local_gate fast 档一步，归属 adv-m2 线；claim_gate 抓到 README/HARDENING 的旧门数（37/30/34 ≠ 实测 38/31/35）⇒ 按实测回填，CLAIM-GATE OK。",
       "retired_in": "f470ded"
+    },
+    {
+      "id": "DD-0004",
+      "evidence": "先量再分档，三条候选里两条是空的：全档 412–433 条变异分布在 15 个 src 文件上、`tests/` 下一条都没有（cargo-mutants 本来就不动 test target）⇒ \"按成熟度/试验面排除\"与\"按风险排除\"这两条杠杆实测无物可排，放弃；真正成立的是**换 diff 口径**。落地：`--since <ref>` 走两点 `since..HEAD`（默认仍是 `base...HEAD` 全档，判据一点没缩），同机实测增量档 总=34 / 139 秒，全档 总=433 / ~17 分钟。三道反洗白护栏都是量出来之后立刻补的：① `verdict_name` 让增量档的裁决行自己写着\"只测本次改动·不作收尾绿\"（抄去交差当场露馅）；② `refuse_incremental_update` 把 `--since` + `--update` 判红（半张面的 missed 集整表替换会静默删掉只有全档才有的键，DD-0006 的同一形状）；③ `checks_verifiability` 只对全档核基线可验证性——第一版漏了 它，增量轮当场报三条\"基线键无可判定变异\"，那是必然红，红一旦必然就又成噪声（DD-0007）。增量档照常判新增存活变异，只把\"基线键没跑到\"降级为一行播报（数出来 + 指回全档关账）。行为级金丝雀 `canary_incremental_tier_skips_only_the_full_tier_check` 先证红再改绿：把谓词临时改成恒 true ⇒ FAILED 原话\"增量档拿全档的尺量半张面 = 每轮都红的噪声\"。收尾全档在 HEAD f73e4c0 绿（总=433 捕获=371 未捕获=23 unviable=36，四份清单全空，基线 11 键不变），且新抽的纯函数 tier_verdicts 本轮 CaughtMutant=10／Missed=0 ⇒ 判据真被杀过。",
+      "retired_in": "f73e4c0"
     }
   ]
 }
