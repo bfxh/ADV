@@ -49,7 +49,7 @@
       "id": "DD-0004",
       "surface": "xtask mutants 全树运行时长",
       "kind": "design",
-      "defect": "变异门按「base...HEAD 的全部 diff 面」跑，单轮 30–40 分钟（今天跑了 4 轮）。慢的不是测试，是门没有按成熟度/风险分档。",
+      "defect": "变异门按「base...HEAD 的全部 diff 面」跑，单轮 17–40 分钟（2026-10-06 实测：368 面 ~40 分钟、376 面 17 分钟；同一片跑了 4 轮）。慢的不是测试，是门没有按成熟度/风险分档。",
       "why_from_design": "片3 装配时只裁了「--in-diff 档进 PR 门」这一刀，把「哪些面值得跑」留给 diff 范围决定，于是测试材料、薄壳、承重代码在门眼里一样贵。",
       "origin": "630c8b8",
       "since": "1fc62d3",
@@ -83,7 +83,7 @@
       "surface": "scripts/local_gate.py --fast（伞仓快档门链）",
       "kind": "design",
       "defect": "快档默认红：同会话内两次实测 30 步里 13–15 步失败（17:47 那次为 13 步：secrets / naming / data-flow / secrets-history / audit-freshness / tool-evals / cli-golden / mcp-surface / selftest / dupe / lint / typos / gitleaks）。本会话所在的 M2 线只跑 xtask gate，于是【红】变成背景噪声——人人学会跳过它，门就失去牙齿。",
-      "why_from_design": "伞仓与 adv-rewrite 两条工作线共用一套 python 门链，却没有【这条线该看哪几步】的分档层：M2 线的收尾重放是 fmt/clippy/test/gate/mir/mutants，python 侧那 15 步红既不是它引入、也没人负责清。缺的是门链按工作线分组这一层设计，不是某条规则判错。",
+      "why_from_design": "伞仓与 adv-rewrite 两条工作线共用一套 python 门链，却没有【这条线该看哪几步】的分档层：M2 线的收尾重放是 fmt/clippy/test/gate/mir/mutants，python 侧那 13 步红既不是它引入、也没人负责清。缺的是门链按工作线分组这一层设计，不是某条规则判错。",
       "origin": "1fc62d3",
       "since": "f8cbdaf",
       "due_after_tasks": 10,
@@ -99,6 +99,17 @@
       "since": "25c51c9",
       "due_after_tasks": 10,
       "guards": "本次只把陈述改成实测口径并指向本条债；生效面本身仍无判据（缺的正是这条债要补的：一道能判\"提交路径当前装没装门\"的检查 + 快档不再恒红后才允许装）。"
+    },
+    {
+      "id": "DD-0009",
+      "surface": "xtask mutants 的裁决输出（门哑 vs 门绿在输出上同形）",
+      "kind": "design",
+      "defect": "门在\"判不了\"时（如 2026-10-06 实测：exit 3 超时被旧 ensure! 当成失败）只留一行 anyhow 错误 + 上游转储，而重放记录里人读的是\"有没有变异面数字\"。于是连续两轮我把**自己复算的** missed 键集当成门的结论记进账本，门其实一行裁决都没出。修掉 exit 码口径之后，\"裁决行必须存在\"这件事仍然没有判据：谁都看不出下一轮是不是又哑了。",
+      "why_from_design": "门链把\"退出码\"当唯一信号（0=绿、非 0=红），把裁决文本当成人类可读的副产品而不是契约的一部分；又没有\"重放必须贴门自己的原话\"这一条硬格式，于是\"门没判\"与\"门判绿\"在证据层面长得一样。更要命的是这道门不在 CI、也不在 local_gate 的任何步骤里（2026-10-06 核对 .github/workflows/*.yml 与 scripts/local_gate.py，两者都没有 mutants 步），只有手工重放 ⇒ 输出文本就是它唯一的生效面。这与片A6 那条 caught 虚高是同一类失败：观察面的形状允许沉默被误读成通过。",
+      "origin": "36337b5",
+      "since": "36337b5",
+      "due_after_tasks": 10,
+      "guards": "本次以纪律补：账本/ROUNDLOG 记变异门必须写门自己那行 verdict 原文，复算数另栏；但纪律不是判据。待补的判据 = 把\"最后一行必须是 `mutants: 绿|红（N 条）`\"钉成可机判（xtask 内部自检或重放脚本核验）。"
     }
   ],
   "retired_fields": [
