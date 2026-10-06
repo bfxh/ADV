@@ -1038,3 +1038,34 @@ $ grep -c expect_file_guard_splits_three_ways HEAD 版 mir.rs
 | `xtask/main.rs::emit`（`== → !=`） | 断言弱：测试只读合并流，分不清 stdout/stderr | 补流别断言（绿→stdout；红/判不了→stderr） |
 | `xtask/main.rs::gate_run`（3 条） | 半归属：`vec![]` 在干净树上是**等价变异**；`""`/`xyzzy` 可杀 | 用交叉核对钉（`gate` 的裁决必须与单独跑 `god`/`suppress` 的结果一致） |
 | `xtask/god.rs::write_baseline`（换成 Ok(())） | 断言弱：没人验证它真写了文件、硬阈真能拦住 | 补本包单测（临时根目录建基线 + 硬阈拒写） |
+
+## 变异门终局（HEAD `2297f25`，门自己的话）
+
+```
+变异面 总=409 捕获=346 未捕获=24 unviable=36
+超时 1 条（不计入 missed，逐键点名以防阈值太低把存活藏进来）：xtask/src/maturity.rs::seg_eq
+mutants: 红（1 条）
+  - 新增未捕获变异：xtask/src/main.rs::gate_run
+```
+
+六个新增键里杀掉五个，剩的那一条是**树上等价变异**（全绿的树上门的真值就是空清单），
+已如实登记为 **DD-0011** 而不是用 `--update` 吸收掉。手打变异逐个验过：
+`scan` 的排除面、`parse_finding` 的"同文件名不同目录"、`toolchain_bin` 空路径、
+`emit` 的流别、`write_baseline` 掏空 —— 五条都由新断言判红。
+
+顺带被 `reconcile_mutants.py` 第一次实战抓到一件好事：基线里的
+`xtask/src/mutants.rs::git_diff_patch` 本轮 `CaughtMutant`、零 Missed ⇒ 属**真被杀**，
+可划账（片H 那条"起真二进制、传坏 --base"的金丝雀正是杀它的人）。
+基线本次**不重录**：13 → 11 的减账要靠下一次 `--update` 由门自己点名，我不手抄。
+
+`merge_gate` 抽出来后立刻有用：`xtask gate` 的明细现在带子门名
+（`- god: 棘轮 fn:xtask/src/main.rs::gate_run = 9 > 基线 6`），以前只有一串无出处的行。
+
+## 片I 重放（三段提交合并算）
+
+`cargo test --workspace` **93** 条过（片H 后 86 → 93）· `clippy --workspace --all-targets
+-- -D warnings` exit 0（带 touch 强制重扫）· `cargo fmt --all --check` 0 · `xtask gate` 绿 ·
+`xtask mir` 绿 · god 440 → 449（逐键点名；本轮新增 merge_gate 与两条金丝雀）·
+`pytest tests/test_reconcile_mutants.py` 5 条过 · `test_debt_gate` 14 条过 ·
+debt_gate 红 5 处（在册 7 条里 DD-0002/0003/0004/0005/0008 超期；DD-0009 已销、
+DD-0010/0011 在窗口内）· claim/path/god(python) 三门 OK，`lint_gate` 仍是既有 6 条（伞仓线）。

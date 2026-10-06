@@ -28,3 +28,16 @@ pub fn verdict(name: &str, outcome: &anyhow::Result<Vec<String>>) -> (String, i3
         }
     }
 }
+
+/// `gate` 档的聚合点：把各子门的明细合成一档清单（带子门名前缀，便于定位）。
+///
+/// 为什么要从 `gate_run` 里抽出来（与片A6 抽 `three_way_buckets` 同一手法）：`gate_run`
+/// 整体被换成 `Ok(vec![])` 在**全绿的树**上与真值同值，端到端断言区分不了；"怎么合"这件事
+/// 只有直接喂数据才可观察。壳的那条残留另立债（DD-0011），不假装已经杀掉。
+pub fn merge_gate(parts: &[(&str, Vec<String>)]) -> Vec<String> {
+    let mut out = Vec::new();
+    for (name, violations) in parts {
+        out.extend(violations.iter().map(|v| format!("{name}: {v}")));
+    }
+    out
+}

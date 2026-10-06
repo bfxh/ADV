@@ -68,17 +68,6 @@
       "guards": "本次只把陈述改成实测口径并指向本条债；生效面本身仍无判据（缺的正是这条债要补的：一道能判\"提交路径当前装没装门\"的检查 + 快档不再恒红后才允许装）。"
     },
     {
-      "id": "DD-0009",
-      "surface": "xtask mutants 的裁决输出（门哑 vs 门绿在输出上同形）",
-      "kind": "design",
-      "defect": "门在\"判不了\"时（如 2026-10-06 实测：exit 3 超时被旧 ensure! 当成失败）只留一行 anyhow 错误 + 上游转储，而重放记录里人读的是\"有没有变异面数字\"。于是连续两轮我把**自己复算的** missed 键集当成门的结论记进账本，门其实一行裁决都没出。修掉 exit 码口径之后，\"裁决行必须存在\"这件事仍然没有判据：谁都看不出下一轮是不是又哑了。",
-      "why_from_design": "门链把\"退出码\"当唯一信号（0=绿、非 0=红），把裁决文本当成人类可读的副产品而不是契约的一部分；又没有\"重放必须贴门自己的原话\"这一条硬格式，于是\"门没判\"与\"门判绿\"在证据层面长得一样。更要命的是这道门不在 CI、也不在 local_gate 的任何步骤里（2026-10-06 核对 .github/workflows/*.yml 与 scripts/local_gate.py，两者都没有 mutants 步），只有手工重放 ⇒ 输出文本就是它唯一的生效面。这与片A6 那条 caught 虚高是同一类失败：观察面的形状允许沉默被误读成通过。",
-      "origin": "36337b5",
-      "since": "36337b5",
-      "due_after_tasks": 10,
-      "guards": "本次以纪律补：账本/ROUNDLOG 记变异门必须写门自己那行 verdict 原文，复算数另栏；但纪律不是判据。待补的判据 = 把\"最后一行必须是 `mutants: 绿|红（N 条）`\"钉成可机判（xtask 内部自检或重放脚本核验）。"
-    },
-    {
       "id": "DD-0010",
       "surface": ".github/workflows 的门接线（adv-rewrite 的 CI 生效面）",
       "kind": "design",
@@ -88,6 +77,17 @@
       "since": "1884216",
       "due_after_tasks": 10,
       "guards": "本轮补了两处实测（fetch-depth: 0 + 浅克隆重写文案 + 反向用例 test_shallow_clone_blames_the_environment_not_the_author），但都还是\"这一条门自己别说话\"的层面；缺的尺照旧是\"每条受保护分支 × 生效门集合 × 运行前置（深度/工具/依赖）\"的登记与核对。"
+    },
+    {
+      "id": "DD-0011",
+      "surface": "xtask/src/main.rs::gate_run（bin 的聚合壳）",
+      "kind": "coverage",
+      "defect": "HEAD 607a736 的变异门实测：`xtask mutants --base 6201ea4` 总=409 捕获=346 未捕获=24，唯一的新增存活键是 `xtask/src/main.rs::gate_run` 的 `replace gate_run -> anyhow::Result<Vec<String>> with Ok(vec![])`。成因不是断言懒得写：在全绿的树上 gate_run 的真值就是空清单，\"换成空\"与真值同值 ⇒ 端到端断言（本片已加的 `canary_gate_verdict_matches_its_own_subgates` 交叉核对）在红树上能杀、在绿树上杀不了这一条。",
+      "why_from_design": "把三个子步合进 bin 里的 `gate_run` 时，聚合逻辑与\"取当前工作区根\"这件不可注入的事写在了一起：能纯化的部分已经抽成 `verdict::merge_gate` 并被单测钉住（明细条数、顺序、子门名前缀），剩下的壳要可观察就必须能喂进一个\"必然红\"的子门结果，而 `god::run`/`suppress::run` 都从编译期 `CARGO_MANIFEST_DIR` 推根目录，测试无法重定向。",
+      "origin": "4acf75e",
+      "since": "607a736",
+      "due_after_tasks": 10,
+      "guards": "本轮不重录基线去吸收这一键（`--update` 的整表替换会把\"我还没处置\"写成\"已登记\"）；下一次 `xtask mutants --update` 必须在点名它之后再决定吸收还是处置。修法候选：把 root 变成可注入参数（`gate_run(root)` 已是，但 bin 侧调用点写死），或让金丝雀能在临时根目录里造一次真红子门。"
     }
   ],
   "retired_fields": [
@@ -110,6 +110,11 @@
       "id": "DD-0007",
       "evidence": "按工作线分组的归属层建成：spec/gate-lines.json（adv-m2 深轨线 14 步 / umbrella-py 伞仓 python 产品面 23 步，每条线必须写 why）+ local_gate.load_gate_lines() 三条 fail-closed（表缺失即红 / 有步骤无归属即红 / 表里名字漂出 STEPS 即红）+ --line 只做纯过滤（被滤掉的步子不进 skipped 名单，所以\"红变少\"必须来自归属而不是藏）。实测两侧对照：默认档 --fast 仍 30 步、失败 15 步（一步没少跑 ⇒ 没有任何一步因分组而变得不判）；--fast --line adv-m2 跑 11 步、只剩 debt-gate 红，而那条红正是DD-0002/0003/0004/0005 的超期账——红从\"13 步背景噪声\"变成\"一步、指名道姓\"。反向用例 7 条在 tests/test_gate_lines.py（孤儿步骤/漂移名字/缺表/未知线名/纯过滤/默认档不缩水/真仓自检）。伞仓那 14 条红仍挂在 umbrella-py 线上，归属明确。",
       "retired_in": "a7de7db"
+    },
+    {
+      "id": "DD-0009",
+      "evidence": "判据补成了两处，都不靠\"我记得要看最后一行\"。① `xtask::verdict` 把门的终点钉成三态契约（绿 0 / 红 1 / 判不了 3），错误也是一种裁决而不是\"没有输出\"；`main` 全面改走 emit(...)，`gate` 档三个子步合成一个 Result 后统一出裁决。金丝雀两条（`4acf75e`）：纯函数三态 + **起真二进制**——`--base <不存在的 ref>` 必须 exit 3 且裁决行落在 stderr、stdout 不许出现裁决；空 diff 在真仓里必须红（skip 不算绿）。先证红：把 Err 分支临时改成返回\"绿/0\"，两条金丝雀同时 FAILED。② 披露侧落成可重复命令 `scripts/reconcile_mutants.py`（`607a736`，5 条反向用例）：新债 / 可划账（本轮必须有 CaughtMutant）/ 只有超时（不许当划账）/ 不可验证（注明\"全 Unviable\"还是\"整条没出现\"）/ 盘满缺测，逐键点名；产物或基线缺失一律 exit 2。首次实战就把一处模糊处逼清：`xtask/src/mutants.rs::git_diff_patch` 从基线键变成\"真被杀\"（本轮 CaughtMutant、无 MissedMutant），而同轮 `gate_run → Ok(vec![])` 在全绿树上的等价性也被它单列出来（转 DD-0011），不再靠我手算一句\"看起来没问题\"。",
+      "retired_in": "607a736"
     }
   ]
 }

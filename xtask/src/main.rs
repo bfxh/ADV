@@ -28,10 +28,13 @@ fn emit(name: &str, outcome: anyhow::Result<Vec<String>>) -> ! {
 
 /// 三个子门的合档：任一子步抛错 ⇒ 整档判"判不了"，而不是留下一句裸错误。
 fn gate_run(root: &std::path::Path) -> anyhow::Result<Vec<String>> {
-    let mut violations = god::run(root)?;
+    let god_violations = god::run(root)?;
     lockstep::run(root)?;
-    violations.extend(suppress::run(root, &adv_core::today())?);
-    Ok(violations)
+    let sup = suppress::run(root, &adv_core::today())?;
+    Ok(verdict::merge_gate(&[
+        ("god", god_violations),
+        ("suppress", sup),
+    ]))
 }
 
 fn main() {

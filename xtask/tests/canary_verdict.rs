@@ -1,6 +1,6 @@
 //! 金丝雀（门必须留痕 `xtask::verdict`）：绿 / 红 / 判不了 三态，且没有第四种"没说话"。
 
-use xtask::verdict::verdict;
+use xtask::verdict::{merge_gate, verdict};
 
 #[test]
 fn canary_verdict_has_three_states_and_none_of_them_is_silence() {
@@ -166,4 +166,32 @@ fn canary_gate_verdict_matches_its_own_subgates() {
         assert!(gate_out.contains("gate: 绿"), "{gate_out}");
         assert!(!gate_err.contains("  - "), "绿档不该带任何明细：{gate_err}");
     }
+}
+
+#[test]
+fn canary_merge_gate_keeps_every_subgate_item_and_its_prefix() {
+    // 聚合逻辑抽成纯函数才能钉住：`gate_run` 整体换成空清单在绿树上与真值同值（残留那条
+    // 已如实登记为 DD-0011），但"谁明细被吞掉"这件事在这里是可观察的。
+    let empty: Vec<String> = vec![];
+    assert_eq!(
+        merge_gate(&[("god", empty.clone()), ("suppress", empty.clone())]),
+        empty
+    );
+    let got = merge_gate(&[
+        ("god", vec!["棘轮 a = 2 > 基线 1".to_string()]),
+        (
+            "suppress",
+            vec!["抑制到期 b".to_string(), "畸形 c".to_string()],
+        ),
+    ]);
+    assert_eq!(got.len(), 3, "子门明细被吞了：{got:?}");
+    assert_eq!(
+        got,
+        vec![
+            "god: 棘轮 a = 2 > 基线 1".to_string(),
+            "suppress: 抑制到期 b".to_string(),
+            "suppress: 畸形 c".to_string(),
+        ],
+        "聚合必须保留顺序、条数与子门名前缀"
+    );
 }
