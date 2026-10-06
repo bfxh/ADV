@@ -276,6 +276,27 @@ fn git_diff_patch(root: &Path, base: &str) -> Result<PathBuf> {
     Ok(patch)
 }
 
+/// cargo-mutants 退出码里"这一轮真跑完了"的那些：0 全捕获、2 有未捕获、3 有超时。
+/// 其余（1 用法错、4 基线自身红/挂、5 patch 与树不符、6 patch 非法、70 内部错）都不该
+/// 被解读成门的结果。判据单列成函数：这样"把 3 当成失败"这个错法自己有反例可打。
+pub fn completed_status(code: Option<i32>) -> bool {
+    matches!(code, Some(0) | Some(2) | Some(3))
+}
+
+/// 超时披露文案：无超时 ⇒ None；有 ⇒ 逐键点名。
+///
+/// 超时不算"未捕获"（变异把测试挂住 = 测试确实会拒绝它），但上游明说另一种可能是
+/// `--timeout` 定得太低，那会把存活变异藏进这一类，所以不静默。
+pub fn timeout_note(timeouts: &[String]) -> Option<String> {
+    (!timeouts.is_empty()).then(|| {
+        format!(
+            "超时 {} 条（不计入 missed，逐键点名以防阈值太低把存活藏进来）：{}",
+            timeouts.len(),
+            timeouts.join(", ")
+        )
+    })
+}
+
 /// 跑变异门。`base` 为 diff 基线 ref；`update` 重录基线（披露通道）。
 pub fn run(root: &Path, base: &str, update: bool, timeout_secs: u64) -> Result<Vec<String>> {
     let patch = git_diff_patch(root, base)?;
@@ -307,11 +328,15 @@ pub fn run(root: &Path, base: &str, update: bool, timeout_secs: u64) -> Result<V
         ])
         .current_dir(root)
         .output()?;
-    // cargo-mutants 退出码契约：0 = 全捕获；2 = 存在未捕获变异（正文在 stdout）。
-    // 两者都继续走棘轮比对；其余退出码才是真失败（fail-closed）。
+    // cargo-mutants 退出码契约（上游文档 mutants.rs/exit-codes.html，27.1.0 实测一致）：
+    // 0 = 全部被捕获；2 = 有未捕获变异；3 = 有变异超时。**三码都算"跑完了"**，正文一律
+    // 进棘轮比对。1/4/5/6/70（用法错 / 基线本身就红或挂 / patch 与树不符 / patch 非法 /
+    // 内部错）才是真失败——判红而不解读结果。
+    // 这一条是 2026-10-06 补的：旧判据只认 0|2，于是 `seg_eq` 里两个 `+= → *=` 死循环
+    // 触发 exit 3，整道门在比对前就中止，连着两轮把"门绿"报成了 cargo-mutants 的转储。
     anyhow::ensure!(
-        matches!(out.status.code(), Some(0) | Some(2)),
-        "cargo mutants 失败（exit {:?}）：{}",
+        completed_status(out.status.code()),
+        "cargo mutants 没跑完（exit {:?}）：{}",
         out.status.code(),
         String::from_utf8_lossy(&out.stdout) + String::from_utf8_lossy(&out.stderr)
     );
@@ -332,6 +357,10 @@ pub fn run(root: &Path, base: &str, update: bool, timeout_secs: u64) -> Result<V
         );
     }
     let disk = unviable_disk_failures(&parsed, &out_dir);
+    let timeouts = keys_by_summary(&parsed, |s| s == "Timeout")?;
+    if let Some(note) = timeout_note(&timeouts) {
+        println!("{note}");
+    }
     let baseline_path = root.join(BASELINE_PATH);
     if update {
         if !disk.is_empty() {

@@ -8,10 +8,10 @@ use xtask::god::{
 use xtask::lockstep::check_lockstep;
 use xtask::maturity::{experimental_patterns, pattern_matches};
 use xtask::mutants::{
-    VERIFIABLE_SUMMARIES, df_args, disk_failure_signature, drive_letter, free_bytes_probe,
-    human_bytes, keys_by_summary, min_free_gib, new_missed, parse_df_avail, parse_u64_lines,
-    powershell_args, scratch_is_short, short_message, tally, unverifiable_keys,
-    unviable_disk_failures,
+    VERIFIABLE_SUMMARIES, completed_status, df_args, disk_failure_signature, drive_letter,
+    free_bytes_probe, human_bytes, keys_by_summary, min_free_gib, new_missed, parse_df_avail,
+    parse_u64_lines, powershell_args, scratch_is_short, short_message, tally, timeout_note,
+    unverifiable_keys, unviable_disk_failures,
 };
 use xtask::suppress::file_violations;
 
@@ -202,6 +202,40 @@ fn canary_mutants_verifiable_labels_are_the_real_ones() {
         VERIFIABLE_SUMMARIES.join(","),
         "CaughtMutant,MissedMutant,Timeout"
     );
+}
+
+#[test]
+fn canary_mutants_reads_exit_3_timeouts_as_a_completed_run() {
+    // 上游契约（mutants.rs/exit-codes.html）：0 全捕获 / 2 有未捕获 / 3 有超时都算跑完；
+    // 1 用法错 / 4 基线自身就红或挂 / 5 patch 与树不符 / 6 patch 非法 / 70 内部错不算。
+    // 旧判据只认 0|2：2026-10-06 两片实测里 `seg_eq` 的两个 `+= → *=` 死循环触发 exit 3，
+    // 整道门在棘轮比对**之前**中止，把"门绿"报成了 cargo-mutants 的转储。
+    assert!(completed_status(Some(0)));
+    assert!(completed_status(Some(2)));
+    assert!(
+        completed_status(Some(3)),
+        "金丝雀失败：把超时当失败 ⇒ 有变异挂住时这道门根本不判"
+    );
+    for bad in [Some(1), Some(4), Some(5), Some(6), Some(70), None] {
+        assert!(!completed_status(bad), "金丝雀失败：{bad:?} 不该被当成跑完");
+    }
+    // 超时键必须能逐个点名：另一种可能是 timeout 定得太低，那会把存活变异藏在这里。
+    let parsed = serde_json::json!({ "outcomes": [
+        outcome("Timeout", "xtask/src/x.rs", "hangs"),
+        outcome("MissedMutant", "xtask/src/x.rs", "survived"),
+    ]});
+    let timed_out = keys_by_summary(&parsed, |s| s == "Timeout").expect("超时键集");
+    assert_eq!(timed_out, vec!["xtask/src/x.rs::hangs".to_string()]);
+    assert_eq!(
+        keys_by_summary(&parsed, |s| s == "MissedMutant").expect("missed 键集"),
+        vec!["xtask/src/x.rs::survived".to_string()],
+        "金丝雀失败：超时与未捕获混成一类"
+    );
+    // 文案要真点名，且不把超时说成 missed。
+    assert_eq!(timeout_note(&[]), None);
+    let note = timeout_note(&["xtask/src/x.rs::hangs".to_string()]).expect("有超时该有文案");
+    assert!(note.contains("xtask/src/x.rs::hangs"), "{note}");
+    assert!(note.contains("不计入 missed"), "{note}");
 }
 
 /// 从期望文件里取 `SECTION` 段下的键（期望文件由 cargo-mutants 真实产物生成）。
