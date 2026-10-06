@@ -162,7 +162,7 @@ fn free_bytes_via_powershell(letter: &str) -> Option<u64> {
 }
 
 /// `df` 通道的字节数。
-fn free_bytes_via_df(path: &Path) -> Option<u64> {
+pub fn free_bytes_via_df(path: &Path) -> Option<u64> {
     let out = std::process::Command::new("df")
         .args(df_args(path))
         .output()
@@ -206,7 +206,7 @@ pub fn short_message(scratch: &Path, free: Option<u64>, min_gib: u64) -> Option<
 }
 
 /// 跑之前的盘量预检：查实测余量，不足则红。
-fn precheck_scratch(min_gib: u64) -> Vec<String> {
+pub fn precheck_scratch(min_gib: u64) -> Vec<String> {
     let scratch = std::env::temp_dir();
     let (free, channel) = free_bytes_probe(&scratch);
     println!(

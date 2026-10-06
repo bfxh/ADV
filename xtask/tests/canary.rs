@@ -9,9 +9,9 @@ use xtask::lockstep::check_lockstep;
 use xtask::maturity::{experimental_patterns, pattern_matches};
 use xtask::mutants::{
     VERIFIABLE_SUMMARIES, completed_status, df_args, disk_failure_signature, drive_letter,
-    free_bytes_probe, human_bytes, keys_by_summary, min_free_gib, new_missed, parse_df_avail,
-    parse_u64_lines, powershell_args, scratch_is_short, short_message, tally, timeout_note,
-    unverifiable_keys, unviable_disk_failures,
+    free_bytes_probe, free_bytes_via_df, human_bytes, keys_by_summary, min_free_gib, new_missed,
+    parse_df_avail, parse_u64_lines, powershell_args, precheck_scratch, scratch_is_short,
+    short_message, tally, timeout_note, unverifiable_keys, unviable_disk_failures,
 };
 use xtask::suppress::file_violations;
 
@@ -730,4 +730,66 @@ fn canary_god_really_skips_registered_experimental_faces() {
         !got.contains_key("file:crates/adv-core/tests/data/blob.rs"),
         "登记的试验面仍在计量 ⇒ god 的跳过没生效"
     );
+}
+
+#[test]
+fn canary_df_channel_answers_with_the_number_its_own_output_gives() {
+    // DD-0001 的一半：`free_bytes_via_df` 在 Windows 上是备胎通道（powershell 先答），
+    // 所以它两条薄壳变异（整体换成 None、删掉 status 的取反）一直没人在看。
+    // 这里把"刚跑出来的 df 输出"与"通道函数给的数"钉在一起：不一致就是通道少检查或多检查。
+    let dir = std::env::temp_dir();
+    let Ok(out) = std::process::Command::new("df")
+        .args(df_args(&dir))
+        .output()
+    else {
+        eprintln!("本机没有 df ⇒ 这两条变异在本机不可判（变异门跑在有 df 的机器上）");
+        return;
+    };
+    assert!(out.status.success(), "df 存在却没跑成");
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    let parsed = parse_df_avail(&text);
+    assert!(parsed.is_some(), "df 跑成功但解析拿不出数：{text}");
+    // 只比"有没有数"，不比数值：两次 df 之间空闲量会变（本机实测会差几 MB），
+    // 数值的对错已经钉在 df-kp-*.txt 语料那条金丝雀上。
+    assert!(
+        free_bytes_via_df(&dir).is_some(),
+        "df 跑成功、语料解析也拿得出数，通道函数却说没有数 ⇒ status 检查或解析被改坏了"
+    );
+}
+
+#[test]
+fn canary_precheck_names_shortfall_and_stays_quiet_when_roomy() {
+    // DD-0001 的另一半：`precheck_scratch` 的三条变异（换成 vec![]、vec![String::new()]、
+    // vec!["xyzzy"]）在余量充足的机器上看不出来——它只在真要跑门时被调，而那时无下限会红。
+    // 用一个不可能的下限（1e9 GiB ≈ 1EB）逼它点名。
+    let roomy = precheck_scratch(0);
+    assert!(roomy.is_empty(), "下限 0 不该判红：{roomy:?}");
+    let scratch = std::env::temp_dir();
+    let (free, channel) = free_bytes_probe(&scratch);
+    let absurd = precheck_scratch(1_000_000_000);
+    match free {
+        Some(_) => {
+            assert_eq!(
+                absurd.len(),
+                1,
+                "该点名恰好一次，实得 {absurd:?}（通道 {channel}）"
+            );
+            assert!(
+                absurd[0].contains("余量不足"),
+                "文案要说清是余量不足：{}",
+                absurd[0]
+            );
+            assert!(
+                absurd[0].contains("TMP="),
+                "修法要落成能抄的一行：{}",
+                absurd[0]
+            );
+        }
+        // 查不到余量时预检必须 fail-open（不判），而不是编一个数——这条与
+        // scratch_is_short 的口径一致，写死在这里防"顺手改成缺数即红"。
+        None => assert!(
+            absurd.is_empty(),
+            "测不到余量时必须说'不判'而不是编数：{absurd:?}"
+        ),
+    }
 }
