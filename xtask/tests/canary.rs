@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use xtask::god::{MAX_FN_LINES, analyze_source, hard_violations, ratchet_violations};
 use xtask::lockstep::check_lockstep;
+use xtask::maturity::pattern_matches;
 use xtask::mutants::{
     df_args, disk_failure_signature, drive_letter, free_bytes_probe, human_bytes, keys_by_summary,
     min_free_gib, new_missed, parse_df_avail, parse_u64_lines, powershell_args, scratch_is_short,
@@ -509,4 +510,47 @@ fn canary_tally_counts_match_raw_product_text() {
         caught > missed && unviable > 0,
         "语料退化：分布塌了就先修语料"
     );
+}
+
+/// 试验面匹配的三条边界：`*` 不跨段、结尾 `/**` 吃任意深度、少一层不算命中。
+/// 这条判据决定"哪些文件不进 god 计量"，放宽一分就有承重面被放过。
+#[test]
+fn canary_experimental_pattern_only_covers_what_it_says() {
+    let pat = "crates/*/tests/data/**";
+    assert!(pattern_matches(
+        pat,
+        "crates/adv-cli/tests/data/taint-crate/src/lib.rs"
+    ));
+    assert!(
+        pattern_matches(pat, "crates/adv-cli/tests/data/x.rs"),
+        "登记目录下的直属文件也要算试验面"
+    );
+    assert!(
+        !pattern_matches(pat, "crates/adv-cli/tests/unit.rs"),
+        "tests/ 下的真测试代码不是试验面"
+    );
+    assert!(
+        !pattern_matches(pat, "crates/adv-cli/src/data/x.rs"),
+        "* 不能跨路径段（中间多一段就不该命中）"
+    );
+    assert!(
+        !pattern_matches(pat, "crates/adv-cli/tests/datamore/x.rs"),
+        "* 是整段匹配，不是前缀匹配"
+    );
+    assert!(
+        !pattern_matches(pat, "crates/adv-cli/tests/data"),
+        "登记的是该目录以下：`**` 至少吃一层，不许比字面更宽"
+    );
+    // 精确 pattern（无通配）只能一对一
+    assert!(pattern_matches("rules/rust/x.yaml", "rules/rust/x.yaml"));
+    assert!(!pattern_matches("rules/rust/x.yaml", "rules/rust/y.yaml"));
+    // 带星号的中段也要能拆开匹配
+    assert!(pattern_matches(
+        "crates/*/tests/fixtures/**",
+        "crates/a/tests/fixtures/f.rs"
+    ));
+    assert!(!pattern_matches(
+        "crates/*/tests/fixtures/**",
+        "crates/a/tests/data/f.rs"
+    ));
 }

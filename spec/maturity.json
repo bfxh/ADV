@@ -1,16 +1,20 @@
 {
   "note": "试验面登记（docs/DESIGN-DEBT-GATE.md §2）：判据是「谁读它、变了谁会红」，不是「看着像测试」。每条必须带 why 与 guards，缺字段即红。放松的只有 god 计量与变异门重跑（用户 2026-10-06 选定「只松 god + 变异门」）；编译/clippy/卫生门/金样/金丝雀/lockstep 照旧严。",
-  "entry_fields": ["glob", "why", "guards"],
+  "entry_fields": [
+    "pattern",
+    "why",
+    "guards"
+  ],
   "entries": [
     {
-      "glob": "crates/*/tests/data/**",
       "why": "合成语料与被扫目标（如片B2 的 taint-crate 夹具）：允许低可维护度、允许留 dead_code 警告——它的价值是「有可重跑的输入形状」，不是「长得像产品代码」。它若进 god 棘轮，改一次夹具就要多录一次基线、多一轮披露，那是把维护形的税交给试验面（2026-10-06 实际发生）。",
-      "guards": "crates/adv-cli/tests/deep_cargo.rs 的 `adv-expect: hit|miss` 标记锚定 + tests/golden/deep-cargo.jsonl 金样；材料本身坏了这些测试立刻红。"
+      "guards": "crates/adv-cli/tests/deep_cargo.rs 的 `adv-expect: hit|miss` 标记锚定 + tests/golden/deep-cargo.jsonl 金样；材料本身坏了这些测试立刻红。",
+      "pattern": "crates/*/tests/data/**"
     },
     {
-      "glob": "crates/*/tests/fixtures/**",
       "why": "驱动/规则的最小合成输入（taint_direct.rs 等）：刻意只含一条流、一个 sanitizer，写成产品代码反而失去可判定性。",
-      "guards": "crates/adv-ast-rust/tests/{taint_reach,mir_probe,wrapper_mode}.rs 与 crates/adv-cli/tests/engine_mir.rs——期望行号一律回读夹具文本，不抄数字。"
+      "guards": "crates/adv-ast-rust/tests/{taint_reach,mir_probe,wrapper_mode}.rs 与 crates/adv-cli/tests/engine_mir.rs——期望行号一律回读夹具文本，不抄数字。",
+      "pattern": "crates/*/tests/fixtures/**"
     }
   ],
   "explicitly_not_experimental": "crates/*/tests/*.rs（真测试代码）不算试验面：它们是变异门要计量的判据本体。"

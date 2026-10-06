@@ -119,6 +119,12 @@ jobs:
       - name: Path gate（S162：符号链接/文件名卫生/≤1MB/越界写/软链接逃逸——与 key 门并列）
         run: python -X utf8 scripts/path_gate.py
 
+      # 设计债到期门（docs/DESIGN-DEBT-GATE.md）：设计层的缺口必须显式且有到期日。
+      # 计时单位 = commit 数（用户 2026-10-06 选定），超 10 个任务未处置即红——
+      # 治的是"登记完就没人再看"：登记 ≠ 免责，红才是它的牙齿。
+      - name: Debt gate（设计债到期：成因必填 + ≤10 commit 限期 + SHA 可核）
+        run: python -X utf8 scripts/debt_gate.py
+
       # S188：架构守卫（声明式 import 禁向规则，spec/arch-rules.json；违规定位到行；fail-closed）。
       # 规则必须是"今天已成立"的纪律（棘轮钉现状）；新增架构约束 = 加规则条目，不是加代码。
       - name: Arch gate（架构守卫：分层禁向规则 × import 边）

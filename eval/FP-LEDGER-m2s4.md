@@ -553,3 +553,40 @@ msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两
 本片新增的 `scan_crate_via_cargo`、`collect_crate_findings`、`parse_finding`（改动过的）
 全部落在可验证集且不在 missed 里 ⇒ 都被杀掉。
 
+---
+
+# 片D（门链分层，2026-10-06）：试验面不计量 + 设计债到期门
+
+> 起因是用户一条设计口径：**对正在被测试的东西别用维护承重面的尺**——测试面上有 bug、
+> 可维护度差是预期属性；不能放过的是**设计层**问题，而且它必须**有到期日**（≤10 个任务），
+> 否则"设计上的问题"就退化成一条没人再看的注释。定案三格全 A（commit 数计时 /
+> 只松 god+变异门 / 先不动 branch protection），写在 `docs/DESIGN-DEBT-GATE.md`。
+
+## 生效点与实测
+
+| 件 | 位置 | 实测 |
+|----|------|------|
+| god 跳过试验面 | `xtask/src/maturity.rs` + `god::collect_workspace_entries` | god 基线 423 → **409**：移除 21 键**全部**落在 `tests/data/`、`tests/fixtures/` 之下，逐键核过"非试验面被误放掉 = 空" |
+| `**` 的语义收窄 | `pattern_matches` | 定为**至少吃一层**：登记写的是"该目录以下"，放松不许比字面更宽（金丝雀 `canary_experimental_pattern_only_covers_what_it_says` 钉住 `*` 不跨段、`datamore/` 不命中） |
+| 到期门 | `scripts/debt_gate.py`（D1–D7）+ `tests/test_debt_gate.py` 12 条 | 在册 7 条债全绿；每条判据都有反向用例（缺字段、成因空、限期>10、**SHA 不存在**、超期、id 重复、销账无据） |
+| 接进门链 | `local_gate.py` fast 档 + `core.yml` 一步 + PR 模板 | `test_s145_gates.py` 10 条同锁绿（core.yml 出现的脚本必须都在 local_gate） |
+
+## 三条比"实现完成"更该记的
+
+1. **`--write-baseline` 是整表替换，会把垃圾面洗成基线**：python god 门重录实测把表从
+   377 涨到 443，新增里含 `RESEARCH/.tmp-p1/` 这类遗留临时件。⇒ 本片不做整表重录，
+   只单条更新 `scripts/local_gate.py` 的 `file_lines 230→233`（条目数保持 377），
+   并把这件事登记成 **DD-0006**。绕过分没有判据值钱。
+2. **伞仓快档门链默认就是红的**：30 步里 15 步失败。我先怀疑是自己引入，用"把本片新增
+   两个 py 文件挪开再量"排除——同样报 6 条增长，且 naming/typos 命中里 grep 本片新文件
+   为 0、`local_gate.py` 的 C901 在 `main()`（我没碰）。⇒ 归属清楚后登记成 **DD-0007**
+   （缺的是"门链按工作线分组"这一层设计），而不是跳过或假装没看见。
+3. **D4 那条判据是给我自己写的**：本会话我连着两次凭印象写错 commit 号
+   （`f4a39d5`、`36179b6`，真实是 `1fc62d3`）。现在编造 SHA 会直接判红——
+   门把作者的这个失败模式接管了。
+
+## 本片重放记录
+
+`debt_gate` / `claim_gate` / `god_gate`（python 侧）全 OK · `pytest tests/test_debt_gate.py
+test_s145_gates.py` 22 条过 · fmt 0 · clippy 干净 · `cargo test --workspace` 74 条过 ·
+`xtask gate` 绿 · `xtask mir` 绿 · `xtask mutants --base 6201ea4`：（待填）

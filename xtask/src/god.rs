@@ -183,6 +183,9 @@ impl<'ast, 'a> Visit<'ast> for Counter<'a> {
 /// 收集全部成员 crate 的计量（只扫工作区成员——旧仓 Rust 引擎不在成员内，不受新门管）。
 pub fn collect_workspace_entries(root: &Path) -> Result<BTreeMap<String, u64>> {
     let mut entries = BTreeMap::new();
+    // 试验面（spec/maturity.json 登记）不计量：docs/DESIGN-DEBT-GATE.md §3。
+    // 给合成夹具记规模棘轮，等于把维护形的税交给测试材料——只拖慢，不出正确性。
+    let experimental = crate::maturity::experimental_patterns(root);
     for dir in MEMBER_DIRS {
         let base = root.join(dir);
         if !base.is_dir() {
@@ -202,8 +205,15 @@ pub fn collect_workspace_entries(root: &Path) -> Result<BTreeMap<String, u64>> {
                     .context("rel path")?
                     .to_string_lossy()
                     .replace('\\', "/");
+                if experimental
+                    .iter()
+                    .any(|p| crate::maturity::pattern_matches(p, &rel))
+                {
+                    continue; // 试验面不计量（登记见 spec/maturity.json）
+                }
                 let src = fs::read_to_string(entry.path())
                     .with_context(|| format!("read {}", entry.path().display()))?;
+
                 for (k, v) in analyze_source(&rel, &src) {
                     entries.insert(k, v);
                 }
