@@ -71,7 +71,9 @@
 
 ## 5. 落在"请求合并那一层"
 
-- **CI**：`core.yml` 加一步 `Debt gate`；同一把尺挂在 `scripts/local_gate.py` 的 fast 档
+- **CI**：`Debt gate` 一步接在 **`adv.yml`**（守 `adv-rewrite` / `main` 的新工作区 workflow）里。
+  ⚠️ 昨天接的是 `core.yml`，而 `core.yml` 的 `on.push` 只列 `main` ⇒ 在这条分支上**一步都没跑过**，
+  本轮坐实并改接（见 DD-0010）。同一把尺也挂在 `scripts/local_gate.py` 的 fast 档
   （fast 档只有在钩子装上才进提交路径——实测本机未装，见本节末与 DD-0008）。
 - **必需检查**：branch protection 把它设为合并前必需——⚠️ 这是改共享状态，
   要单独授权；命令给出来但默认不执行。
@@ -105,8 +107,9 @@
 - `spec/maturity.json`：试验面 pattern 登记（`why`/`guards` 空即红；`**` 至少吃一层 ⇒
   放松不许比登记字面更宽）。
 - `xtask/src/maturity.rs` + `xtask god`：跳过登记的 pattern——②的实际生效点。
-- `.github/workflows/core.yml` 的 `Debt gate` 一步 + `scripts/local_gate.py` fast 档
-  （钩子装了才顺带进 pre-commit；本机实测未装 ⇒ 当前生效面 = CI + 手工跑，见 DD-0008）。
+- `.github/workflows/adv.yml` 的 `Debt gate` 一步（2026-10-06 订正：原先接在 `core.yml`，
+  那条只守 `main` ⇒ 本分支从未跑过）+ `scripts/local_gate.py` fast 档
+  （钩子装了才顺带进 pre-commit；本机实测未装 ⇒ 当前生效面 = adv.yml + 手工跑，见 DD-0008、DD-0010）。
 - `.github/PULL_REQUEST_TEMPLATE.md`：两栏（碰到试验面？处置了哪条 DD？）+ 证据栏。
 
 ## 7.1 重录基线的纪律（本次实测逼出来的，见 DD-0006）

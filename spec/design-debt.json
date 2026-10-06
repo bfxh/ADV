@@ -99,6 +99,17 @@
       "since": "36337b5",
       "due_after_tasks": 10,
       "guards": "本次以纪律补：账本/ROUNDLOG 记变异门必须写门自己那行 verdict 原文，复算数另栏；但纪律不是判据。待补的判据 = 把\"最后一行必须是 `mutants: 绿|红（N 条）`\"钉成可机判（xtask 内部自检或重放脚本核验）。"
+    },
+    {
+      "id": "DD-0010",
+      "surface": ".github/workflows 的门接线（adv-rewrite 的 CI 生效面）",
+      "kind": "design",
+      "defect": "2026-10-06 把设计债门\"接进 CI\"时接的是 core.yml，而 core.yml 的 on.push 只列 main —— 本条分支 adv-rewrite 由 adv.yml 守，它一个 python 步骤都没有（fmt/clippy/nextest/coverage/gate/deny 全是 cargo 侧）。⇒ 昨天到今天的每一次\"带红推送会让 CI 红\"都是空话：Debt gate、claim_gate、path_gate 在这条分支上从未跑过。本轮已把 Debt gate 挪接进 adv.yml，但这张\"哪个门在哪条分支真跑\"的表仍没有判据。",
+      "why_from_design": "门链的 CI 接线按\"文件\"组织（core.yml 是旧伞仓的门清单，adv.yml 是新工作区的门清单），而不是按\"分支 × 生效门集合\"组织；test_s145_gates.py 锁的是 core.yml ↔ local_gate 的漂移，它天然测不到\"这条分支根本不跑 core.yml\"。缺的是把每条受保护分支的门集合钉成一份可比对的登记，而不是缺某一步。",
+      "origin": "4d20416",
+      "since": "1884216",
+      "due_after_tasks": 10,
+      "guards": "本轮只补了这一条接线（Debt gate → adv.yml）；其余 python 门在这条分支上仍未接，也没有\"接线完整性\"判据 —— 这条债的内容就是缺那把尺。"
     }
   ],
   "retired_fields": [

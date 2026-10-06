@@ -33,6 +33,15 @@ jobs:
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
       - name: gates（god 棘轮 + 版本锁步 + 抑制到期；本地与 CI 同尺）
         run: cargo run -p xtask -- gate
+      # 设计债到期门接在**这条分支真正跑的 workflow**上：core.yml 只守 main（见其 on.push
+      # 注释），昨天把 Debt gate 写进 core.yml 等于没接——adv-rewrite 上它一步都没跑过。
+      # 纯 stdlib（json/re/subprocess），不需 pip 依赖；setup-python 沿用 core.yml 的 SHA 钉法。
+      - name: Set up Python 3.14
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Debt gate（设计债到期：成因必填 + ≤10 commit 限期 + SHA 可核）
+        run: python -X utf8 scripts/debt_gate.py
       - name: deny（license/advisory/ban）
         run: cargo deny check
       - name: 上传测试报告
