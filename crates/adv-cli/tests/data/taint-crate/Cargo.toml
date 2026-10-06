@@ -1,0 +1,10 @@
+# 片B2 对拍语料：一个"有 crate 形状"的合成 crate（多文件 + 跨模块 + const 上下文）。
+# 它**刻意不进 workspace**（根 Cargo.toml 的 members 不含它，靠自身 [package] 独立成树），
+# 因为 cargo 档扫描会真的跑一次 `cargo build`，把它并进 workspace 会污染主构建。
+[package]
+name = "taint_probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]

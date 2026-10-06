@@ -60,7 +60,8 @@ fn main() {
         Some("scan") => scan(&args[1..]),
         _ => {
             eprintln!(
-                "用法：adv scan <目录> [--rules <规则目录>] [--engine ast|mir|both] [--driver <路径>]"
+                "用法：adv scan <目录> [--rules <规则目录>] [--engine ast|mir|both] \
+                 [--driver <路径>] [--deep-via-cargo]"
             );
             std::process::exit(2);
         }
@@ -101,6 +102,8 @@ fn scan(args: &[String]) {
     };
 
     let mut tally = Tally::default();
+    // cargo 档（片B2）：深轨不逐文件起驱动，而是把边车挂进目标 crate 的 cargo 构建一次跑完。
+    let via_cargo = args.iter().any(|a| a == "--deep-via-cargo");
     for entry in ignore::Walk::new(target) {
         let entry = match entry {
             Ok(e) => e,
@@ -123,7 +126,7 @@ fn scan(args: &[String]) {
         if fast_runs_for(engine) {
             scan_fast(path, lang, &src, &rules, &mut tally);
         }
-        if deep_runs_for(engine) {
+        if deep_runs_for(engine) && !via_cargo {
             if lang == adv_parse::Language::Python {
                 continue; // 深轨只吃 Rust（MIR 边车），python 文件在此档不产发现
             }
@@ -134,6 +137,16 @@ fn scan(args: &[String]) {
                 &rules,
                 &mut tally,
             );
+        }
+    }
+    if via_cargo && let Some(driver) = driver.as_ref() {
+        match mir::scan_crate_via_cargo(Path::new(target), &rules_dir, driver, &rules) {
+            Ok(found) => tally.deep.extend(found),
+            // cargo 档跑不动 = 执行失败，不是"这个 crate 干净"（与片A2 边界口径一致）。
+            Err(e) => {
+                eprintln!("adv：深轨 cargo 档不可用：{e}");
+                std::process::exit(2);
+            }
         }
     }
     report(engine, tally);

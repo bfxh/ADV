@@ -513,3 +513,38 @@ msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两
 双向漂移核对：本轮 missed 键 11 条 == 基线 11 条 ⇒ 新债 0、可划账 0、不可验证 0。
 本片新代码的 6 个键（`is_wrapper`、`forwarded_args`、`crate_output_name`、`mir_body` 之外的
 `span_file`、`finding_json`、`emit_wrapper`）全部进可验证集且**无一留在 missed** ⇒ 都被杀掉。
+
+---
+
+# 片B2（2026-10-06）：深轨吃 crate 形状的输入——`adv scan --deep-via-cargo`
+
+> 交付：`adv scan <crate目录> --engine both --deep-via-cargo` 把边车当
+> `RUSTC_WORKSPACE_WRAPPER` 挂进目标 crate 的 cargo 构建，读回按 crate 落的 JSONL。
+> 语料是**合成多文件 crate** 夹具 `crates/adv-cli/tests/data/taint-crate/`
+> （用户 2026-10-06 选定；另两个选项是"引外部真 crate"和"只证跑通"）。
+> 复现：`./target/debug/adv.exe scan crates/adv-cli/tests/data/taint-crate --rules rules
+> --engine both --deep-via-cargo`。
+
+## 实测结论
+
+| 主张 | 判据 | 结果 |
+|------|------|------|
+| 单文件档的局限真的被绕开了 | 上面那条命令的 stdout | **3 条发现，跨两个文件**：`src/lib.rs:10`、`src/lib.rs:15`、`src/inner.rs:5`——非根模块的流扫到了，单文件档做不到（没有模块解析） |
+| sanitizer 仍判得住 | 夹具 `// adv-expect: miss` 那条（`len` 之后） | 不在账里 |
+| 快轨对 Rust 的能力边界 | `--engine ast` 扫同一份语料 | **0 条**（实测，不是推断）⇒ 三方账的非空桶只有"仅深轨"，`两边都报`/`仅快轨` 两桶靠片A6 的单测撑，不能声称端到端验过 |
+| 本仓真实 Rust 代码没有该规则的真流 | 逐处 grep `env::var` 与 `Command::new` 同文件 | 只剩 `adv-cli/src/mir.rs`（用 `var_os`，不该命中）与 `xtask/src/mutants.rs`（值流向比较而非命令实参）⇒ 在本仓代码上出账必然全 0 |
+| 片B1 记的覆盖空洞补上了 | 夹具放 `pub const OFFSET: usize = 40 + 2;` | const 上下文体走 `mir_body()` 的 `mir_for_ctfe` 分支，扫描不 panic ⇒ 那条臂从此在门内有覆盖 |
+| 空账不能算通过 | `collect_crate_findings` | 一个 `.jsonl` 都没有 ⇒ Err（"不能折算为无发现"）；非 crate 目录（无 `Cargo.toml`）⇒ 退出码 2，有测试钉住 |
+
+踩到的一条环境变量口径坑（如实记）：`ADV_MIR_RULES` **必须传绝对路径**。包装器进程的工作
+目录是**被扫 crate 的根**（cargo 在那儿起 rustc），传 `rules` 会解析到不存在的目录，驱动报
+`Error: 读规则目录 rules` ⇒ 整条 cargo 构建 exit=101。驱动侧 fail-closed 是对的，错在调用方。
+
+## 本片重放记录
+
+`cargo fmt --all --check` 0 · clippy `--all-targets -D warnings` 干净 ·
+`cargo test --workspace` **73** 条全过（含本片新增 3 条：跨模块流 + 金样冻结 + 非 crate 目录判红）·
+`xtask gate` 绿 · `xtask mir` 绿 · god 基线 406 → **423**（新增 17 面、涨 5、降 0、**移除 0**；
+新面含夹具那两个 `.rs`——god 按仓内 .rs 计量，这是有意的）。
+金样：`crates/adv-cli/tests/golden/deep-cargo.jsonl`（3 行，`ADV_UPDATE_GOLDEN=1` 通道重录）。
+`xtask mutants --base 6201ea4`：（待填）
