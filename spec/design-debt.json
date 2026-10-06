@@ -82,12 +82,12 @@
       "id": "DD-0010",
       "surface": ".github/workflows 的门接线（adv-rewrite 的 CI 生效面）",
       "kind": "design",
-      "defect": "2026-10-06 把设计债门\"接进 CI\"时接的是 core.yml，而 core.yml 的 on.push 只列 main —— 本条分支 adv-rewrite 由 adv.yml 守，它一个 python 步骤都没有（fmt/clippy/nextest/coverage/gate/deny 全是 cargo 侧）。⇒ 昨天到今天的每一次\"带红推送会让 CI 红\"都是空话：Debt gate、claim_gate、path_gate 在这条分支上从未跑过。本轮已把 Debt gate 挪接进 adv.yml，但这张\"哪个门在哪条分支真跑\"的表仍没有判据。",
+      "defect": "2026-10-06 把设计债门\"接进 CI\"时接的是 core.yml，而 core.yml 的 on.push 只列 main —— 本条分支 adv-rewrite 由 adv.yml 守，它一个 python 步骤都没有（fmt/clippy/nextest/coverage/gate/deny 全是 cargo 侧）。⇒ 昨天到今天的每一次\"带红推送会让 CI 红\"都是空话：Debt gate、claim_gate、path_gate 在这条分支上从未跑过。本轮已把 Debt gate 挪接进 adv.yml，但这张\"哪个门在哪条分支真跑\"的表仍没有判据。 接进去之后又实测出一层：adv.yml 的 checkout 用默认 depth=1，Debt gate 的 D4 于是把每一条真实 SHA 都判成\"在 git 里不存在（不许凭印象写 SHA）\"——CI 一次报 14 条假红，而 D5（超期）因为 exists(since) 恒假**整条不执行**：门在 CI 上是哑的，红得毫无信息量。本轮已给 adv.yml 加 fetch-depth: 0，并让 D4 在浅克隆下把话写成\"无法核验（fetch-depth）\"而不是冤枉作者；但\"接线形状对不对\"本身仍然没有判据——浅克隆、缺 python、步骤名漂移这类都会让门静默变形。",
       "why_from_design": "门链的 CI 接线按\"文件\"组织（core.yml 是旧伞仓的门清单，adv.yml 是新工作区的门清单），而不是按\"分支 × 生效门集合\"组织；test_s145_gates.py 锁的是 core.yml ↔ local_gate 的漂移，它天然测不到\"这条分支根本不跑 core.yml\"。缺的是把每条受保护分支的门集合钉成一份可比对的登记，而不是缺某一步。",
       "origin": "4d20416",
       "since": "1884216",
       "due_after_tasks": 10,
-      "guards": "本轮只补了这一条接线（Debt gate → adv.yml）；其余 python 门在这条分支上仍未接，也没有\"接线完整性\"判据 —— 这条债的内容就是缺那把尺。"
+      "guards": "本轮补了两处实测（fetch-depth: 0 + 浅克隆重写文案 + 反向用例 test_shallow_clone_blames_the_environment_not_the_author），但都还是\"这一条门自己别说话\"的层面；缺的尺照旧是\"每条受保护分支 × 生效门集合 × 运行前置（深度/工具/依赖）\"的登记与核对。"
     }
   ],
   "retired_fields": [

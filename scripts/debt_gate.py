@@ -10,7 +10,9 @@
   D2 `why_from_design` 非空——写不出设计成因的条目就是"贴标签躲门"；
   D3 `1 ≤ due_after_tasks ≤ 10`（上限不许自行放宽）；
   D4 `since` / `origin` 必须是可解析的 commit（防"凭印象写一个 SHA"：
-     本门作者 2026-10-06 就连着写错过两次，这条判据是那次教训的固化）；
+     本门作者 2026-10-06 就连着写错过两次，这条判据是那次教训的固化）。
+     浅克隆里查不到 ⇒ 照样判红，但话要写成"无法核验（fetch-depth）"而不是"你编了 SHA"——
+     CI 上 14 条假红盖住 D5 就是这句写错的代价。
   D5 超期即红：`git rev-list --count <since>..HEAD > due_after_tasks`；
   D6 id 唯一，且不许同时出现在册与已退役两处；
   D7 已退役条目必须带非空 `evidence`——销账要有交代，不许一删了之；
@@ -60,13 +62,26 @@ def commit_exists(root: Path, sha: str) -> bool:
     )
 
 
-def _sha_fails(eid, field, sha, exists):
+def is_shallow(root: Path) -> bool:
+    """本仓是不是浅克隆（CI 默认 `fetch-depth: 1` ⇒ 短 SHA 根本查不到）。"""
+    out = subprocess.run(["git", "rev-parse", "--is-shallow-repository"],
+                         cwd=str(root), capture_output=True, text=True)
+    return out.returncode == 0 and out.stdout.strip() == "true"
+
+
+def _sha_fails(eid, field, sha, exists, shallow=False):
     """D4：since/origin 必须是**在 git 里查得到**的 commit 形态。"""
     if not isinstance(sha, str) or not sha:
         return [f"D4 {eid} 的 {field} 不是非空字符串：{sha!r}"]
     if not SHA_RE.match(sha):
         return [f"D4 {eid} 的 {field}={sha!r} 不像 commit 号"]
     if not exists(sha):
+        # 2026-10-06 实测的教训：CI 上 14 条 D4 全红，但那些 SHA 一个都没编错——浅克隆
+        # 根本解析不到。判红保持不变（fail-closed），但**话要说对**：环境限制不许写成
+        # "凭印象写 SHA"，否则既冤枉作者，又盖住真正该看的 D5（超期）那条信号。
+        if shallow:
+            return [f"D4 {eid} 的 {field}={sha} 查不到，但本仓是**浅克隆** ⇒ 无法核验"
+                    f"（修法：checkout 加 fetch-depth: 0），不许当成编造的 SHA"]
         return [f"D4 {eid} 的 {field}={sha} 在 git 里不存在（不许凭印象写 SHA）"]
     return []
 
@@ -84,7 +99,7 @@ def _due_fails(eid, entry, due, counter, exists):
     return [f"D5 {eid} 已拖过 {walked} 个 commit（限期 {due}）：{entry.get('defect', '')[:60]}"]
 
 
-def _check_one(entry, required, *, counter, exists, seq):
+def _check_one(entry, required, *, counter, exists, seq, shallow=False):
     """一条在册债的 D1–D5（D6 查重在调用方）。"""
     eid = entry.get("id") or f"<无 id #{seq}>"
     fails = [f"D1 {eid} 缺必填字段：{f}" for f in required if f not in entry]
@@ -96,12 +111,14 @@ def _check_one(entry, required, *, counter, exists, seq):
             f"D3 {eid} due_after_tasks={due} 越界（上限 {MAX_DUE}，要更长须升级为承重面讨论）"
         )
     fails += [
-        f for field in ("since", "origin") for f in _sha_fails(eid, field, entry.get(field), exists)
+        f
+        for field in ("since", "origin")
+        for f in _sha_fails(eid, field, entry.get(field), exists, shallow)
     ]
     return fails + _due_fails(eid, entry, due, counter, exists)
 
 
-def check_entries(entries, retired, *, required, counter, exists):
+def check_entries(entries, retired, *, required, counter, exists, shallow=False):
     """纯判据：喂进 registry 与两个注入点（计数器 / SHA 可核），返回违规文案列表。
 
     不读文件、不调 git ⇒ 每条判据都有对应的反向用例（少一个字段、超期、编造的 SHA
@@ -118,7 +135,8 @@ def check_entries(entries, retired, *, required, counter, exists):
         if eid in seen:
             fails.append(f"D6 {eid} id 重复")
         seen.add(eid)
-        fails += _check_one(e, required, counter=counter, exists=exists, seq=seq)
+        fails += _check_one(e, required, counter=counter, exists=exists, seq=seq,
+                            shallow=shallow)
     for e in retired:
         eid = e.get("id") or "<无 id>"
         if eid in seen:
@@ -179,6 +197,7 @@ def main() -> int:
         required=debt.get("required_fields") or REQUIRED,
         counter=lambda s: rev_count_since(ROOT, s),
         exists=lambda s: commit_exists(ROOT, s),
+        shallow=is_shallow(ROOT),
     )
     if MATURITY.is_file():
         fails += check_maturity(load(MATURITY).get("entries", []))

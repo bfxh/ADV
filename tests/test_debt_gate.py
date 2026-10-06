@@ -130,6 +130,30 @@ def test_not_a_sha_shape_is_red():
     assert any(f.startswith("D4 DD-9001") and "commit" in f for f in fails), f"非 commit 形态没拦：{fails}"
 
 
+def test_shallow_clone_blames_the_environment_not_the_author():
+    """浅克隆里 SHA 查不到 ⇒ 判红不变，但文案必须说"无法核验（fetch-depth）"。
+
+    由来（2026-10-06 实测）：CI 的 checkout 默认 depth=1，Debt gate 一次报出 14 条
+    "在 git 里不存在（不许凭印象写 SHA）"——那些 SHA 一个都没写错。冤枉作者还在其次，
+    真正的问题是 D4 红会把 D5（超期）整条掩盖掉：`_due_fails` 要求 `exists(since)` 才数
+    commit，浅克隆里它恒假 ⇒ 门在 CI 上是**哑的**，红得毫无信息量。
+    """
+    entry = healthy()[0]
+    known = set()          # 什么都不认识，模拟浅克隆
+
+    def counter(since):
+        return 99
+
+    strict = G.check_entries([entry], [], required=G.REQUIRED, counter=counter,
+                             exists=lambda s: s in known, shallow=False)
+    assert any("凭印象写 SHA" in f for f in strict), strict
+    loose = G.check_entries([entry], [], required=G.REQUIRED, counter=counter,
+                            exists=lambda s: s in known, shallow=True)
+    assert any("浅克隆" in f and "fetch-depth" in f for f in loose), loose
+    assert not any("凭印象" in f for f in loose), f"浅克隆还冤枉作者：{loose}"
+    assert len(loose) == len(strict), "换了说法不该少判一条（fail-closed 不变）"
+
+
 def test_overdue_is_red_and_names_the_id():
     fails, _ = run(healthy(), walked=10)
     assert fails == [], f"刚好到期（10/10）不该红：{fails}"

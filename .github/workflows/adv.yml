@@ -17,6 +17,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Debt gate 的 D4/D5 要按短 SHA 查历史并数 commit：默认 depth=1 会让所有 since/origin
+          # 查不到 ⇒ 14 条假红盖住真正该看的超期信号（2026-10-06 实测）。与 core.yml 同口径。
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
         with:
           components: clippy, rustfmt

@@ -914,3 +914,26 @@ adv-m2 线：          steps=11 failed=['debt-gate']  ← 红从 13 步噪声变
 移除 0）· `claim_gate` OK · `debt_gate` 红 5 处（DD-0002/0003/0004/0005 拖 17、DD-0008 拖 12；
 DD-0001/0006/0007 已进 `retired` 带 evidence）· ruff 对本次 4 个 python 文件除既有 C901 外 0 新增
 （我自己引入的 `god_gate` C901 与 `local_gate` B007、两处 E741 都已清掉，命中数回到 HEAD 的 7 与 1）。
+
+## 片G-3：CI 上那次红不是我以为的红（14 条假红盖住了真正的信号）
+
+我断言"带红推送 ⇒ CI 会红在超期账上"。CI 确实红了，但**红的是 D4，而且 14 条全是假红**：
+`adv.yml` 的 checkout 用默认 `depth=1`，于是每一条真实 `since`/`origin` 短 SHA 都被判成
+"在 git 里不存在（不许凭印象写 SHA）"。更糟的是它**顺带把 D5 整条掩盖掉**——
+`_due_fails` 要求 `exists(since)` 才去数 commit，浅克隆里恒假 ⇒ 门在 CI 上是**哑的**，
+那 14 条红毫无信息量，而我真正想让它喊的"5 条超期"一条都没出现。
+
+三处修：
+1. `adv.yml` 的 checkout 加 `fetch-depth: 0`（与 `core.yml` 同口径，那边注释早就写了为什么）；
+2. `debt_gate.is_shallow()` + D4 文案分流：浅克隆里查不到 ⇒ **仍判红**（fail-closed 不变），
+   但话要说成"无法核验（修法：fetch-depth: 0）"，不许冤枉作者；
+3. 反向用例 `test_shallow_clone_blames_the_environment_not_the_author`：同一个不认识的 SHA，
+   `shallow=False` 必须出"凭印象写 SHA"、`shallow=True` 必须出"浅克隆 + fetch-depth"，
+   且**条数必须相同**（换说法不许少判一条）。
+
+DD-0010 按这次实测扩写：接进 CI 只是第一步，"接线形状对不对"（浅克隆 / 缺 python / 步骤名
+漂移）仍然没有判据——本轮的红就是被这条缺口坑的第二次。
+
+重放：pytest test_debt_gate **14 条过**（+1 反向用例）· ruff 对 debt_gate/测试 0 命中 ·
+本地 debt_gate 红 5 处（DD-0002/0003/0004/0005 拖 17+、DD-0008 拖 13）· god OK（表 379→380，
+补登记 debt_gate.py 222/29 这一漏面 + test_debt_gate 按实测 234/22）· claim/path OK。
