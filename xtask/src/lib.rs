@@ -2,6 +2,7 @@
 //!
 //! 用法：`cargo run -p xtask -- <god [--write] | lockstep | gate | mir | mutants>`。
 
+pub mod gate;
 pub mod god;
 pub mod lockstep;
 pub mod maturity;

@@ -5,7 +5,7 @@
 //! "门没判"和"门判绿"不许在输出上同形。
 
 use std::path::PathBuf;
-use xtask::{god, lockstep, mir, mutants, suppress, verdict};
+use xtask::{gate, god, lockstep, mir, mutants, suppress, verdict};
 
 fn workspace_root() -> anyhow::Result<PathBuf> {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -24,17 +24,6 @@ fn emit(name: &str, outcome: anyhow::Result<Vec<String>>) -> ! {
         eprintln!("{line}");
     }
     std::process::exit(code);
-}
-
-/// 三个子门的合档：任一子步抛错 ⇒ 整档判"判不了"，而不是留下一句裸错误。
-fn gate_run(root: &std::path::Path) -> anyhow::Result<Vec<String>> {
-    let god_violations = god::run(root)?;
-    lockstep::run(root)?;
-    let sup = suppress::run(root, &adv_core::today())?;
-    Ok(verdict::merge_gate(&[
-        ("god", god_violations),
-        ("suppress", sup),
-    ]))
 }
 
 fn main() {
@@ -61,7 +50,7 @@ fn main() {
             println!("lockstep: 绿");
         }
         Some("gate") => {
-            let outcome = gate_run(&root);
+            let outcome = gate::run(&root);
             if outcome.as_ref().is_ok_and(|v| v.is_empty()) {
                 // 绿时才补打这两行——保持既有形状（红/判不了由 emit 单点输出）。
                 println!("gate: 绿");
