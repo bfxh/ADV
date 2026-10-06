@@ -30,6 +30,30 @@ struct Tally {
     deep_failed: usize,
 }
 
+impl Tally {
+    /// 记一个"深轨没跑成"的文件。计数是退出码 2 的唯一依据，所以它得能被单独观察。
+    fn note_deep_failure(&mut self) {
+        self.deep_failed += 1;
+    }
+}
+
+/// 快轨在哪些档跑：纯 mir 档不该带上 tree-sitter 的结果。
+fn fast_runs_for(engine: Engine) -> bool {
+    engine != Engine::Mir
+}
+
+/// 深轨在哪些档跑：ast 档是"只跑快轨"，与 `--engine mir` 互斥。
+fn deep_runs_for(engine: Engine) -> bool {
+    engine != Engine::Ast
+}
+
+/// 深轨有文件没跑成时以什么码收口（`None` = 照常 0）。
+///
+/// 这条判据的存在理由：深轨跑不动是**执行失败**，不是"该仓干净"。
+fn deep_failure_exit(engine: Engine, deep_failed: usize) -> Option<i32> {
+    (deep_runs_for(engine) && deep_failed > 0).then_some(2)
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -96,10 +120,10 @@ fn scan(args: &[String]) {
             continue; // 非 UTF-8/二进制：片1 跳过（账目见 FP 会计）
         };
         tally.files += 1;
-        if engine != Engine::Mir {
+        if fast_runs_for(engine) {
             scan_fast(path, lang, &src, &rules, &mut tally);
         }
-        if engine != Engine::Ast {
+        if deep_runs_for(engine) {
             if lang == adv_parse::Language::Python {
                 continue; // 深轨只吃 Rust（MIR 边车），python 文件在此档不产发现
             }
@@ -164,7 +188,7 @@ fn scan_deep(
         Err(e) => {
             let why = e.lines().next().unwrap_or("").to_string();
             eprintln!("深轨失败 {}: {why}", path.display());
-            tally.deep_failed += 1;
+            tally.note_deep_failure();
         }
     }
 }
@@ -207,32 +231,45 @@ fn report(engine: Engine, mut tally: Tally) {
         eprintln!("  {rule}: {n}");
     }
     // 深轨跑不动 = 执行失败，不是"该仓干净"。退出码必须红（对齐"绿=SKIP 不算绿"口径）。
-    if engine != Engine::Ast && tally.deep_failed > 0 {
+    if let Some(code) = deep_failure_exit(engine, tally.deep_failed) {
         eprintln!(
-            "adv：深轨有 {} 个文件未跑成，退出码 2（不折算为无发现）",
+            "adv：深轨有 {} 个文件未跑成，退出码 {code}（不折算为无发现）",
             tally.deep_failed
         );
-        std::process::exit(2);
+        std::process::exit(code);
     }
 }
 
-/// 三方账：两边都报 / 仅快轨 / 仅深轨。键 = (规则, 文件, 起始行)；列不参与
-/// （两引擎给的列粒度口径不同：快轨是 AST span，深轨是 MIR terminator span）。
-fn three_way(items: &[Finding]) {
+/// 三方账的键：`(规则, 文件, 起始行)`。列不参与——两引擎给的列粒度口径不同
+/// （快轨是 AST span，深轨是 MIR terminator span）。
+type LedgerKey = (String, String, usize);
+
+/// 三方账分桶（纯函数）：`(两边都报, 仅快轨, 仅深轨)`。
+///
+/// 抽出来的理由（片A6 实测）：`--engine both` 在现有 rust 语料上快轨 0 条，
+/// `两边都报`/`仅快轨` 两桶恒空 ⇒ 桶逻辑的任何变异都观察不到，门会把"没覆盖"
+/// 记成"已杀掉"。分桶本身必须能被直接喂数据判定。
+fn three_way_buckets(items: &[Finding]) -> (Vec<LedgerKey>, Vec<LedgerKey>, Vec<LedgerKey>) {
     let key = |f: &Finding| (f.rule.clone(), f.file.clone(), f.start_line);
-    let fast: Vec<_> = items
+    let fast: Vec<LedgerKey> = items
         .iter()
         .filter(|f| f.engine == adv_rules::matcher::ENGINE_FAST)
         .map(key)
         .collect();
-    let deep: Vec<_> = items
+    let deep: Vec<LedgerKey> = items
         .iter()
         .filter(|f| f.engine == adv_rules::matcher::ENGINE_MIR)
         .map(key)
         .collect();
-    let both: Vec<_> = fast.iter().filter(|k| deep.contains(k)).cloned().collect();
-    let only_fast: Vec<_> = fast.iter().filter(|k| !both.contains(k)).cloned().collect();
-    let only_deep: Vec<_> = deep.iter().filter(|k| !both.contains(k)).cloned().collect();
+    let both: Vec<LedgerKey> = fast.iter().filter(|k| deep.contains(k)).cloned().collect();
+    let only_fast: Vec<LedgerKey> = fast.iter().filter(|k| !both.contains(k)).cloned().collect();
+    let only_deep: Vec<LedgerKey> = deep.iter().filter(|k| !both.contains(k)).cloned().collect();
+    (both, only_fast, only_deep)
+}
+
+/// 三方账打印（stdout 之外的 stderr 摘要，不动 stdout 行契约）。
+fn three_way(items: &[Finding]) {
+    let (both, only_fast, only_deep) = three_way_buckets(items);
     eprintln!(
         "  三方账：两边都报 {} / 仅快轨 {} / 仅深轨 {}",
         both.len(),
@@ -278,5 +315,139 @@ fn language_of(path: &Path) -> Option<adv_parse::Language> {
         "py" | "pyi" => Some(adv_parse::Language::Python),
         "rs" => Some(adv_parse::Language::Rust),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use adv_rules::matcher::{ENGINE_FAST, ENGINE_MIR};
+
+    const RULE: &str = "RS-TAINT-COMMAND";
+
+    /// 造一条发现：只关心 `(engine, file, start_line)` 三元键。
+    fn fnd(engine: &str, file: &str, line: usize) -> Finding {
+        Finding {
+            rule: RULE.to_string(),
+            severity: "error".to_string(),
+            message: String::new(),
+            file: file.to_string(),
+            start_line: line,
+            start_col: 0,
+            end_line: line,
+            end_col: 0,
+            engine: engine.to_string(),
+        }
+    }
+
+    fn key(file: &str, line: usize) -> LedgerKey {
+        (RULE.to_string(), file.to_string(), line)
+    }
+
+    /// 两档开关必须互斥且穷尽：`both` 两轨都跑，单档只跑自己那轨。
+    #[test]
+    fn engine_tiers_split_fast_and_deep() {
+        assert!(
+            fast_runs_for(Engine::Ast) && fast_runs_for(Engine::Both),
+            "ast/both 档该跑快轨"
+        );
+        assert!(!fast_runs_for(Engine::Mir), "mir 档不该带上快轨");
+        assert!(
+            deep_runs_for(Engine::Mir) && deep_runs_for(Engine::Both),
+            "mir/both 档该跑深轨"
+        );
+        assert!(!deep_runs_for(Engine::Ast), "ast 档不该带上深轨");
+    }
+
+    /// 深轨失败计数 → 退出码 2 这条保护的唯一入口。
+    #[test]
+    fn deep_failure_exit_is_red_only_where_deep_ran() {
+        assert_eq!(deep_failure_exit(Engine::Mir, 0), None, "零失败不该判红");
+        assert_eq!(deep_failure_exit(Engine::Mir, 3), Some(2));
+        assert_eq!(deep_failure_exit(Engine::Both, 1), Some(2));
+        assert_eq!(
+            deep_failure_exit(Engine::Ast, 9),
+            None,
+            "ast 档压根没跑深轨，失败数不参与定码"
+        );
+    }
+
+    /// 每个失败文件计一次（`+= 1` 变异成 `*= 1` 会让计数恒 0 ⇒ 退出码 2 静默失效）。
+    #[test]
+    fn each_deep_failure_counts_once() {
+        let mut tally = Tally::default();
+        assert_eq!(tally.deep_failed, 0, "初值不为 0 的话后面两条断言都是空的");
+        tally.note_deep_failure();
+        assert_eq!(tally.deep_failed, 1);
+        tally.note_deep_failure();
+        tally.note_deep_failure();
+        assert_eq!(tally.deep_failed, 3, "深轨失败没逐个进账");
+    }
+
+    /// 三方账分桶：同键才算"两边都报"，同文件不同行不算。
+    /// 这批数据必须自带非空的"仅快轨"与"两边都报"——现有 rust 语料快轨 0 条，
+    /// 只靠它验不了这两桶（片A6 实测：桶逻辑的变异在那份语料上观察不到）。
+    #[test]
+    fn three_way_buckets_split_on_the_triple_key() {
+        let items = vec![
+            fnd(ENGINE_FAST, "a.rs", 1),
+            fnd(ENGINE_MIR, "a.rs", 1),
+            fnd(ENGINE_FAST, "b.rs", 7),
+            fnd(ENGINE_MIR, "c.rs", 9),
+            fnd(ENGINE_MIR, "a.rs", 2),
+        ];
+        let (both, only_fast, only_deep) = three_way_buckets(&items);
+        assert_eq!(both, vec![key("a.rs", 1)], "同键的两条该进「两边都报」");
+        assert_eq!(
+            only_fast,
+            vec![key("b.rs", 7)],
+            "只有快轨报的该进「仅快轨」"
+        );
+        assert_eq!(
+            only_deep,
+            vec![key("c.rs", 9), key("a.rs", 2)],
+            "仅深轨该含同文件的其他行"
+        );
+        // 键的第三个分量是行号，不是列：列不同不该把它们分开
+        let same_line_diff_col = vec![
+            {
+                let mut f = fnd(ENGINE_FAST, "d.rs", 4);
+                f.start_col = 0;
+                f
+            },
+            {
+                let mut f = fnd(ENGINE_MIR, "d.rs", 4);
+                f.start_col = 12;
+                f
+            },
+        ];
+        let (both2, only_fast2, only_deep2) = three_way_buckets(&same_line_diff_col);
+        assert_eq!(both2, vec![key("d.rs", 4)], "列差不该拆掉「两边都报」");
+        assert!(only_fast2.is_empty() && only_deep2.is_empty());
+        // 空输入 ⇒ 三桶全空（这就是老语料的形状，写出来免得后人以为它验过桶逻辑）
+        let empty: Vec<Finding> = vec![];
+        assert_eq!(three_way_buckets(&empty), (vec![], vec![], vec![]));
+    }
+
+    /// 规则不同则键不同：同一处两规则各报一条不该被并成"两边都报"。
+    #[test]
+    fn different_rules_do_not_merge_into_both() {
+        let mut fast = fnd(ENGINE_FAST, "a.rs", 1);
+        fast.rule = "RS-A".to_string();
+        let mut deep = fnd(ENGINE_MIR, "a.rs", 1);
+        deep.rule = "RS-B".to_string();
+        let (both, only_fast, only_deep) = three_way_buckets(&[fast, deep]);
+        assert!(both.is_empty(), "不同规则被并成了同一桶：{both:?}");
+        assert_eq!(only_fast.len(), 1);
+        assert_eq!(only_deep.len(), 1);
+    }
+
+    /// 档位解析：缺省 ast，`--engine` 三档认，未知档由调用方退出码 2 处理。
+    #[test]
+    fn engine_of_defaults_to_ast_and_reads_three_tiers() {
+        assert_eq!(engine_of(&[]), Engine::Ast, "缺省档变了会改掉整个默认口径");
+        assert_eq!(engine_of(&["--engine".into(), "mir".into()]), Engine::Mir);
+        assert_eq!(engine_of(&["--engine".into(), "both".into()]), Engine::Both);
+        assert_eq!(engine_of(&["--engine".into(), "ast".into()]), Engine::Ast);
     }
 }
