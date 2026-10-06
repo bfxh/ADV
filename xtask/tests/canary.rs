@@ -1,9 +1,12 @@
 //! 金丝雀：证明门会红（旧仓纪律「金丝雀先记基线再验红」——全绿的门不值得信）。
 
 use std::collections::BTreeMap;
-use xtask::god::{MAX_FN_LINES, analyze_source, hard_violations, ratchet_violations};
+use xtask::god::{
+    MAX_FN_LINES, MEMBER_DIRS, analyze_source, collect_workspace_entries, hard_violations,
+    ratchet_violations,
+};
 use xtask::lockstep::check_lockstep;
-use xtask::maturity::pattern_matches;
+use xtask::maturity::{experimental_patterns, pattern_matches};
 use xtask::mutants::{
     df_args, disk_failure_signature, drive_letter, free_bytes_probe, human_bytes, keys_by_summary,
     min_free_gib, new_missed, parse_df_avail, parse_u64_lines, powershell_args, scratch_is_short,
@@ -553,4 +556,86 @@ fn canary_experimental_pattern_only_covers_what_it_says() {
         "crates/*/tests/fixtures/**",
         "crates/a/tests/data/f.rs"
     ));
+}
+
+/// 匹配器的星号形态：`*` 只吃段内字符（可出现在段首/段中/段尾），`**` 只认结尾。
+/// 登记面能不能被精确圈住，全看这一条——多认一种写法就多一处没人测的分支。
+#[test]
+fn canary_experimental_matcher_covers_the_star_shapes_we_register() {
+    assert!(pattern_matches(
+        "crates/*/tests/data/**",
+        "crates/a/tests/data/x/y.rs"
+    ));
+    assert!(pattern_matches("a*b.rs", "axb.rs"));
+    assert!(pattern_matches("a*b.rs", "ab.rs"), "`*` 可以吃零个字符");
+    assert!(!pattern_matches("a*b.rs", "axc.rs"));
+    assert!(pattern_matches(
+        "*_gate.py",
+        "scripts/debt_gate.py".split('/').next_back().unwrap()
+    ));
+    assert!(
+        !pattern_matches("**/x.rs", "x.rs"),
+        "开头的 ** 不被支持（只有结尾 ** 有语义），所以它必须一律不命中"
+    );
+    // 登记子集之外的写法（`**` 不在结尾）不认——写窄比写宽安全：
+    // 误放承重面的代价是门失去分辨力，误紧的代价只是多计量一次。
+    assert!(!pattern_matches("**/x.rs", "a/x.rs"));
+    assert!(!pattern_matches(
+        "crates/*/tests/data/**",
+        "crates/a/tests/data"
+    ));
+}
+
+/// 读登记表的两条失败路径都必须**不放松**（返回空集 = god 照旧全量计量）。
+#[test]
+fn canary_maturity_registry_read_failures_do_not_loosen_the_gate() {
+    let root = std::env::temp_dir().join(format!("adv-maturity-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("spec")).expect("建 spec");
+    let missing = experimental_patterns(&root);
+    std::fs::write(root.join("spec/maturity.json"), "{ 坏 json").expect("写坏文件");
+    let broken = experimental_patterns(&root);
+    std::fs::write(
+        root.join("spec/maturity.json"),
+        r#"{"entries":[{"pattern":"crates/*/tests/data/**","why":"w","guards":"g"}]}"#,
+    )
+    .expect("写好文件");
+    let good = experimental_patterns(&root);
+    let _ = std::fs::remove_dir_all(&root);
+    assert!(missing.is_empty(), "登记表缺失时不该给出任何放松 pattern");
+    assert!(broken.is_empty(), "登记表坏了时不该给出任何放松 pattern");
+    assert_eq!(good, vec!["crates/*/tests/data/**".to_string()]);
+}
+
+/// 端到端：登记过的试验面真的不进 god 计量，同 crate 的非试验面照进。
+#[test]
+fn canary_god_really_skips_registered_experimental_faces() {
+    let root = std::env::temp_dir().join(format!("adv-god-skip-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("spec")).expect("建 spec");
+    std::fs::write(
+        root.join("spec/maturity.json"),
+        r#"{"entries":[{"pattern":"crates/*/tests/data/**","why":"合成材料","guards":"某测试"}]}"#,
+    )
+    .expect("写登记表");
+    for dir in MEMBER_DIRS {
+        std::fs::create_dir_all(root.join(dir)).expect("建成员目录");
+    }
+    let demo = root.join("crates/adv-core");
+    std::fs::create_dir_all(demo.join("src")).expect("建 src");
+    std::fs::create_dir_all(demo.join("tests/data")).expect("建 tests/data");
+    std::fs::write(demo.join("src/lib.rs"), "pub fn kept() {}\n").expect("写承重文件");
+    std::fs::write(demo.join("tests/data/blob.rs"), "pub fn skipped() {}\n").expect("写试验文件");
+
+    let got = collect_workspace_entries(&root).expect("计量不该失败");
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(
+        got.contains_key("file:crates/adv-core/src/lib.rs"),
+        "承重面被漏掉（试验面放松过头）：{got:?}"
+    );
+    assert!(
+        !got.contains_key("file:crates/adv-core/tests/data/blob.rs"),
+        "登记的试验面仍在计量 ⇒ god 的跳过没生效"
+    );
 }

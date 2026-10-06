@@ -43,6 +43,16 @@ pub fn experimental_patterns(root: &Path) -> Vec<String> {
 pub fn pattern_matches(pattern: &str, rel: &str) -> bool {
     let pats: Vec<&str> = pattern.split('/').filter(|s| !s.is_empty()).collect();
     let segs: Vec<&str> = rel.split('/').filter(|s| !s.is_empty()).collect();
+    // 只支持**结尾**的 `**`。别的段落里出现 `**` 一律不命中——实测过：不挡的话前面的
+    // `**` 会被星号循环当成 `*` 用，于是 `**/x.rs` 悄悄能匹配 `a/x.rs`（放松比字面宽）。
+    let deep_tail = pats.last().is_some_and(|p| *p == "**");
+    if pats
+        .iter()
+        .enumerate()
+        .any(|(i, s)| s.contains("**") && !(deep_tail && i + 1 == pats.len()))
+    {
+        return false;
+    }
     if let Some(pats_rest) = pats.strip_suffix(&["**"][..]) {
         // 目录前缀匹配，且 `**` 至少吃一层：登记写的是"该目录**以下**"，
         // 放松范围不许比登记的字面更宽（少这一条就会把目录同名的文件也算进去）。
