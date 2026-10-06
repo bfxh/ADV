@@ -1,0 +1,61 @@
+{
+  "note": "设计债登记（docs/DESIGN-DEBT-GATE.md §4）。计时口径：since = 登记起算的 commit（rev-list --count since..HEAD > due_after_tasks 即红）；origin = 设计成因所在的 commit（只追溯，不计时）。禁止为刷新计时而重开同一条债（要重开必须保留原 origin 与原 since，并在 PR 里写理由）。due_after_tasks 上限 10，超 10 必须升级为承重面讨论。",
+  "required_fields": ["id", "surface", "kind", "defect", "why_from_design", "origin", "since", "due_after_tasks", "guards"],
+  "entries": [
+    {
+      "id": "DD-0001",
+      "surface": "xtask/src/mutants.rs::free_bytes_via_df, xtask/src/mutants.rs::precheck_scratch",
+      "kind": "coverage",
+      "defect": "两个薄壳函数没有可观察面：删掉 status 检查后 df 的 stdout 本就无可解析内容（两者都返回 None），println 的文案变动测试看不见。它们作为存量债记在变异基线里，但基线只保证「不新增」，不保证「有人在限期前补」。",
+      "why_from_design": "片A5 把盘量查询按「一条命令一个数」的形态写：起子进程与解析写在一起。分层（纯函数 parse_df_avail / short_message）是补断言时才补的，薄壳是那一次没做彻底留下的残渣。",
+      "origin": "5b1d862",
+      "since": "1fc62d3",
+      "due_after_tasks": 10,
+      "guards": "tools/baselines/mutants-baseline.json（11 键中的 2 条）"
+    },
+    {
+      "id": "DD-0002",
+      "surface": "crates/adv-cli/src/main.rs::three_way_buckets",
+      "kind": "coverage",
+      "defect": "三方账的「两边都报」与「仅快轨」两桶只在单测里成立，端到端没有语料能产出非空值——任何真实扫描里它们恒为 0。",
+      "why_from_design": "片A3 把三方账的验收语料定成 rust 夹具，而快轨当时（至今）没有 Rust 污点实现 ⇒ 验收语料的结构先天只能填一个桶，另外两桶从一开始就没打算被端到端跑到。",
+      "origin": "a9e8212",
+      "since": "1fc62d3",
+      "due_after_tasks": 10,
+      "guards": "片A6 的 6 条同包单测（喂合成 Finding 列表）"
+    },
+    {
+      "id": "DD-0003",
+      "surface": "快轨（tree-sitter）对 Rust 的污点能力",
+      "kind": "design",
+      "defect": "深轨「比快轨强」这件事在本仓拿不到真账：快轨对 Rust 实测 0 发现（片B2 量过），所以强弱对比只剩单侧证据。",
+      "why_from_design": "蓝图把 M2 定成「深轨补快轨的语义盲区」，切片顺序让深轨先行、快轨 Rust 污点后做；一旦深轨做完，快轨缺什么就只能靠合成语料说明，无法与真实代码对照。这是排序决策的代价，不是实现缺陷。",
+      "origin": "a9e8212",
+      "since": "1fc62d3",
+      "due_after_tasks": 10,
+      "guards": "无（这条债的内容就是没有判据）"
+    },
+    {
+      "id": "DD-0004",
+      "surface": "xtask mutants 全树运行时长",
+      "kind": "design",
+      "defect": "变异门按「base...HEAD 的全部 diff 面」跑，单轮 30–40 分钟（今天跑了 4 轮）。慢的不是测试，是门没有按成熟度/风险分档。",
+      "why_from_design": "片3 装配时只裁了「--in-diff 档进 PR 门」这一刀，把「哪些面值得跑」留给 diff 范围决定，于是测试材料、薄壳、承重代码在门眼里一样贵。",
+      "origin": "630c8b8",
+      "since": "1fc62d3",
+      "due_after_tasks": 10,
+      "guards": "docs/DESIGN-DEBT-GATE.md §3 的分档表（本条即其待实现项）"
+    },
+    {
+      "id": "DD-0005",
+      "surface": "全仓云端安全扫描",
+      "kind": "process",
+      "defect": "自 e381074 起欠着的全量扫描仍未清：全仓打包被服务端按体积拒收（本地 0 字节上传），改小口径又没人裁定扫哪。",
+      "why_from_design": "扫描口径当初跟着仓库形态走，没有区分「被扫产品面」与「构建产物/研究材料」，于是 target/、rust/ 旧引擎、RESEARCH/ 全被算进上传体积。",
+      "origin": "e381074",
+      "since": "1fc62d3",
+      "due_after_tasks": 10,
+      "guards": "无（靠本登记到期判红）"
+    }
+  ]
+}
