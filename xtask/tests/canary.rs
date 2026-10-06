@@ -4,8 +4,9 @@ use std::collections::BTreeMap;
 use xtask::god::{MAX_FN_LINES, analyze_source, hard_violations, ratchet_violations};
 use xtask::lockstep::check_lockstep;
 use xtask::mutants::{
-    disk_failure_signature, drive_letter, free_bytes_at, human_bytes, keys_by_summary,
-    min_free_gib, new_missed, scratch_is_short, tally, unverifiable_keys, unviable_disk_failures,
+    df_args, disk_failure_signature, drive_letter, free_bytes_probe, human_bytes, keys_by_summary,
+    min_free_gib, new_missed, parse_df_avail, parse_u64_lines, powershell_args, scratch_is_short,
+    short_message, tally, unverifiable_keys, unviable_disk_failures,
 };
 use xtask::suppress::file_violations;
 
@@ -344,23 +345,138 @@ fn canary_scratch_space_query_actually_answers_on_this_machine() {
     );
     assert_eq!(
         drive_letter(std::path::Path::new(r"d:\tmp")).as_deref(),
-        Some("D")
+        Some("D"),
+        "小写盘符要归一（u8 直接 to_string 会给 ASCII 码 68，实测踩过）"
     );
+    // 边界：不满足"字母 + 冒号"的一律判无盘符，不许误取
+    assert_eq!(drive_letter(std::path::Path::new("C")), None);
+    assert_eq!(drive_letter(std::path::Path::new("1:x")), None);
+    assert_eq!(drive_letter(std::path::Path::new("CX")), None);
     assert_eq!(drive_letter(std::path::Path::new("/tmp")), None);
 
+    // 预检对象 = cargo-mutants 自己那个 temp_dir（TMP/TEMP 由环境继承给子进程），
+    // 所以这里查的就是它写 scratch 的盘。
     let temp = std::env::temp_dir();
-    let free = free_bytes_at(&temp);
-    assert!(
-        free.is_some() && free.unwrap() > 0,
-        "金丝雀失败：查 {} 所在盘余量没拿到数——盘量预检在这台机器上是空装的",
-        temp.display()
-    );
-    // 预检的对象必须是 cargo-mutants 真会用到的目录：它在自己进程里用同一个 temp_dir，
-    // TMP/TEMP 由环境继承下去，所以这里查的就是它写 scratch 的盘。
     assert!(
         temp.is_dir(),
         "临时目录 {} 不存在，预检与 cargo-mutants 会看同一个不存在的目录",
         temp.display()
+    );
+    let (free, channel) = free_bytes_probe(&temp);
+    assert_ne!(channel, "none", "金丝雀失败：两条查询通道都没给出数");
+    let bytes = free.expect("查临时盘余量没拿到数——盘量预检在这台机器上是空装的");
+    assert!(
+        bytes > 100 * 1024 * 1024,
+        "余量读数 {bytes} 字节不像真实盘量（单位换算错了？）"
+    );
+    #[cfg(windows)]
+    {
+        // 带盘符必须走 PowerShell 通道：把 drive_letter 改成恒 None 会在这里红
+        // （MSYS 的 df 会吞掉反斜杠参数，实测把 `C:\...\Temp` 报成 /tmp 那个挂载）。
+        assert_eq!(
+            channel, "powershell",
+            "Windows 上带盘符的路径没走 PowerShell 通道"
+        );
+        assert_eq!(
+            free_bytes_probe(std::path::Path::new(r"Z:\definitely-not-here")).1,
+            "none",
+            "不存在的盘该报查不到，不是给个猜出来的数"
+        );
+    }
+}
+
+#[test]
+fn canary_disk_free_parsers_agree_with_real_command_output() {
+    // 语料 = 2026-10-06 本机 `df -kP` 与 `powershell Get-PSDrive` 的逐字输出。
+    // 两把尺查同一块盘，读数必须对到字节——单位换算（1K 块 × 1024）或取列写错就红。
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let two = std::fs::read_to_string(dir.join("df-kp-two.txt")).expect("读 df 双行语料");
+    let single = std::fs::read_to_string(dir.join("df-kp-single.txt")).expect("读 df 单行语料");
+    let ps = std::fs::read(dir.join("powershell-free.txt")).expect("读 PowerShell 语料");
+
+    assert_eq!(
+        parse_df_avail(&single),
+        Some(42_853_012 * 1024),
+        "单行 df 输出取错了列或换算错了单位"
+    );
+    assert_eq!(
+        parse_df_avail(&two),
+        Some(38_017_224 * 1024),
+        "多文件系统时该取最后一行（这份语料的最后一行是 D:）"
+    );
+    assert_eq!(parse_u64_lines(&ps), Some(43_881_484_288));
+    assert_eq!(
+        parse_df_avail(&single),
+        parse_u64_lines(&ps),
+        "同一块盘两把尺读数不一致（语料同日实测，差值只可能是单位/列号错）"
+    );
+    // 畸形与退化输入一律 None：宁可"未知"也不猜
+    assert_eq!(
+        parse_df_avail(&String::from_utf8_lossy(&ps)),
+        None,
+        "非 df 文本不该被解析出数"
+    );
+    assert_eq!(parse_df_avail(""), None);
+    assert_eq!(
+        parse_df_avail("Filesystem 1024-blocks Used Available Capacity Mounted on\n"),
+        None,
+        "只有表头时不能把列名当数字"
+    );
+    assert_eq!(
+        parse_u64_lines(two.as_bytes()),
+        None,
+        "df 表里的数字不是 PowerShell 的单值输出"
+    );
+    assert_eq!(parse_u64_lines(b""), None);
+    assert_eq!(parse_u64_lines("错误：找不到驱动器\r\n".as_bytes()), None);
+    assert_eq!(
+        parse_u64_lines(b"\r\n  12345 \r\n678\r\n"),
+        Some(12_345),
+        "该取第一个纯数字行，且要吃得下 CRLF 与行首尾空白"
+    );
+}
+
+#[test]
+fn canary_disk_query_args_and_short_message_are_pinned() {
+    assert_eq!(
+        powershell_args("C"),
+        vec![
+            "-NoProfile".to_string(),
+            "-NonInteractive".to_string(),
+            "-Command".to_string(),
+            "(Get-PSDrive -Name C).Free".to_string(),
+        ],
+        "PowerShell 参数形态变了就等于换了查询方式，得先红在测试里"
+    );
+    assert_eq!(
+        powershell_args("d").last(),
+        Some(&"(Get-PSDrive -Name d).Free".to_string())
+    );
+    assert_eq!(
+        df_args(std::path::Path::new("/tmp")),
+        vec!["-kP".to_string(), "/tmp".to_string()],
+        "-P（POSIX 输出格式）丢了就会在多列名时取错列"
+    );
+
+    const GIB: u64 = 1024 * 1024 * 1024;
+    let tmp = std::path::Path::new(r"C:\Users\x\AppData\Local\Temp");
+    assert_eq!(
+        short_message(tmp, Some(9 * GIB), 8),
+        None,
+        "余量够不该出文案"
+    );
+    assert_eq!(
+        short_message(tmp, None, 8),
+        None,
+        "查不到余量不该出盘满文案"
+    );
+    let msg = short_message(std::path::Path::new(r"C:\T"), Some(GIB + GIB / 2), 8)
+        .expect("低于下限必须有文案");
+    assert!(msg.contains("1.5GB < 8GB"), "读数与下限都要写进文案：{msg}");
+    assert!(msg.contains("C:\\T"), "要点名是哪个目录：{msg}");
+    assert!(
+        msg.contains("TMP=D:/tmp/adv-mut"),
+        "文案里必须带可照抄的一行修法：{msg}"
     );
 }
 

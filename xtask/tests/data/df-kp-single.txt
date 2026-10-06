@@ -1,0 +1,2 @@
+Filesystem                        1024-blocks      Used Available Capacity Mounted on
+C:/Users/lbx13/AppData/Local/Temp   301152252 258299240  42853012      86% /tmp

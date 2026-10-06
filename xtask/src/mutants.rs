@@ -113,64 +113,107 @@ pub fn human_bytes(free_bytes: Option<u64>) -> String {
     }
 }
 
-/// 查 `path` 所在盘的可用字节。查不到返回 `None`——不猜数、也不把"查不到"当成"没空间"。
+/// 查 `path` 所在盘的可用字节 + 拿到数的通道名（`none` = 两条通道都没给数）。
 ///
 /// 全仓 `unsafe_code = "deny"`，所以不直接调 `GetDiskFreeSpaceExW`，改问原生命令：
-/// Windows 走 PowerShell 的 `Get-PSDrive`（系统自带，PATH 不依赖 Git Bash），
-/// 其余平台走 `df -kP`。
-pub fn free_bytes_at(path: &Path) -> Option<u64> {
+/// Windows 先用 PowerShell 的 `Get-PSDrive`（系统自带，不依赖 Git Bash 的 PATH），
+/// 没拿到再退 `df -kP`；非 Windows 只有 `df -kP`。通道名如实播报——让人看得出数从哪来。
+pub fn free_bytes_probe(path: &Path) -> (Option<u64>, &'static str) {
     #[cfg(windows)]
     if let Some(letter) = drive_letter(path)
         && let Some(bytes) = free_bytes_via_powershell(&letter)
     {
-        return Some(bytes);
+        return (Some(bytes), "powershell");
     }
-    free_bytes_via_df(path)
+    match free_bytes_via_df(path) {
+        Some(bytes) => (Some(bytes), "df"),
+        None => (None, "none"),
+    }
 }
 
-/// `Get-PSDrive <D>`.Free（字节）。
-#[cfg(windows)]
+/// `Get-PSDrive <盘符>`.Free 的参数（拼错参数会被断言打死，不靠真跑一次才发现）。
+pub fn powershell_args(letter: &str) -> Vec<String> {
+    vec![
+        "-NoProfile".to_string(),
+        "-NonInteractive".to_string(),
+        "-Command".to_string(),
+        format!("(Get-PSDrive -Name {letter}).Free"),
+    ]
+}
+
+/// `df -kP <path>` 的参数（`-P` = POSIX 输出格式，保证一个文件系统一行）。
+pub fn df_args(path: &Path) -> Vec<String> {
+    vec!["-kP".to_string(), path.to_string_lossy().into_owned()]
+}
+
+/// PowerShell 通道的字节数。
 fn free_bytes_via_powershell(letter: &str) -> Option<u64> {
     let out = std::process::Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            &format!("(Get-PSDrive -Name {letter}).Free"),
-        ])
-        .output()
-        .ok()?;
-    parse_u64_lines(&out.stdout)
-}
-
-/// `df -kP <path>` 的 Available 列（1024 字节块）。
-fn free_bytes_via_df(path: &Path) -> Option<u64> {
-    let out = std::process::Command::new("df")
-        .args(["-kP", path.to_str()?])
+        .args(powershell_args(letter))
         .output()
         .ok()?;
     if !out.status.success() {
         return None;
     }
-    let text = String::from_utf8_lossy(&out.stdout);
-    // 表头行 + 数据行；数据行第 4 列是 Available（1K 块）。
-    let line = text.lines().rev().find(|l| !l.trim().is_empty())?;
-    let blocks = line.split_whitespace().nth(3)?;
-    blocks
-        .trim_end_matches('K')
-        .parse::<u64>()
-        .ok()
-        .map(|b| b * 1024)
+    parse_u64_lines(&out.stdout)
 }
 
-/// 从命令 stdout 里取第一个纯数字行。
-fn parse_u64_lines(raw: &[u8]) -> Option<u64> {
+/// `df` 通道的字节数。
+fn free_bytes_via_df(path: &Path) -> Option<u64> {
+    let out = std::process::Command::new("df")
+        .args(df_args(path))
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    parse_df_avail(&String::from_utf8_lossy(&out.stdout))
+}
+
+/// `df -kP` 输出里最后一个非空行的 Available 列（1K 块）→ 字节。
+pub fn parse_df_avail(text: &str) -> Option<u64> {
+    let line = text.lines().rev().find(|l| !l.trim().is_empty())?;
+    line.split_whitespace()
+        .nth(3)?
+        .parse::<u64>()
+        .ok()
+        .map(|kb| kb * 1024)
+}
+
+/// 命令 stdout 里第一个纯数字行（PowerShell 的 `Get-PSDrive`.Free 是单个数 + CRLF）。
+pub fn parse_u64_lines(raw: &[u8]) -> Option<u64> {
     String::from_utf8_lossy(raw)
         .lines()
         .map(str::trim)
         .find(|l| !l.is_empty() && l.chars().all(|c| c.is_ascii_digit()))?
         .parse()
         .ok()
+}
+
+/// 盘量不足时报什么（纯函数：TMP 路径、实测余量、下限给定）。够或查不到 → `None`。
+pub fn short_message(scratch: &Path, free: Option<u64>, min_gib: u64) -> Option<String> {
+    if !scratch_is_short(free, min_gib) {
+        return None;
+    }
+    Some(format!(
+        "TMP 所在盘余量不足（{} < {min_gib}GB）：{} 是 cargo-mutants 开 scratch 的地方，盘满时链接失败只判 unviable，门会缺测。一行修法：把 TMP 指到宽裕的盘再跑，例如 TMP=D:/tmp/adv-mut TEMP=D:/tmp/adv-mut cargo run -p xtask -- mutants",
+        human_bytes(free),
+        scratch.display()
+    ))
+}
+
+/// 跑之前的盘量预检：查实测余量，不足则红。
+fn precheck_scratch(min_gib: u64) -> Vec<String> {
+    let scratch = std::env::temp_dir();
+    let (free, channel) = free_bytes_probe(&scratch);
+    println!(
+        "预检 TMP={} 余量={} 通道={channel} 下限={min_gib}GB",
+        scratch.display(),
+        human_bytes(free)
+    );
+    short_message(&scratch, free, min_gib)
+        .map(|msg| vec![msg])
+        .unwrap_or_default()
 }
 
 /// 日志文本里的盘满签名（命中即返回该签名，便于报错时带上原话）。
@@ -212,25 +255,6 @@ pub fn unviable_disk_failures(parsed: &serde_json::Value, out_dir: &Path) -> Vec
         }
     }
     hits
-}
-
-/// 跑之前的盘量预检：余量不足则红，并给一行可直接照抄的修法。
-fn precheck_scratch(min_gib: u64) -> Vec<String> {
-    let scratch = std::env::temp_dir();
-    let free = free_bytes_at(&scratch);
-    println!(
-        "预检 TMP={} 余量={} 下限={min_gib}GB",
-        scratch.display(),
-        human_bytes(free)
-    );
-    if scratch_is_short(free, min_gib) {
-        let bytes = free.unwrap_or_default();
-        return vec![format!(
-            "TMP 所在盘余量不足（{:.1}GB < {min_gib}GB）：cargo-mutants 会在这里开 scratch，盘满时链接失败只判 unviable，门会缺测。一行修法：把 TMP 指到宽裕的盘再跑，例如 TMP=D:/tmp/adv-mut TEMP=D:/tmp/adv-mut cargo run -p xtask -- mutants",
-            bytes as f64 / (1024f64 * 1024f64 * 1024f64)
-        )];
-    }
-    vec![]
 }
 
 fn git_diff_patch(root: &Path, base: &str) -> Result<PathBuf> {

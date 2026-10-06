@@ -1,0 +1,3 @@
+Filesystem     1024-blocks      Used Available Capacity Mounted on
+C:               301152252 258297548  42854704      86% /c
+D:               337643516 299626292  38017224      89% /d
