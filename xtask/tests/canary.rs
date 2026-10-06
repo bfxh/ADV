@@ -584,6 +584,26 @@ fn canary_experimental_matcher_covers_the_star_shapes_we_register() {
         "crates/*/tests/data/**",
         "crates/a/tests/data"
     ));
+    // 一段里多个 `*`：中间那段之后必须还剩字符，否则下一个 `*` 无物可吃。
+    // 不测这一形，`seg_eq` 里那条守卫就是无人观察的分支（片A6 同类问题）。
+    assert!(
+        pattern_matches("a*b*c", "aXXbYYc"),
+        "多星形态的常规情况要能匹配"
+    );
+    assert!(
+        pattern_matches("a*b*c", "abc"),
+        "glob 口径：`*` 可以吃零个字符"
+    );
+    // 末段必须贴到段尾（这条是 2026-10-06 补的真实缺陷：旧实现只按顺序找段）
+    assert!(pattern_matches("a*b", "aXb"));
+    assert!(
+        !pattern_matches("a*b", "aXbY"),
+        "末段后面还有字符就不该算匹配——旧实现会误配"
+    );
+    assert!(pattern_matches("*b", "ab"));
+    assert!(pattern_matches("*b", "b"), "开头的 * 可以吃零个字符");
+    assert!(!pattern_matches("a*", "a/b"), "`*` 不跨路径段");
+    assert!(pattern_matches("a*", "a"), "结尾的 * 可以吃零个字符");
 }
 
 /// 读登记表的两条失败路径都必须**不放松**（返回空集 = god 照旧全量计量）。

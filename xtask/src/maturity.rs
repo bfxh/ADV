@@ -64,30 +64,35 @@ pub fn pattern_matches(pattern: &str, rel: &str) -> bool {
     pats.len() == segs.len() && pats.iter().zip(segs.iter()).all(|(p, s)| seg_eq(p, s))
 }
 
-/// 单段比较：`*` 只吃一个段内的字符（不跨 `/`）。
+/// 单段匹配（`*` 吃段内任意字符、可零个；不跨 `/`；无 `*` 时就是全等）。
+///
+/// 双指针通配匹配，2026-10-06 换的：上一版按"逐段找前缀/子串"写，两个洞被断言打出来——
+/// ① 无 `*` 的段退化成前缀比较，`data` 会误配 `datamore`；② 末段不要求贴段尾，
+/// `a*b` 会误配 `aXbY`。登记面的精确性直接决定"承重面会不会被误放"，所以宁可要标准语义。
 fn seg_eq(pattern: &str, seg: &str) -> bool {
-    match pattern.split('*').collect::<Vec<_>>().as_slice() {
-        [only] => *only == seg,
-        parts => {
-            let mut rest = seg;
-            for (i, chunk) in parts.iter().enumerate() {
-                if i == 0 {
-                    let Some(after) = rest.strip_prefix(chunk) else {
-                        return false;
-                    };
-                    rest = after;
-                    continue;
-                }
-                let Some(pos) = rest.find(chunk) else {
-                    return false;
-                };
-                if i < parts.len() - 1 && pos + chunk.len() >= rest.len() {
-                    // 末段之外的 chunk 后面必须还有字符留给下一个 `*`
-                    return false;
-                }
-                rest = &rest[pos + chunk.len()..];
+    let p: Vec<char> = pattern.chars().collect();
+    let s: Vec<char> = seg.chars().collect();
+    let (mut pi, mut si) = (0usize, 0usize);
+    let mut star: Option<usize> = None;
+    let mut mark = 0usize;
+    while si < s.len() {
+        if pi < p.len() && (p[pi] == '*' || p[pi] == s[si]) {
+            if p[pi] == '*' {
+                star = Some(pi);
+                mark = si;
+                pi += 1;
+            } else {
+                pi += 1;
+                si += 1;
             }
-            true
+        } else if let Some(sp) = star {
+            // 回溯：让上一个 `*` 多吃一个字符再试（贪心 + 回退 = 标准通配语义）
+            pi = sp + 1;
+            mark += 1;
+            si = mark;
+        } else {
+            return false;
         }
     }
+    p[pi..].iter().all(|c| *c == '*')
 }

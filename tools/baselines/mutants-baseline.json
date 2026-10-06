@@ -5,6 +5,8 @@
     "crates/adv-rules/src/taint.rs::root_var",
     "crates/adv-rules/src/taint.rs::summarize",
     "xtask/src/main.rs::main",
+    "xtask/src/maturity.rs::pattern_matches",
+    "xtask/src/maturity.rs::seg_eq",
     "xtask/src/mir.rs::run",
     "xtask/src/mir.rs::rustc_print",
     "xtask/src/mutants.rs::free_bytes_via_df",
