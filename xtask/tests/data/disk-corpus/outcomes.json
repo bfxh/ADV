@@ -1,0 +1,177 @@
+{
+ "outcomes": [
+  {
+   "scenario": {
+    "Mutant": {
+     "name": "xtask/src/mutants.rs:180:5: replace read_baseline -> Result<Baseline> with Ok(Default::default())",
+     "package": "xtask",
+     "file": "xtask/src/mutants.rs",
+     "function": {
+      "function_name": "read_baseline",
+      "return_type": "-> Result<Baseline>",
+      "span": {
+       "start": {
+        "line": 178,
+        "column": 1
+       },
+       "end": {
+        "line": 182,
+        "column": 2
+       }
+      }
+     },
+     "span": {
+      "start": {
+       "line": 180,
+       "column": 5
+      },
+      "end": {
+       "line": 181,
+       "column": 36
+      }
+     },
+     "replacement": "Ok(Default::default())",
+     "genre": "FnValue"
+    }
+   },
+   "summary": "Unviable",
+   "log_path": "log/xtask__src__mutants.rs_line_180_col_5.log",
+   "diff_path": "diff/xtask__src__mutants.rs_line_180_col_5.diff",
+   "phase_results": [
+    {
+     "phase": "Build",
+     "duration": 0.4793383,
+     "process_status": {
+      "Failure": 101
+     },
+     "argv": [
+      "C:\\Users\\lbx13\\.rustup\\toolchains\\1.99.0-x86_64-pc-windows-gnu\\bin\\cargo.exe",
+      "test",
+      "--no-run",
+      "--verbose",
+      "--package=xtask@0.1.0"
+     ]
+    }
+   ]
+  },
+  {
+   "scenario": {
+    "Mutant": {
+     "name": "crates/adv-cli/src/main.rs:250:5: replace engine_of -> Engine with Default::default()",
+     "package": "adv-cli",
+     "file": "crates/adv-cli/src/main.rs",
+     "function": {
+      "function_name": "engine_of",
+      "return_type": "-> Engine",
+      "span": {
+       "start": {
+        "line": 249,
+        "column": 1
+       },
+       "end": {
+        "line": 259,
+        "column": 2
+       }
+      }
+     },
+     "span": {
+      "start": {
+       "line": 250,
+       "column": 5
+      },
+      "end": {
+       "line": 258,
+       "column": 6
+      }
+     },
+     "replacement": "Default::default()",
+     "genre": "FnValue"
+    }
+   },
+   "summary": "Unviable",
+   "log_path": "log/reconstructed-2026-10-05-enospc.log",
+   "diff_path": "diff/crates__adv-cli__src__main.rs_line_250_col_5.diff",
+   "phase_results": [
+    {
+     "phase": "Build",
+     "duration": 0.4314694,
+     "process_status": {
+      "Failure": 101
+     },
+     "argv": [
+      "C:\\Users\\lbx13\\.rustup\\toolchains\\1.99.0-x86_64-pc-windows-gnu\\bin\\cargo.exe",
+      "test",
+      "--no-run",
+      "--verbose",
+      "--package=adv-cli@0.1.0"
+     ]
+    }
+   ]
+  },
+  {
+   "scenario": {
+    "Mutant": {
+     "name": "xtask/src/mutants.rs:48:5: replace new_missed -> Vec<String> with vec![]",
+     "package": "xtask",
+     "file": "xtask/src/mutants.rs",
+     "function": {
+      "function_name": "new_missed",
+      "return_type": "-> Vec<String>",
+      "span": {
+       "start": {
+        "line": 46,
+        "column": 1
+       },
+       "end": {
+        "line": 53,
+        "column": 2
+       }
+      }
+     },
+     "span": {
+      "start": {
+       "line": 48,
+       "column": 5
+      },
+      "end": {
+       "line": 52,
+       "column": 19
+      }
+     },
+     "replacement": "vec![]",
+     "genre": "FnValue"
+    }
+   },
+   "summary": "CaughtMutant",
+   "log_path": "log/xtask__src__mutants.rs_line_48_col_5.log",
+   "diff_path": "diff/xtask__src__mutants.rs_line_48_col_5.diff",
+   "phase_results": [
+    {
+     "phase": "Build",
+     "duration": 6.0679116,
+     "process_status": "Success",
+     "argv": [
+      "C:\\Users\\lbx13\\.rustup\\toolchains\\1.99.0-x86_64-pc-windows-gnu\\bin\\cargo.exe",
+      "test",
+      "--no-run",
+      "--verbose",
+      "--package=xtask@0.1.0"
+     ]
+    },
+    {
+     "phase": "Test",
+     "duration": 1.1400513,
+     "process_status": {
+      "Failure": 101
+     },
+     "argv": [
+      "C:\\Users\\lbx13\\.rustup\\toolchains\\1.99.0-x86_64-pc-windows-gnu\\bin\\cargo.exe",
+      "test",
+      "--verbose",
+      "--package=xtask@0.1.0"
+     ]
+    }
+   ]
+  }
+ ]
+}

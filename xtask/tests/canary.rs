@@ -3,7 +3,10 @@
 use std::collections::BTreeMap;
 use xtask::god::{MAX_FN_LINES, analyze_source, hard_violations, ratchet_violations};
 use xtask::lockstep::check_lockstep;
-use xtask::mutants::{keys_by_summary, new_missed, unverifiable_keys};
+use xtask::mutants::{
+    disk_failure_signature, drive_letter, free_bytes_at, human_bytes, keys_by_summary,
+    min_free_gib, new_missed, scratch_is_short, tally, unverifiable_keys, unviable_disk_failures,
+};
 use xtask::suppress::file_violations;
 
 fn long_fn_source(lines: usize) -> String {
@@ -226,5 +229,151 @@ fn mutants_key_extraction_matches_cargo_mutants_real_output() {
         lost,
         vec!["xtask/src/mutants.rs::missed_key".to_string()],
         "旧键 missed_key 在本轮无任何可判定变异，必须被点名"
+    );
+}
+
+#[test]
+fn canary_disk_full_in_unviable_log_is_named_while_compile_error_stays_clear() {
+    // 语料见 xtask/tests/data/disk-corpus/README.md：三条都是真产物逐字切片，
+    // 只有盘满那条的日志是重建（原始文件被下一轮覆盖，签名文本有账可查）。
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/disk-corpus");
+    let raw = std::fs::read_to_string(root.join("outcomes.json")).expect("读盘满语料");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("语料应为 JSON");
+
+    // 退化守卫：两个日志真在盘上、签名各在其位，否则"读不到就跳过"会让本测试空转。
+    let enospc = root
+        .join("mutants.out")
+        .join("log/reconstructed-2026-10-05-enospc.log");
+    let compile = root
+        .join("mutants.out")
+        .join("log/xtask__src__mutants.rs_line_180_col_5.log");
+    let enospc_text = std::fs::read_to_string(&enospc).expect("盘满语料日志缺失");
+    let compile_text = std::fs::read_to_string(&compile).expect("对照日志缺失");
+    assert!(
+        disk_failure_signature(&enospc_text).is_some(),
+        "语料退化：盘满日志里已找不到签名"
+    );
+    assert_eq!(
+        disk_failure_signature(&compile_text),
+        None,
+        "对照退化：真编译错误日志里混进了盘满签名"
+    );
+
+    let hits = unviable_disk_failures(&parsed, &root);
+    assert_eq!(
+        hits.len(),
+        1,
+        "只该点名盘满那条（另两条：真编译错误 + caught）：{hits:?}"
+    );
+    assert!(
+        hits[0].contains("crates/adv-cli/src/main.rs::engine_of"),
+        "没点名到盘满那条的键：{}",
+        hits[0]
+    );
+    assert!(
+        hits[0].contains("No space left on device"),
+        "报错要带上命中的原话：{}",
+        hits[0]
+    );
+}
+
+#[test]
+fn canary_scratch_precheck_only_reds_on_measured_shortfall() {
+    const GIB: u64 = 1024 * 1024 * 1024;
+    // 查不到 = 如实播报"未知"，不拿"查不到"当"没空间"；真判据是产物日志签名。
+    assert!(
+        !scratch_is_short(None, 8),
+        "金丝雀失败：查不到余量就被判红了"
+    );
+    assert!(
+        scratch_is_short(Some(7 * GIB), 8),
+        "金丝雀失败：低于下限没判红"
+    );
+    assert!(
+        !scratch_is_short(Some(8 * GIB), 8),
+        "边界：等于下限不算不足（判红条件写成 <= 就在此处暴露）"
+    );
+    assert!(
+        scratch_is_short(Some(8 * GIB - 1), 8),
+        "边界：低于 1 字节就该判红"
+    );
+    assert_eq!(
+        min_free_gib(None),
+        8,
+        "默认下限变了，账里的两个观测点就不成立"
+    );
+    assert_eq!(min_free_gib(Some("20".into())), 20);
+    assert_eq!(min_free_gib(Some(" 12 ".into())), 12);
+    assert_eq!(
+        min_free_gib(Some("abc".into())),
+        8,
+        "坏值该回退默认而不是放行/崩"
+    );
+    assert_eq!(
+        min_free_gib(Some("0".into())),
+        8,
+        "0 会让预检永不判红，必须回退"
+    );
+    assert_eq!(human_bytes(Some(GIB + GIB / 2)), "1.5GB");
+    assert_eq!(human_bytes(None), "未知");
+}
+
+#[test]
+fn canary_scratch_space_query_actually_answers_on_this_machine() {
+    assert_eq!(
+        drive_letter(std::path::Path::new(r"C:\Users\x\AppData\Local\Temp")).as_deref(),
+        Some("C"),
+        "取不到盘符就只能退回 df，而 Windows 上 df 不保证在 PATH"
+    );
+    assert_eq!(
+        drive_letter(std::path::Path::new(r"d:\tmp")).as_deref(),
+        Some("D")
+    );
+    assert_eq!(drive_letter(std::path::Path::new("/tmp")), None);
+
+    let temp = std::env::temp_dir();
+    let free = free_bytes_at(&temp);
+    assert!(
+        free.is_some() && free.unwrap() > 0,
+        "金丝雀失败：查 {} 所在盘余量没拿到数——盘量预检在这台机器上是空装的",
+        temp.display()
+    );
+    // 预检的对象必须是 cargo-mutants 真会用到的目录：它在自己进程里用同一个 temp_dir，
+    // TMP/TEMP 由环境继承下去，所以这里查的就是它写 scratch 的盘。
+    assert!(
+        temp.is_dir(),
+        "临时目录 {} 不存在，预检与 cargo-mutants 会看同一个不存在的目录",
+        temp.display()
+    );
+}
+
+#[test]
+fn canary_tally_counts_match_raw_product_text() {
+    // 期望值不手打：同一份真语料（102 条）按原始文本里的 summary 字样独立数一遍，
+    // 与 tally 走 serde 的结果对账——只改 tally 的判定串或漏一类都会红。
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outcomes-sample.json");
+    let raw = std::fs::read_to_string(&path).expect("读变异语料");
+    let parsed: serde_json::Value = serde_json::from_str(&raw).expect("语料应为 JSON");
+    let counted = |s: &str| raw.matches(&format!("\"summary\": \"{s}\"")).count();
+    let [total, caught, missed, unviable] = tally(&parsed);
+    assert_eq!(total, 102, "语料条数变了，下面三个数就得重新对");
+    assert_eq!(
+        [caught, missed, unviable],
+        [
+            counted("CaughtMutant"),
+            counted("MissedMutant"),
+            counted("Unviable")
+        ],
+        "计数与产物文本不符（caught/missed/unviable 任一位数错都会暴露）"
+    );
+    assert_eq!(
+        caught + missed + unviable,
+        total,
+        "语料里只有这三类，加起来必须等于总数"
+    );
+    assert!(
+        caught > missed && unviable > 0,
+        "语料退化：分布塌了就先修语料"
     );
 }
