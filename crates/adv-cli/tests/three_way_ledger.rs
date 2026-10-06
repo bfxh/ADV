@@ -72,8 +72,7 @@ fn three_way_ledger_is_non_empty_end_to_end() {
     );
     // 明细行要带规则码与锚得回夹具的行号。
     assert!(
-        stderr.contains("仅快轨 RS-UNWRAP-USE")
-            && stderr.contains(&format!(":{unwrap_line}")),
+        stderr.contains("仅快轨 RS-UNWRAP-USE") && stderr.contains(&format!(":{unwrap_line}")),
         "unwrap 那条没落在 {unwrap_line} 行：{stderr}"
     );
     assert!(
