@@ -49,8 +49,11 @@ pub struct CallPlan {
     pub dest: usize,
     /// 实参局部索引。
     pub args: Vec<ArgKind>,
-    /// 调用点源码位置（与快轨 `Finding` 同名同口径：行 1 起、列 0 起）。
+    /// 调用点源码位置（与快轨 `Finding` 同名口径：行 1 起、列 0 起）。
     pub span: SpanPos,
+    /// 调用点所在文件（`/` 分隔）。整 crate 一档没有"调用方已知文件"这个前提，
+    /// 路径必须由驱动自己出（片B1）。
+    pub file: String,
 }
 
 /// 单个函数的分析输入：调用点表 + 局部数。
@@ -74,6 +77,22 @@ pub struct Hit {
     pub location: String,
     /// 汇点源码位置（快轨 Finding 同名字段）。
     pub span: SpanPos,
+    /// 汇点所在文件（`/` 分隔）。
+    pub file: String,
+}
+
+/// 从 span 取文件名（`/` 分隔，机器可读口径）。
+///
+/// 1.99 取径实测：`span_to_filename` 给 `FileName`，展示走
+/// `prefer_local_unconditionally().to_string_lossy()`（`FileNameDisplayPreference` 是私有
+/// enum，不能自己构造 pref）。
+fn span_file(tcx: TyCtxt<'_>, span: rustc_span::Span) -> String {
+    tcx.sess
+        .source_map()
+        .span_to_filename(span)
+        .prefer_local_unconditionally()
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 /// 从 span 取快轨同名口径的位置（`lookup_char_pos`：行 1 起、列 0 起）。
@@ -98,7 +117,7 @@ fn arg_kind(op: &Operand<'_>) -> ArgKind {
 
 /// 在有 `tcx` 的环节把函数体扫成计划表。
 pub fn build_plan(tcx: TyCtxt<'_>, def: LocalDefId, function: &str) -> Plan {
-    let body = tcx.optimized_mir(def);
+    let body = crate::mir_body(tcx, def);
     let mut calls = HashMap::new();
     for (bb, data) in body.basic_blocks.iter().enumerate() {
         let Some(term) = &data.terminator else {
@@ -126,6 +145,7 @@ pub fn build_plan(tcx: TyCtxt<'_>, def: LocalDefId, function: &str) -> Plan {
                 dest: destination.local.index(),
                 args: args.iter().map(|a| arg_kind(&a.node)).collect(),
                 span: span_pos(tcx, term.source_info.span),
+                file: span_file(tcx, term.source_info.span),
             },
         );
     }
@@ -211,6 +231,7 @@ impl<'a, 'tcx> Analysis<'tcx> for Reach<'a> {
                     function: self.plan.function.clone(),
                     location: format!("bb{}.{}", loc.block.index(), loc.statement_index),
                     span: call.span,
+                    file: call.file.clone(),
                 });
             }
         }
@@ -261,7 +282,7 @@ pub fn analyze(tcx: TyCtxt<'_>, specs: &[Spec]) -> Vec<Hit> {
     for &def in tcx.mir_keys(()).iter() {
         let function = tcx.def_path_str(def);
         let plan = build_plan(tcx, def, &function);
-        let body = tcx.optimized_mir(def);
+        let body = crate::mir_body(tcx, def);
         let _results = Reach {
             specs,
             plan: &plan,

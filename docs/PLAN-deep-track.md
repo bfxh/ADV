@@ -62,6 +62,21 @@
      已是 struct、`FileNameDisplayPreference` 私有，不能自己构造 pref）。
      ⇒ 本片不自带规则表：规则目录与输出目录一律走环境变量（`ADV_MIR_RULES`/`ADV_MIR_OUT`），
      缺任一个即非零退出（静默产空 = 假绿入口）。
+     **①的实测否证（同一片内）**：自定义 `--as-rustc` flag 在 cargo 通路上用不了——cargo 只递
+     `<包装器> <rustc 路径> <rustc 参数…>`，第一次调用就是 `-vV` / `--print=file-names -` 探测，
+     多出来的 flag 被当输入文件 ⇒ `error: multiple input filenames provided`。
+     ⇒ 触发条件改成 **`ADV_MIR_WRAPPER=1` 环境变量**（`--as-rustc` 保留给手测与单测），
+     且没有 `--crate-name` 时输出名回退 `unnamed` 而不是"不产出"。三个判据
+     （`is_wrapper`/`forwarded_args`/`crate_output_name`）放进 lib 侧 `src/wrapper.rs`，
+     让同包测试能直接喂数据杀变异。
+     **片B1 的实测结论（2026-10-06）**：直通档跑通了——`RUSTC_WORKSPACE_WRAPPER=<驱动> cargo build`
+     在 `adv-core`/`adv-taint`/`adv-cli` 上编译成功且按 crate 落 `<crate>.jsonl`；
+     第一次碰真实代码就炸出深轨的一个真缺陷：`optimized_mir` 对 const 上下文 panic
+     （`rustc_mir_transform/src/lib.rs:790-797` 按 `hir_body_const_context` 分派），
+     已按 rustc 自己的 `instance_mir` 规则改成 `mir_body()`（const 项/static/anon const 走
+     `mir_for_ctfe`，`const fn` 仍走优化版）。`adv-cli` 那轮 0 发现是**对的**（它用的是
+     `var_os`，规则源点是 `std::env::var`），不是漏报。
+
 - 输出：MIR 事实 → JSON → 主引擎（adv-taint）消费；**边车不进主进程**
   （nightly/不稳定 API 崩溃隔离在子进程——RESEARCH 01 边车纪律的实现形态）。
 

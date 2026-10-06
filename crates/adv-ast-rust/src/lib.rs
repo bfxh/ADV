@@ -4,3 +4,4 @@
 
 pub mod driver_probe;
 pub mod spec;
+pub mod wrapper;
