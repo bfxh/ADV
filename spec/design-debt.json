@@ -68,26 +68,15 @@
       "guards": "本次只把陈述改成实测口径并指向本条债；生效面本身仍无判据（缺的正是这条债要补的：一道能判\"提交路径当前装没装门\"的检查 + 快档不再恒红后才允许装）。"
     },
     {
-      "id": "DD-0010",
-      "surface": ".github/workflows 的门接线（adv-rewrite 的 CI 生效面）",
-      "kind": "design",
-      "defect": "2026-10-06 把设计债门\"接进 CI\"时接的是 core.yml，而 core.yml 的 on.push 只列 main —— 本条分支 adv-rewrite 由 adv.yml 守，它一个 python 步骤都没有（fmt/clippy/nextest/coverage/gate/deny 全是 cargo 侧）。⇒ 昨天到今天的每一次\"带红推送会让 CI 红\"都是空话：Debt gate、claim_gate、path_gate 在这条分支上从未跑过。本轮已把 Debt gate 挪接进 adv.yml，但这张\"哪个门在哪条分支真跑\"的表仍没有判据。 接进去之后又实测出一层：adv.yml 的 checkout 用默认 depth=1，Debt gate 的 D4 于是把每一条真实 SHA 都判成\"在 git 里不存在（不许凭印象写 SHA）\"——CI 一次报 14 条假红，而 D5（超期）因为 exists(since) 恒假**整条不执行**：门在 CI 上是哑的，红得毫无信息量。本轮已给 adv.yml 加 fetch-depth: 0，并让 D4 在浅克隆下把话写成\"无法核验（fetch-depth）\"而不是冤枉作者；但\"接线形状对不对\"本身仍然没有判据——浅克隆、缺 python、步骤名漂移这类都会让门静默变形。",
-      "why_from_design": "门链的 CI 接线按\"文件\"组织（core.yml 是旧伞仓的门清单，adv.yml 是新工作区的门清单），而不是按\"分支 × 生效门集合\"组织；test_s145_gates.py 锁的是 core.yml ↔ local_gate 的漂移，它天然测不到\"这条分支根本不跑 core.yml\"。缺的是把每条受保护分支的门集合钉成一份可比对的登记，而不是缺某一步。",
-      "origin": "4d20416",
-      "since": "1884216",
-      "due_after_tasks": 10,
-      "guards": "本轮补了两处实测（fetch-depth: 0 + 浅克隆重写文案 + 反向用例 test_shallow_clone_blames_the_environment_not_the_author），但都还是\"这一条门自己别说话\"的层面；缺的尺照旧是\"每条受保护分支 × 生效门集合 × 运行前置（深度/工具/依赖）\"的登记与核对。"
-    },
-    {
       "id": "DD-0011",
       "surface": "xtask/src/main.rs::gate_run（bin 的聚合壳）",
       "kind": "coverage",
-      "defect": "HEAD 607a736 的变异门实测：`xtask mutants --base 6201ea4` 总=409 捕获=346 未捕获=24，唯一的新增存活键是 `xtask/src/main.rs::gate_run` 的 `replace gate_run -> anyhow::Result<Vec<String>> with Ok(vec![])`。成因不是断言懒得写：在全绿的树上 gate_run 的真值就是空清单，\"换成空\"与真值同值 ⇒ 端到端断言（本片已加的 `canary_gate_verdict_matches_its_own_subgates` 交叉核对）在红树上能杀、在绿树上杀不了这一条。",
+      "defect": "HEAD 607a736 的变异门实测：`xtask mutants --base 6201ea4` 总=409 捕获=346 未捕获=24，唯一的新增存活键是 `xtask/src/main.rs::gate_run` 的 `replace gate_run -> anyhow::Result<Vec<String>> with Ok(vec![])`。成因不是断言懒得写：在全绿的树上 gate_run 的真值就是空清单，\"换成空\"与真值同值 ⇒ 端到端断言（本片已加的 `canary_gate_verdict_matches_its_own_subgates` 交叉核对）在红树上能杀、在绿树上杀不了这一条。 下一次 `--update`（HEAD f470ded 的门面，总=412 捕获=349 未捕获=24 unviable=36）复核后的精确形状：`gate_run` 三条变异里 2 条 CaughtMutant、1 条 MissedMutant——活下来的正是 `Ok(vec![])`，它在全绿的树上与真值同值；该键已随这次重录进基线（12 → 11 键：移除 `mutants.rs::git_diff_patch`，本轮计数 CaughtMutant=1／Missed=0 ⇒ 真被杀，不是没测到）。",
       "why_from_design": "把三个子步合进 bin 里的 `gate_run` 时，聚合逻辑与\"取当前工作区根\"这件不可注入的事写在了一起：能纯化的部分已经抽成 `verdict::merge_gate` 并被单测钉住（明细条数、顺序、子门名前缀），剩下的壳要可观察就必须能喂进一个\"必然红\"的子门结果，而 `god::run`/`suppress::run` 都从编译期 `CARGO_MANIFEST_DIR` 推根目录，测试无法重定向。",
       "origin": "4acf75e",
       "since": "607a736",
       "due_after_tasks": 10,
-      "guards": "本轮不重录基线去吸收这一键（`--update` 的整表替换会把\"我还没处置\"写成\"已登记\"）；下一次 `xtask mutants --update` 必须在点名它之后再决定吸收还是处置。修法候选：把 root 变成可注入参数（`gate_run(root)` 已是，但 bin 侧调用点写死），或让金丝雀能在临时根目录里造一次真红子门。"
+      "guards": "披露通道到位：`scripts/reconcile_mutants.py`（片I-3）逐键打印新债/可划账/只有超时/不可验证/盘满缺测，`--keys xtask/src/main.rs::gate_run` 现在直接给出 {'MissedMutant': 1, 'CaughtMutant': 2} ⇒ '未杀/没测到'，不靠我口述。基线里带着它 = 已点名而非静默吸收（removals 由门自己打印，additions 由这条登记托底）。修法候选：把 root 变成可注入参数让金丝雀能造一次真红的子门，或让 merge_gate 一侧的等价性消失。"
     }
   ],
   "retired_fields": [
@@ -115,6 +104,11 @@
       "id": "DD-0009",
       "evidence": "判据补成了两处，都不靠\"我记得要看最后一行\"。① `xtask::verdict` 把门的终点钉成三态契约（绿 0 / 红 1 / 判不了 3），错误也是一种裁决而不是\"没有输出\"；`main` 全面改走 emit(...)，`gate` 档三个子步合成一个 Result 后统一出裁决。金丝雀两条（`4acf75e`）：纯函数三态 + **起真二进制**——`--base <不存在的 ref>` 必须 exit 3 且裁决行落在 stderr、stdout 不许出现裁决；空 diff 在真仓里必须红（skip 不算绿）。先证红：把 Err 分支临时改成返回\"绿/0\"，两条金丝雀同时 FAILED。② 披露侧落成可重复命令 `scripts/reconcile_mutants.py`（`607a736`，5 条反向用例）：新债 / 可划账（本轮必须有 CaughtMutant）/ 只有超时（不许当划账）/ 不可验证（注明\"全 Unviable\"还是\"整条没出现\"）/ 盘满缺测，逐键点名；产物或基线缺失一律 exit 2。首次实战就把一处模糊处逼清：`xtask/src/mutants.rs::git_diff_patch` 从基线键变成\"真被杀\"（本轮 CaughtMutant、无 MissedMutant），而同轮 `gate_run → Ok(vec![])` 在全绿树上的等价性也被它单列出来（转 DD-0011），不再靠我手算一句\"看起来没问题\"。",
       "retired_in": "607a736"
+    },
+    {
+      "id": "DD-0010",
+      "evidence": "判据建成并接进本分支真跑的 workflow：`scripts/ci_wiring_gate.py` + `spec/ci-wiring.json`（W1 文件存在 / W2 分支真被 on.push.branches 触发 / W3 清单里每道门必须在该 workflow 的步骤里找得到 / W4 逐门认领的 workflow 不许有无主门步 / W5 门名不许漂出 STEPS+indirect，且每条分支必须写 why）。反向用例 7 条（tests/test_ci_wiring_gate.py），其中 test_w2_reproduces_the_real_incident_case 就是把今天的事故形状喂进去：清单说 adv-rewrite 看 core.yml，而 core.yml 只触发 main ⇒ 必须红并打出实际触发分支。同轮修掉旧反向锁自己的同类盲区：test_s145_gates 的落点锁只读 core.yml（会把接在 adv.yml 上的门判成没落点），改为读两份并集，且牙齿测试改成抹在门真正所在的那份文件上（原来抹的是不存在的落点＝测空）。新门自身也在 adv.yml 里占一步（先验接线再验债）+ local_gate fast 档一步，归属 adv-m2 线；claim_gate 抓到 README/HARDENING 的旧门数（37/30/34 ≠ 实测 38/31/35）⇒ 按实测回填，CLAIM-GATE OK。",
+      "retired_in": "f470ded"
     }
   ]
 }

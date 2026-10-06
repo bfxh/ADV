@@ -4,12 +4,12 @@
     "crates/adv-rules/src/taint.rs::expr_taint",
     "crates/adv-rules/src/taint.rs::root_var",
     "crates/adv-rules/src/taint.rs::summarize",
+    "xtask/src/main.rs::gate_run",
     "xtask/src/main.rs::main",
     "xtask/src/maturity.rs::pattern_matches",
     "xtask/src/maturity.rs::seg_eq",
     "xtask/src/mir.rs::run",
     "xtask/src/mir.rs::rustc_print",
-    "xtask/src/mutants.rs::git_diff_patch",
     "xtask/src/mutants.rs::run"
   ]
 }

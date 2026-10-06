@@ -1069,3 +1069,53 @@ mutants: 红（1 条）
 `pytest tests/test_reconcile_mutants.py` 5 条过 · `test_debt_gate` 14 条过 ·
 debt_gate 红 5 处（在册 7 条里 DD-0002/0003/0004/0005/0008 超期；DD-0009 已销、
 DD-0010/0011 在窗口内）· claim/path/god(python) 三门 OK，`lint_gate` 仍是既有 6 条（伞仓线）。
+
+# 片J（2026-10-07 凌晨）：把"接了 CI"这句话交给机器判
+
+## 门自己真出的裁决（HEAD `f470ded` 的面；`--update` 重录）
+
+```
+变异面 总=412 捕获=349 未捕获=24 unviable=36
+超时 1 条（不计入 missed，逐键点名以防阈值太低把存活藏进来）：xtask/src/maturity.rs::seg_eq
+基线已写 tools/baselines/mutants-baseline.json（missed 11 条）
+注意：本次重录从基线移除了 1 个键（要么真被杀掉了，要么本轮不可验证）：
+  - xtask/src/mutants.rs::git_diff_patch
+mutants: 绿
+```
+
+`reconcile_mutants.py --keys ...` 的逐键复核（不是口述）：
+
+| 键 | 本轮计数 | 结论 |
+|---|---|---|
+| `xtask/src/mutants.rs::git_diff_patch` | CaughtMutant 1／Missed 0 | **真被杀** ⇒ 从基线移除（杀它的人是片H 那条"传坏 --base"的二进制级金丝雀） |
+| `xtask/src/main.rs::gate_run` | Caught 2／Missed 1 | 三条变异活一条，活的正是全绿树上与真值同值的 `Ok(vec![])` ⇒ DD-0011 精确到"1/3"，键随重录进基线（有登记托底，不是静默吸收） |
+
+本轮对账四份清单全空（新债 0／可划账 0／只有超时 0／不可验证 0），基线 12 → 11 键。
+另需记一笔口径：`--update` 是在 HEAD `ca27333` 上启动的，中途落的两个提交（`f470ded` 等）
+**没动任何 .rs**（`git show --name-only | grep -c '\.rs$'` = 0）⇒ 这一轮量的就是当前 Rust 面。
+
+## 片J = DD-0010 的处置（已销）
+
+今天的第三次同类事故之后建的门：`spec/ci-wiring.json` + `scripts/ci_wiring_gate.py`，
+W1–W5 全纯函数、7 条反例，其中一条**把事故形状直接喂进去**（清单说 adv-rewrite 看 core.yml，
+而 core.yml 只触发 main ⇒ 必须红并打出实际触发分支）。
+
+顺手被自己抓到的两处：
+1. **旧反向锁有同类盲区**：`test_s145_gates` 的"每步都得在 CI 有落点"只读 core.yml ⇒ 接在
+   adv.yml 上的门会被判成没落点；改为读两份并集，且牙齿测试改成抹在门**真正所在**的那份文件
+   上（原来抹的是一个根本不存在的落点，等于测空）。
+2. **D6 抓住我自己双登**：第一次销 DD-0010 时只 append 到 retired、没从 entries 删 ⇒
+   "同时在册与已退役"当场判红。这条查重就是为这种手滑写的。
+
+数字同步不是我校齐的，是 `claim_gate` 抓的：加一步后真值 total 38／fast 31／full 35，
+文档旧主张 37／30／34 直接判红 ⇒ 回填后 CLAIM-GATE OK。`god_gate` 又抓到
+`local_gate.py 287→289`（按实测单键回填，没整表重录；两个新 py 文件仍是未登记面，
+和那 65 条一样要逐条清，不靠一次重写代劳）。
+
+## 片I/片J 重放（合并）
+
+`cargo test --workspace` 93 条过 · `clippy --workspace --all-targets -- -D warnings` exit 0
+（强制重扫）· fmt 0 · `xtask gate` 绿 · `mir` 绿 · god 440 → 449（逐键点名）·
+`pytest`：ci_wiring 7 + s145 10 + gate_lines 7 + debt_gate 14 + reconcile 5 + s167 7 = **50** 条过 ·
+`ci_wiring_gate` OK · `debt_gate` 红 5 处（DD-0002/0003/0004/0005 拖 25+、DD-0008 拖 21；
+已销 5 条：0001/0006/0007/0009/0010；在册 6 条含 DD-0011）· `lint_gate` 仍 6 条（伞仓存量）。
