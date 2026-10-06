@@ -50,9 +50,13 @@ const DISK_FAILURE_SIGNATURES: &[&str] = &[
     "磁盘空间不足",
 ];
 
-#[derive(Deserialize)]
-struct Baseline {
-    missed: Vec<String>,
+/// 变异基线（`tools/baselines/mutants-baseline.json`）：本轮不判红的 missed 键白名单。
+///
+/// 公开是为了让 `tier_verdicts` 能被单测直接喂数据——不公开就只能靠一次 17 分钟真跑验判据。
+#[derive(Debug, Deserialize)]
+pub struct Baseline {
+    /// 已登记的未捕获变异键（`文件::函数`），棘轮只准减。
+    pub missed: Vec<String>,
 }
 
 /// 变异键：`file::function`（从 outcomes 条目提取，cargo-mutants 27 格式）。
@@ -66,6 +70,15 @@ pub fn outcome_key(outcome: &serde_json::Value) -> Option<String> {
         .as_str()?
         .to_string();
     Some(format!("{file}::{function}"))
+}
+
+/// 这一轮要不要做"基线键可验证性"核对：只有全档要。
+///
+/// 增量档的面天然小于基线（`maturity.rs::seg_eq` 这轮可能压根没被改到），拿全档的尺量半张面
+/// 会把"没跑到"报成"不可验证"——一片里每轮都红，红就又成了噪声（DD-0007 的形状）。所以增量档
+/// 只判**新出现**的存活变异；可验证性由收尾那轮全档关账。
+pub fn checks_verifiability(since: Option<&str>) -> bool {
+    since.is_none()
 }
 
 /// 棘轮比较：current 里有而 baseline 没有的 missed = 新债 = 红。
@@ -327,6 +340,43 @@ pub fn timeout_note(timeouts: &[String]) -> Option<String> {
     })
 }
 
+/// 一档跑完的裁决材料：违规清单 + 一行"档"说明。
+///
+/// 抽成纯函数的两个理由：① `run` 已经涨到硬阈边缘（god 门 120 行），把判定搬出来才是本仓
+/// 一贯的做法；② 增量档那条"不判红但要播报"的分支只有在这里才可测——不然它永远靠一次
+/// 17 分钟的真跑才能验，那种判据等于没判据。
+pub fn tier_verdicts(
+    since: Option<&str>,
+    baseline: &Baseline,
+    missed: &[String],
+    verifiable: &[String],
+    disk: Vec<String>,
+) -> (Vec<String>, Option<String>) {
+    let mut violations: Vec<String> = new_missed(missed, &baseline.missed)
+        .into_iter()
+        .map(|k| format!("新增未捕获变异：{k}"))
+        .collect();
+    let unverifiable = unverifiable_keys(&baseline.missed, verifiable);
+    let mut note = None;
+    if checks_verifiability(since) {
+        violations.extend(unverifiable.into_iter().map(|k| {
+            format!(
+                "基线键本轮无可判定变异（不可验证；多为变异全判 unviable 或构建/链接失败）：{k}"
+            )
+        }));
+    } else if !unverifiable.is_empty() {
+        // 增量档不拿它判红（半张面量不到全档的键是必然的），但要把数报出来，免得
+        // "增量绿"被读成"账都核过了"——关账的是收尾那轮全档。
+        note = Some(format!(
+            "增量档不核对基线可验证性：基线 {} 键里 {} 个不在本轮面内（收尾必须再跑全档关账）",
+            baseline.missed.len(),
+            unverifiable.len()
+        ));
+    }
+    violations.extend(disk);
+    (violations, note)
+}
+
 /// 跑变异门。`base` 为 diff 基线 ref；`update` 重录基线（披露通道）。
 pub fn run(
     root: &Path,
@@ -431,20 +481,10 @@ pub fn run(
         return Ok(vec![]);
     }
     let baseline = read_baseline(&baseline_path)?;
-    let mut violations: Vec<String> = new_missed(&missed, &baseline.missed)
-        .into_iter()
-        .map(|k| format!("新增未捕获变异：{k}"))
-        .collect();
-    violations.extend(
-        unverifiable_keys(&baseline.missed, &verifiable)
-            .into_iter()
-            .map(|k| {
-                format!(
-                    "基线键本轮无可判定变异（不可验证；多为变异全判 unviable 或构建/链接失败）：{k}"
-                )
-            }),
-    );
-    violations.extend(disk);
+    let (violations, note) = tier_verdicts(since, &baseline, &missed, &verifiable, disk);
+    if let Some(line) = note {
+        println!("{line}");
+    }
     Ok(violations)
 }
 

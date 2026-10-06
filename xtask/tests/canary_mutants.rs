@@ -1,10 +1,10 @@
 //! 金丝雀（变异门 `xtask mutants`）：键抽取、可验证标签、退出码、盘满签名、盘量预检逐个证明会红。
 
 use xtask::mutants::{
-    VERIFIABLE_SUMMARIES, completed_status, df_args, diff_spec, disk_failure_signature,
+    Baseline, VERIFIABLE_SUMMARIES, completed_status, df_args, diff_spec, disk_failure_signature,
     drive_letter, free_bytes_probe, free_bytes_via_df, human_bytes, keys_by_summary, min_free_gib,
     new_missed, parse_df_avail, parse_u64_lines, powershell_args, precheck_scratch,
-    refuse_incremental_update, scratch_is_short, short_message, tally, timeout_note,
+    refuse_incremental_update, scratch_is_short, short_message, tally, tier_verdicts, timeout_note,
     unverifiable_keys, unviable_disk_failures, verdict_name,
 };
 
@@ -564,4 +564,43 @@ fn canary_incremental_tier_cannot_pass_itself_off_as_the_closing_run() {
     let why = refuse_incremental_update(Some("x"), true).expect("增量档重录必须被拒");
     assert!(why.contains("整表替换"), "{why}");
     assert!(why.contains("--since"), "要给出改法：{why}");
+}
+#[test]
+fn canary_incremental_tier_skips_only_the_full_tier_check() {
+    // 行为级而不是谓词级：增量档跳过的**只有**"基线键可验证性"这一项；新出现的存活变异
+    // 照常判红——否则增量档就成了躲账通道。这条判据以前只能靠一次 17 分钟真跑来验。
+    let baseline = Baseline {
+        missed: vec!["xtask/src/mir.rs::run".to_string()],
+    };
+    let verifiable: Vec<String> = vec![]; // 本轮面内一个基线键都没跑到
+
+    let (v_full, note_full) = tier_verdicts(None, &baseline, &[], &verifiable, vec![]);
+    assert!(
+        v_full.iter().any(|x| x.contains("不可验证")),
+        "全档必须把没跑到的基线键判红：{v_full:?}"
+    );
+    assert_eq!(note_full, None, "全档不该有增量说明行");
+
+    let (v_inc, note_inc) = tier_verdicts(Some("abc1234"), &baseline, &[], &verifiable, vec![]);
+    assert!(
+        v_inc.iter().all(|x| !x.contains("不可验证")),
+        "增量档拿全档的尺量半张面 = 每轮都红的噪声：{v_inc:?}"
+    );
+    let note = note_inc.expect("增量档要把跳过的东西说出来");
+    assert!(note.contains("1 个不在本轮面内"), "{note}");
+    assert!(note.contains("全档关账"), "要指回关账的那一轮：{note}");
+
+    // 新增存活变异在增量档里照样判红（整个档位的底线）。
+    let (v_new, _) = tier_verdicts(
+        Some("abc1234"),
+        &baseline,
+        &["xtask/src/new.rs::bug".to_string()],
+        &["xtask/src/new.rs::bug".to_string()],
+        vec![],
+    );
+    assert_eq!(
+        v_new,
+        vec!["新增未捕获变异：xtask/src/new.rs::bug".to_string()],
+        "增量档放走了新债"
+    );
 }
