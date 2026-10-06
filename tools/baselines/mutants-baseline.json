@@ -9,9 +9,7 @@
     "xtask/src/maturity.rs::seg_eq",
     "xtask/src/mir.rs::run",
     "xtask/src/mir.rs::rustc_print",
-    "xtask/src/mutants.rs::free_bytes_via_df",
     "xtask/src/mutants.rs::git_diff_patch",
-    "xtask/src/mutants.rs::precheck_scratch",
     "xtask/src/mutants.rs::run"
   ]
 }
