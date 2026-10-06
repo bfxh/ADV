@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use xtask::god::{
     MAX_FN_LINES, MEMBER_DIRS, analyze_source, collect_workspace_entries, hard_violations,
-    ratchet_violations, rerecord_note,
+    ratchet_violations, rerecord_note, write_baseline,
 };
 use xtask::lockstep::check_lockstep;
 use xtask::maturity::{experimental_patterns, pattern_matches};
@@ -288,4 +288,34 @@ fn canary_rerecord_note_names_every_moved_face() {
     let same = rerecord_note(&new, &new);
     assert!(same.contains("新增 0、移除 0、变大 0"), "{same}");
     assert_eq!(same.matches('\n').count(), 0, "{same}");
+}
+
+#[test]
+fn canary_write_baseline_really_writes_and_rejects_hard_violations() {
+    // 门报 `god.rs::write_baseline` 的"整体换成 Ok(())"存活：登记动作本身没有观察面。
+    // 这个函数是"把现状转正"的唯一入口，它不写盘/不拦硬阈都必须被抓到。
+    let dir = std::env::temp_dir().join(format!("adv-god-write-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let target = dir.join("tools/baselines/god-baseline.json");
+
+    let ok: BTreeMap<String, u64> = [("file:crates/adv-core/src/lib.rs".to_string(), 42u64)]
+        .into_iter()
+        .collect();
+    write_baseline(&dir, &ok).expect("阈内应当写得进去");
+    assert!(
+        target.is_file(),
+        "write_baseline 说成功了却没落盘：{target:?}"
+    );
+    let raw = std::fs::read_to_string(&target).expect("读回基线");
+    assert!(raw.contains("crates/adv-core/src/lib.rs"), "{raw}");
+
+    // 超硬阈 ⇒ 拒写，而且**不许留下半截基线**（旧仓教训：整表吞掉新超标面）。
+    let mut over = ok.clone();
+    over.insert("file:crates/adv-core/src/huge.rs".to_string(), 5000);
+    std::fs::remove_file(&target).expect("清掉上一轮的基线");
+    let err = write_baseline(&dir, &over).expect_err("超硬阈必须拒绝登记");
+    assert!(err.to_string().contains("硬阈"), "{err}");
+    assert!(!target.is_file(), "拒写却仍然动了基线文件：{target:?}");
+
+    let _ = std::fs::remove_dir_all(&dir);
 }

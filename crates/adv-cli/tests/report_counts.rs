@@ -64,3 +64,38 @@ fn summary_names_file_count_and_per_rule_counts() {
         "stdout 应出 3 条发现（2 eval + 1 exec）：{stdout}"
     );
 }
+
+/// `--exclude` 命中的是不该被扫的那一个文件本身。
+/// 由来：门报 `main.rs::scan` 的 `|| → &&` 存活——`!path.is_file() || excluded(...)` 改成
+/// `&&` 以后，"是被排除的文件"这一支永远不会跳，而现有断言里没有任何一条排除面。
+#[test]
+fn exclude_drops_that_file_from_the_counts() {
+    let out = Command::new(env!("CARGO_BIN_EXE_adv"))
+        .arg("scan")
+        .arg(corpus())
+        .arg("--rules")
+        .arg(repo_root().join("rules"))
+        .arg("--engine")
+        .arg("ast")
+        .arg("--exclude")
+        .arg("a_evals.py")
+        .output()
+        .expect("启动 adv 失败");
+    assert!(out.status.success(), "退出码非零：{out:?}");
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(
+        stderr.contains("adv scan：1 个文件，1 条发现（快轨 1 / 深轨 0"),
+        "排除一条 eval 后应只剩 1 文件 1 条：{stderr}"
+    );
+    assert!(stderr.contains("PY-EXEC-USE: 1"), "{stderr}");
+    assert!(
+        !stderr.contains("PY-EVAL-USE"),
+        "被排除的文件还进了账：{stderr}"
+    );
+    assert_eq!(
+        stdout.lines().filter(|l| l.contains("\"rule\":")).count(),
+        1,
+        "stdout 应只剩 1 条发现：{stdout}"
+    );
+}
