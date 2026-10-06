@@ -47,19 +47,41 @@ fn canary_gate_binary_always_ends_with_a_verdict_line() {
     assert!(text.contains("mutants: 判不了"), "{text}");
     assert!(text.contains("--base"), "要点名是哪个参数坏了：{text}");
 
-    // 空 diff ⇒ 红（skip 不算绿），且这轮**没跑** cargo-mutants，所以很快。
+    // 空 diff 那一步**不能照搬本地断言**：变异门会把树复制到没有 `.git` 的临时目录，
+    // 那里 `git diff HEAD...HEAD` 本身就取不到 ⇒ 门给出"判不了"而不是"红（skip）"。
+    // 2026-10-06 实测：我原来写死 `exit == 1`，于是 cargo-mutants 的**未变异基线**直接红
+    // （exit 4，"判不了"那行把这件事说清了）。两种环境下都必须成立的只有不变式本身：
+    // **一定有一行裁决**，且退出码落在三态里。
     let out = std::process::Command::new(xtask)
         .args(["mutants", "--base", "HEAD"])
         .output()
         .expect("起 xtask 失败");
-    assert_eq!(out.status.code(), Some(1), "skip 必须判红");
     let text = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    assert!(text.contains("mutants: 红（1 条）"), "{text}");
-    assert!(text.contains("skip 不算绿"), "{text}");
+    let in_git_repo = std::process::Command::new("git")
+        .args(["rev-parse", "--git-dir"])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .is_ok_and(|o| o.status.success());
+    if in_git_repo {
+        // 在册仓里：无差异 ⇒ 红（skip 不算绿），且这轮没跑 cargo-mutants，所以很快。
+        assert_eq!(out.status.code(), Some(1), "skip 必须判红：{text}");
+        assert!(text.contains("mutants: 红（1 条）"), "{text}");
+        assert!(text.contains("skip 不算绿"), "{text}");
+    } else {
+        assert!(
+            text.contains("mutants: 判不了"),
+            "没有 .git 的复制树里也该有一行裁决：{text}"
+        );
+        assert_eq!(out.status.code(), Some(3), "{text}");
+    }
+    assert!(
+        text.contains("mutants: "),
+        "无论哪种环境，终点都必须是一行裁决：{text}"
+    );
 
     // 未知子命令 = 用法错，退出码与三种裁决都可区分。
     let out = std::process::Command::new(xtask)
