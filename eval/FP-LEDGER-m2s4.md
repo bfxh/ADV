@@ -1523,6 +1523,36 @@ HARDENING（31/35）还是旧数 ⇒ `CLAIM-GATE FAIL mismatch=3`。按它给的
 
 DD-0008 销（`retired_in 7c6e6b7`）。**在册只剩 1 条：DD-0005**（已销 12）。
 
+# 片P（2026-10-07）：DD-0005 口径裁定 + 云端扫描提交（异步）
+
+先量再裁：全仓 **7.7GB**（含 `.git`/`target`）→ 排除 `.git/target/rust/RESEARCH` 后 **16MB**
+（其中 `bench` 6MB、`tests` 6MB 是体量大头）→ 用户拍板**只扫承重面**：
+`crates/ rules/ spec/ xtask/ scripts/ tools/` + 顶层配置 `Cargo.toml Cargo.lock
+rust-toolchain.toml .github`（≈4MB）。理由与登记里那条成因对齐：区分「被扫产品面」与
+「构建产物/研究材料」——`bench/`、`tests/` 里的故意脆弱样本不该混进产品面的扫描结论。
+
+提交（异步，本机命令可直接重跑同一口径）：
+
+```
+~/.qodersec/bin/qodersec.exe scan crates rules spec xtask scripts tools \
+  Cargo.toml Cargo.lock rust-toolchain.toml .github
+```
+
+回执：`project=github.com:bfxh/ADV`、`project_id=12229`、`scan_id=53768`、
+`task_name=adv-rewrite@9d17d49#d4e7dde166feb7b7230636c8df685fa1`、
+报告 <https://qoder.com/security-code-scan/reports/12229/53768>。
+
+取回结果（**本轮按工具规矩没有在提交后立刻轮询**，取回是新的一次请求）：
+
+```
+~/.qodersec/bin/qodersec.exe scan poll --project github.com:bfxh/ADV --task-id 53768 --report detailed
+```
+
+DD-0005 **未销**：报告是异步的，结果没取回并处置之前不销账（这一条恰好也是本仓纪律——
+"提交了"不等于"扫过了"，如同"版本化钩子"不等于"装好的钩子"）。在册 1 / 已销 12，
+`debt_gate` 红 1 处（就是它）。
+
+
 
 
 

@@ -16,12 +16,12 @@
       "id": "DD-0005",
       "surface": "全仓云端安全扫描",
       "kind": "process",
-      "defect": "自 e381074 起欠着的全量扫描仍未清：全仓打包被服务端按体积拒收（本地 0 字节上传），改小口径又没人裁定扫哪。",
+      "defect": "**2026-10-07 现状**：口径已裁（用户拍板「只扫承重面」= crates/ + rules/ + spec/ + xtask/ + scripts/ + tools/ + 顶层配置 Cargo.toml/Cargo.lock/rust-toolchain.toml/.github，本机实测该口径约 4MB；对照全仓 7.7GB、排除 .git/target/rust/RESEARCH 后 16MB），并按该口径提交云端扫描：project_id=12229、scan_id=53768、task_name=adv-rewrite@9d17d49#d4e7dde166feb7b7230636c8df685fa1、report=https://qoder.com/security-code-scan/reports/12229/53768 。**未销的理由只剩一个**：报告是异步的，结果还没取回并处置。取回命令见账本「片P」一节。\n原始欠项（留档）：自 e381074 起欠着的全量扫描未清——全仓打包被服务端按体积拒收（本地 0 字节上传），当时的阻塞是没人裁定扫哪；成因是扫描口径跟着仓库形态走，把 target/、rust/ 旧引擎、RESEARCH/ 都算进了上传体积，没有区分「被扫产品面」与「构建产物/研究材料」。",
       "why_from_design": "扫描口径当初跟着仓库形态走，没有区分「被扫产品面」与「构建产物/研究材料」，于是 target/、rust/ 旧引擎、RESEARCH/ 全被算进上传体积。",
       "origin": "e381074",
       "since": "1fc62d3",
       "due_after_tasks": 10,
-      "guards": "无（靠本登记到期判红）"
+      "guards": "无自动判据（靠本登记到期判红）。2026-10-07 补：口径已裁到「承重面」，重跑命令写进账本片P 一节，不再依赖「没人裁定扫哪」这个旧阻塞。"
     }
   ],
   "retired_fields": [
