@@ -336,6 +336,28 @@ pub(crate) fn name_in(callee: &str, resolved: Option<&str>, set: &[String]) -> b
         || resolved.is_some_and(|r| crate::matcher::callee_matches(r, set))
 }
 
+/// 最后一个 `.` / `::` 之后的段；无分隔符时 None（裸名由 `name_in` 的全等档管）。
+fn tail_segment(callee: &str) -> Option<&str> {
+    if !(callee.contains('.') || callee.contains(':')) {
+        return None;
+    }
+    callee.rsplit(['.', ':']).next().filter(|t| !t.is_empty())
+}
+
+/// 方法档命中：`name_in` 的三段之外，**链式调用的尾段**也算方法名
+/// （`std::env::var(x).unwrap_or_default()` 的尾段 `unwrap_or_default`）。
+/// 只给 propagator / sanitizer 用——source / sink 仍走精确相等，否则链上任何尾段都可能被
+/// 说成汇点，扩面不可控（改前后 A/B 见 `eval/FP-LEDGER-m2s4.md` 片M）。
+fn method_tier_in(callee: &str, resolved: Option<&str>, set: &[String]) -> bool {
+    if name_in(callee, resolved, set) {
+        return true;
+    }
+    tail_segment(callee).is_some_and(|tail| {
+        set.iter()
+            .any(|w| !w.starts_with('.') && !w.contains(['.', ':']) && w == tail)
+    })
+}
+
 /// 表达式污点（递归；Call 分类顺序：源 → 本地摘要 → 净化 → 传播；其他节点看孩子）。
 pub(crate) fn expr_taint(
     ast: &GenericAst,
@@ -357,7 +379,7 @@ pub(crate) fn expr_taint(
             if name_in(callee, resolved.as_deref(), env.sources) {
                 return true;
             }
-            if name_in(callee, resolved.as_deref(), env.sanitizers) {
+            if method_tier_in(callee, resolved.as_deref(), env.sanitizers) {
                 return false;
             }
             // 本地函数摘要（同文件已定义者）
@@ -377,7 +399,7 @@ pub(crate) fn expr_taint(
             if env.returns_param_taint.contains(callee) {
                 return receiver || any_arg;
             }
-            if name_in(callee, resolved.as_deref(), env.propagators) {
+            if method_tier_in(callee, resolved.as_deref(), env.propagators) {
                 return receiver || any_arg;
             }
             false // 未声明传播的调用不吃污点（保守；FN 面记档）
@@ -416,5 +438,48 @@ fn new_finding(rule: &Rule, file: &Path, span: adv_parse::Span) -> Finding {
         end_line: span.end_line,
         end_col: span.end_col,
         engine: crate::matcher::ENGINE_FAST.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn set(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn tail_segment_only_splits_dotted_names() {
+        assert_eq!(tail_segment("bare"), None, "裸名没有尾段可言");
+        assert_eq!(tail_segment("a.b.c"), Some("c"));
+        assert_eq!(tail_segment("std::env::var"), Some("var"));
+        assert_eq!(tail_segment("x."), None, "分隔符后为空不该造出空段");
+    }
+
+    #[test]
+    fn method_tier_matches_the_tail_of_a_chain() {
+        // 片M 补的就是这一档：链式源点经声明过的 propagator 仍算传播。
+        let chain = "std::env::var.unwrap_or_default";
+        assert!(method_tier_in(chain, None, &set(&["unwrap_or_default"])));
+        assert!(
+            !method_tier_in(chain, None, &set(&["ok"])),
+            "未声明的传播子不许因尾段巧合而置污"
+        );
+        // 规则写成前导点档（`.len`）时由 name_in 命中，尾段档要跳过它，不重复放行。
+        assert!(method_tier_in("tainted.len", None, &set(&[".len"])));
+        assert!(!method_tier_in("bare_call", None, &set(&["bare_call2"])));
+    }
+
+    #[test]
+    fn source_and_sink_tiers_stay_exact() {
+        // 扩档只给 propagator / sanitizer：source / sink 必须仍走精确相等，
+        // 否则 `anything.env::var` 这类形状会被说成源点，扩面不可控。
+        assert!(!name_in(
+            "std::env::var.unwrap_or_default",
+            None,
+            &set(&["std::env::var"])
+        ));
+        assert!(name_in("std::env::var", None, &set(&["std::env::var"])));
     }
 }

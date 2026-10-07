@@ -48,6 +48,25 @@ fn f(x: i32) -> i32 {
 }
 "#;
 
+/// 快轨污点的**链式**面（片M）。`ruleid` 注释即判据：标注的行必须报、没标注的行必须不报，
+/// 两个方向都由 fixture 结构钉住，不由规则作者的说法决定。
+/// 两行同构只差 `.unwrap_or_default()`——那正是 2026-10-07 实测出来的漏报面。
+const RS_TAINT: &str = r#"
+fn main() {
+    let a = std::env::var("X").unwrap_or_default();
+    std::process::Command::new(a); // ruleid: RS-TAINT-COMMAND
+    let b = std::env::var("Y");
+    std::process::Command::new(b); // ruleid: RS-TAINT-COMMAND
+    // 未声明的传播子（`ok` 不在 propagator 名单）⇒ 保守不许置污，这是扩面上限的锚点。
+    let c = std::env::var("Z").ok();
+    std::process::Command::new(c);
+    // 声明过的传播子但**没有源点**：字面量经 to_string 仍不是污点。
+    let d = "safe".to_string();
+    std::process::Command::new(d);
+    let _ = (a, b, c, d);
+}
+"#;
+
 #[test]
 fn ruleid_annotations_match_exactly() {
     let rules = load();
@@ -56,6 +75,7 @@ fn ruleid_annotations_match_exactly() {
         .unwrap();
     adv_rules::testing::check_fixture("rs_unwrap", Language::Rust, RS_UNWRAP, &rules).unwrap();
     adv_rules::testing::check_fixture("rs_panic", Language::Rust, RS_PANIC, &rules).unwrap();
+    adv_rules::testing::check_fixture("rs_taint", Language::Rust, RS_TAINT, &rules).unwrap();
 }
 
 #[test]

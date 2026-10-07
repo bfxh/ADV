@@ -145,15 +145,43 @@ fn both_reports_three_way_tally_on_stderr() {
         String::from_utf8_lossy(&out.stderr)
     );
     let items = lines_of(&out.stdout);
-    assert_eq!(
-        items.len(),
-        4,
-        "并集应仍是这 4 条（快轨在该 rust 语料 0 条）"
-    );
+    let key = |i: &serde_json::Value| {
+        (
+            i["rule"].as_str().unwrap_or_default().to_string(),
+            i["file"].as_str().unwrap_or_default().to_string(),
+            i["start_line"].as_u64().unwrap_or_default(),
+        )
+    };
+    let fast: Vec<&serde_json::Value> = items
+        .iter()
+        .filter(|i| i["engine"] == serde_json::json!("tree-sitter"))
+        .collect();
+    let deep: Vec<&serde_json::Value> = items
+        .iter()
+        .filter(|i| i["engine"] == serde_json::json!("mir"))
+        .collect();
+    // 深轨 4 条 = 4 份污点夹具各"必须报 1 条"（夹具注释自己的声明）；快轨 3 条 = 片M 补掉
+    // 链式源点匹配后 AST 档能建模的那 3 份。旧版此处写"并集仍是这 4 条（快轨在该 rust 语料
+    // 0 条）"——那是把**漏报钉成了期望**，2026-10-07 实测订正。
+    assert_eq!(deep.len(), 4, "深轨应覆盖 4 份污点夹具：{items:?}");
+    assert_eq!(fast.len(), 3, "快轨应报出除分支合流外的 3 份：{fast:?}");
+    // 快轨报的每条深轨都报（同键）⇒ 这次修复没有引入"快轨独有"的假阳面。
+    for f in &fast {
+        assert!(
+            deep.iter().any(|d| key(d) == key(f)),
+            "快轨出现深轨没有的条目（扩面过头的信号）：{f:?}"
+        );
+    }
     let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
     assert!(
-        stderr.contains("三方账：两边都报 0 / 仅快轨 0 / 仅深轨 4"),
+        stderr.contains("三方账：两边都报 3 / 仅快轨 0 / 仅深轨 1"),
         "三方账没按实测出账：{stderr}"
+    );
+    // 唯一那条「仅深轨」是 taint_branch.rs（分支合流 AST 档不建模）——那是两引擎的真实语义差，
+    // 不是键不同源（键不同源的形状另钉在 DD-0013 / deep_cargo.rs）。
+    assert!(
+        stderr.contains("仅深轨 RS-TAINT-COMMAND") && stderr.contains("taint_branch.rs"),
+        "仅深轨那条不该是分支合流之外的形状：{stderr}"
     );
 }
 

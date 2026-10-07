@@ -66,6 +66,17 @@
       "since": "5f55eb0",
       "due_after_tasks": 10,
       "guards": "72 个面已随 `--write-baseline` 登记并由门逐键点名（新增 72、移除 0、变大 2），存量红已清。缺的判据本体：把 Rust 侧的 `未登记 ⇒ 红` 搬到 python 侧（或加 `扫描面 ⊆ 基线键` 检查）+ 一条金丝雀——基线里没有的 .py/.rs 文件必须让门判红，而不是只在超阈时才响。"
+    },
+    {
+      "id": "DD-0013",
+      "surface": "crates/adv-cli/src/mir.rs::scan_crate_via_cargo 的 finding.file 路径口径",
+      "kind": "design",
+      "defect": "`--engine both --deep-via-cargo` 下，深轨的 `file` 是 **crate 相对路径**（`src/lib.rs`），快轨的是**调用者给的路径**（`D:/KF/ADV/crates/adv-cli/tests/data/taint-crate/src/lib.rs`）⇒ 三方账的键 `(rule, file, line)` 不同源。2026-10-07 实测（同一份 taint-crate，3 条真流程）：`adv scan … --engine both --deep-via-cargo` 打 `6 条发现（快轨 3 / 深轨 3）` 且`三方账：两边都报 0 / 仅快轨 3 / 仅深轨 3`——3 个流程被算成 6 条，最有信息量的桶仍是 0。对照：非 cargo 档（逐文件 mir）两边同键，扫 `crates/adv-ast-rust/tests/fixtures` 得 `两边都报 3 / 仅快轨 0 / 仅深轨 1`。所以缺陷只出在 cargo 档的归属层。",
+      "why_from_design": "深轨边车在被扫 crate 的目录里由 cargo 起 rustc，span 天然是 crate 相对的；驱动把这个原文形状直接写进 jsonl，`scan_crate_via_cargo` 读回来时**没有把路径换回调用者的坐标系**（快轨没有这个换算，因为它自己走目录）。两轨的 file 字段没有共同的归属约定 ⇒ 任何跨引擎对账（三方账、以后的增量门、报表去重）都会静默双计并假装没有重叠。这与本仓反复的形状一致：不是判错，是两个判定各说各话却共用一个键名。",
+      "origin": "a9e8212",
+      "since": "da4675f",
+      "due_after_tasks": 10,
+      "guards": "症状已被钉住：`crates/adv-cli/tests/deep_cargo.rs` 断言 `两边都报 0 / 仅快轨 3 / 仅深轨 3`，路径口径一修就会判红并指名来改账（不许静默变绿）；同文件同时断言两侧各 3 条与夹具 `adv-expect: hit` 标记同数。**修法两选一待裁**：A=在 `scan_crate_via_cargo` 把 file 换成调用者坐标系（golden `deep-cargo.jsonl` 的 3 行 file 字段要**有意识重录**，属动冻结契约）；B=只在 `three_way_buckets` 的键上做路径归一（stdout/golden 不变，但两引擎回包仍不同形，双计只在账里消失）。"
     }
   ],
   "retired_fields": [

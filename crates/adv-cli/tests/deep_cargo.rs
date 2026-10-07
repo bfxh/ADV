@@ -54,6 +54,16 @@ fn finding_lines(out: &std::process::Output) -> Vec<String> {
     lines
 }
 
+/// 按引擎筛行：本文件的主体是"深轨 cargo 档的行契约"，快轨的行得单独算账
+/// （片M 之前快轨在这批语料上恒 0 条，所以旧版直接拿全量行当深轨行——那等于把漏报钉成了期望）。
+fn lines_by_engine(out: &std::process::Output, engine: &str) -> Vec<String> {
+    let needle = format!("\"engine\":\"{engine}\"");
+    finding_lines(out)
+        .into_iter()
+        .filter(|l| l.contains(&needle))
+        .collect()
+}
+
 /// 夹具里标了 `adv-expect: hit` 的 `(crate 相对路径, 行号)`。
 fn expected_hits() -> Vec<(String, usize)> {
     let mut out = Vec::new();
@@ -78,7 +88,7 @@ fn cargo_mode_reports_cross_module_flows_and_respects_sanitizer() {
         "cargo 档退出码非零：{}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let lines = finding_lines(&out);
+    let lines = lines_by_engine(&out, "mir");
     let want = expected_hits();
     assert!(
         !want.is_empty(),
@@ -110,12 +120,26 @@ fn cargo_mode_reports_cross_module_flows_and_respects_sanitizer() {
         got.iter().any(|(f, _)| f == "src/inner.rs"),
         "非根模块没被扫到（单文件档的局限没有真的被绕开）：{got:?}"
     );
-    // sanitizer 那条（`len` 之后）不许出现在账里；三方账的深轨桶必须等于标记数
+    // sanitizer 那条（`len` 之后）不许出现在账里；深轨桶必须等于标记数
     let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
-    let ledger = format!("三方账：两边都报 0 / 仅快轨 0 / 仅深轨 {}", want.len());
+    // 片M 的回归锁：快轨在同一批流程上现在也能报了，两侧条数都要等于夹具标记数。
+    let fast = lines_by_engine(&out, "tree-sitter");
+    assert_eq!(
+        fast.len(),
+        want.len(),
+        "快轨条数与夹具标记不符（片M 补的是链式源点匹配，不该带来别的规则）：{fast:?}"
+    );
+    // DD-0013（在册）：cargo 档深轨的 `file` 是 crate 相对路径（`src/lib.rs`），快轨的是
+    // 调用者给的长路径 ⇒ 同一条流程两边键不同源，三方账只能把它拆成两桶并双计（3 流程算成 6 条）。
+    // 这条断言钉的是**症状**：路径口径修好后它会判红，逼来账本改账——不许静默变绿。
+    let ledger = format!(
+        "三方账：两边都报 0 / 仅快轨 {} / 仅深轨 {}",
+        want.len(),
+        want.len()
+    );
     assert!(
         stderr.contains(&ledger),
-        "三方账没按夹具标记出账（期望 {ledger}）：{stderr}"
+        "三方账形态变了（若 DD-0013 已修，来这里改账并记账本；期望 {ledger}）：{stderr}"
     );
 }
 
@@ -125,7 +149,7 @@ fn cargo_mode_golden_freezes_the_lines() {
         .join("tests")
         .join("golden")
         .join("deep-cargo.jsonl");
-    let lines = finding_lines(&scan(&fixture_crate(), &[]));
+    let lines = lines_by_engine(&scan(&fixture_crate(), &[]), "mir");
     if std::env::var("ADV_UPDATE_GOLDEN").is_ok() {
         std::fs::create_dir_all(golden_file.parent().expect("parent")).expect("建 golden 目录");
         std::fs::write(&golden_file, format!("{}\n", lines.join("\n"))).expect("写 golden");

@@ -305,12 +305,12 @@
   "max_type_members": 0
  },
  "crates/adv-cli/tests/deep_cargo.rs": {
-  "file_lines": 167,
-  "max_fn_lines": 47,
+  "file_lines": 191,
+  "max_fn_lines": 61,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/engine_mir.rs": {
-  "file_lines": 182,
+  "file_lines": 210,
   "max_fn_lines": 56,
   "max_type_members": 0
  },
@@ -320,8 +320,8 @@
   "max_type_members": 0
  },
  "crates/adv-cli/tests/three_way_ledger.rs": {
-  "file_lines": 89,
-  "max_fn_lines": 43,
+  "file_lines": 208,
+  "max_fn_lines": 64,
   "max_type_members": 0
  },
  "crates/adv-core/src/lib.rs": {
@@ -385,7 +385,7 @@
   "max_type_members": 5
  },
  "crates/adv-rules/src/taint.rs": {
-  "file_lines": 421,
+  "file_lines": 486,
   "max_fn_lines": 79,
   "max_type_members": 3
  },
@@ -410,7 +410,7 @@
   "max_type_members": 0
  },
  "crates/adv-rules/tests/ruleid.rs": {
-  "file_lines": 112,
+  "file_lines": 132,
   "max_fn_lines": 17,
   "max_type_members": 0
  },
