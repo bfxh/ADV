@@ -2117,3 +2117,17 @@ run 37656346995（`b7d5ab8f`）里 `deny` 真跑了，并当场判红。读数�
 
 **仍欠的一条**：全档变异门对本片没有读数（D 盘放不下），已在「M3-1/M3-2 之间」那节写明，不算绿也不算红；
 等盘位腾出来再补。增量档这条路被 DD-0016 挡着（修好它才有增量读数），DD-0016 的 guards 里写了三条出路。
+
+## M3-1 + M3-2 的 CI 收口（run 37699182944 @ `d32b7a9c`，逐步骤读数）
+
+```
+success  fmt            success  cargo-lock      success  clippy        success  test (nextest)
+success  gates          success  CI wiring gate  failure  Debt gate     success  deny
+```
+
+- **`deny` 第一次真绿**：单 id 窄豁免在 runner 上生效（本机 `cargo deny 0.20.2` 同尺 rc=0）。
+- `cargo-lock`、`gates`、`CI wiring gate` 三处新接线全部真跑并绿。
+- 唯一红是 **Debt gate（DD-0005 超期）**——设计要它红，用户已认领去控制台查取消原因；
+  `deny` 排在它后面且 `if: always()` 让它照跑，这正是上一提交加那行的目的。
+- 顺带一条不计入账的现象：`0b74891a` 那轮（37697815553）被判 **cancelled**（新推送把它顶掉），
+  没有完整读数——不追它，以 `d32b7a9c` 这轮为准。
