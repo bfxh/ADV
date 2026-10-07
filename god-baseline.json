@@ -270,8 +270,8 @@
   "max_type_members": 0
  },
  "crates/adv-cli/src/main.rs": {
-  "file_lines": 467,
-  "max_fn_lines": 83,
+  "file_lines": 589,
+  "max_fn_lines": 89,
   "max_type_members": 4
  },
  "crates/adv-cli/src/mir.rs": {
@@ -305,8 +305,8 @@
   "max_type_members": 0
  },
  "crates/adv-cli/tests/deep_cargo.rs": {
-  "file_lines": 191,
-  "max_fn_lines": 61,
+  "file_lines": 188,
+  "max_fn_lines": 58,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/engine_mir.rs": {

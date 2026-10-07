@@ -149,7 +149,13 @@ fn scan(args: &[String]) {
             }
         }
     }
-    report(engine, tally);
+    // 只有 cargo 档有 base 可归一；逐文件 mir 档两边天然同形，传 None 表示键不做拼接。
+    let cargo_base = if via_cargo {
+        Some(Path::new(target))
+    } else {
+        None
+    };
+    report(engine, tally, cargo_base);
 }
 
 /// 快轨一趟：解析 + 抑制自检 + 规则匹配。
@@ -207,7 +213,7 @@ fn scan_deep(
 }
 
 /// stdout 出发现（JSONL），stderr 出摘要；`both` 档再出三方账。
-fn report(engine: Engine, mut tally: Tally) {
+fn report(engine: Engine, mut tally: Tally, cargo_base: Option<&Path>) {
     let fast_n = tally.fast.len();
     let deep_n = tally.deep.len();
     let mut items: Vec<Finding> = Vec::with_capacity(fast_n + deep_n);
@@ -230,7 +236,7 @@ fn report(engine: Engine, mut tally: Tally) {
         );
     }
     if engine == Engine::Both {
-        three_way(&items);
+        three_way(&items, cargo_base);
     }
     let mut per_rule: Vec<(String, usize)> = Vec::new();
     for f in &items {
@@ -257,13 +263,42 @@ fn report(engine: Engine, mut tally: Tally) {
 /// （快轨是 AST span，深轨是 MIR terminator span）。
 type LedgerKey = (String, String, usize);
 
+/// 键里的文件分量归一（DD-0013 的 B 案）：`--deep-via-cargo` 档下深轨的 `file` 是 **crate
+/// 相对路径**（`src/lib.rs`，因为 rustc 在被扫 crate 的目录里起），快轨的是调用者给的路径。
+/// 只在**账的键**上把前者折算回调用者坐标系——stdout 的行契约与金样都不动。
+///
+/// 三条边界都是实测踩出来的，不是设计偏好：
+/// - 只对 `ENGINE_MIR` 且非绝对路径生效。快轨的相对路径**已经含目标目录**，再叠一次 base 会
+///   造出 `目标/目标/…`（2026-10-07 用相对路径复跑当场露馅）；
+/// - `cargo_base` 为 `None`（逐文件 mir 档）时两边原样相等，不做任何拼接；
+/// - base 必须是调用者给的那个 target：换 base 就换出不同的键，两个 crate 的同名 `src/lib.rs`
+///   不许撞上（那比双计更糟——会造出不存在的相互印证）。
+fn ledger_file(f: &Finding, cargo_base: Option<&Path>) -> String {
+    let p = Path::new(&f.file);
+    let joined = match cargo_base {
+        Some(base) if !p.is_absolute() && f.engine == adv_rules::matcher::ENGINE_MIR => {
+            base.join(p)
+        }
+        _ => p.to_path_buf(),
+    };
+    let unified = joined.to_string_lossy().replace('\\', "/");
+    match unified.strip_prefix("./") {
+        Some(stripped) => stripped.to_string(),
+        None => unified,
+    }
+}
+
 /// 三方账分桶（纯函数）：`(两边都报, 仅快轨, 仅深轨)`。
 ///
-/// 抽出来的理由（片A6 实测）：`--engine both` 在现有 rust 语料上快轨 0 条，
+/// 抽出来的理由（片A6 实测）：当时 `--engine both` 在 rust 语料上快轨 0 条，
 /// `两边都报`/`仅快轨` 两桶恒空 ⇒ 桶逻辑的任何变异都观察不到，门会把"没覆盖"
-/// 记成"已杀掉"。分桶本身必须能被直接喂数据判定。
-fn three_way_buckets(items: &[Finding]) -> (Vec<LedgerKey>, Vec<LedgerKey>, Vec<LedgerKey>) {
-    let key = |f: &Finding| (f.rule.clone(), f.file.clone(), f.start_line);
+/// 记成"已杀掉"。分桶本身必须能被直接喂数据判定。（2026-10-07 片M 补掉链式源点后
+/// 真语料已经能填这两桶，但直接喂数据的这条判据仍然是唯一能观察桶逻辑的口子。）
+fn three_way_buckets(
+    items: &[Finding],
+    cargo_base: Option<&Path>,
+) -> (Vec<LedgerKey>, Vec<LedgerKey>, Vec<LedgerKey>) {
+    let key = |f: &Finding| (f.rule.clone(), ledger_file(f, cargo_base), f.start_line);
     let fast: Vec<LedgerKey> = items
         .iter()
         .filter(|f| f.engine == adv_rules::matcher::ENGINE_FAST)
@@ -281,8 +316,8 @@ fn three_way_buckets(items: &[Finding]) -> (Vec<LedgerKey>, Vec<LedgerKey>, Vec<
 }
 
 /// 三方账打印（stdout 之外的 stderr 摘要，不动 stdout 行契约）。
-fn three_way(items: &[Finding]) {
-    let (both, only_fast, only_deep) = three_way_buckets(items);
+fn three_way(items: &[Finding], cargo_base: Option<&Path>) {
+    let (both, only_fast, only_deep) = three_way_buckets(items, cargo_base);
     eprintln!(
         "  三方账：两边都报 {} / 仅快轨 {} / 仅深轨 {}",
         both.len(),
@@ -409,7 +444,7 @@ mod tests {
             fnd(ENGINE_MIR, "c.rs", 9),
             fnd(ENGINE_MIR, "a.rs", 2),
         ];
-        let (both, only_fast, only_deep) = three_way_buckets(&items);
+        let (both, only_fast, only_deep) = three_way_buckets(&items, None);
         assert_eq!(both, vec![key("a.rs", 1)], "同键的两条该进「两边都报」");
         assert_eq!(
             only_fast,
@@ -434,12 +469,12 @@ mod tests {
                 f
             },
         ];
-        let (both2, only_fast2, only_deep2) = three_way_buckets(&same_line_diff_col);
+        let (both2, only_fast2, only_deep2) = three_way_buckets(&same_line_diff_col, None);
         assert_eq!(both2, vec![key("d.rs", 4)], "列差不该拆掉「两边都报」");
         assert!(only_fast2.is_empty() && only_deep2.is_empty());
         // 空输入 ⇒ 三桶全空（这就是老语料的形状，写出来免得后人以为它验过桶逻辑）
         let empty: Vec<Finding> = vec![];
-        assert_eq!(three_way_buckets(&empty), (vec![], vec![], vec![]));
+        assert_eq!(three_way_buckets(&empty, None), (vec![], vec![], vec![]));
     }
 
     /// 规则不同则键不同：同一处两规则各报一条不该被并成"两边都报"。
@@ -449,10 +484,97 @@ mod tests {
         fast.rule = "RS-A".to_string();
         let mut deep = fnd(ENGINE_MIR, "a.rs", 1);
         deep.rule = "RS-B".to_string();
-        let (both, only_fast, only_deep) = three_way_buckets(&[fast, deep]);
+        let (both, only_fast, only_deep) = three_way_buckets(&[fast, deep], None);
         assert!(both.is_empty(), "不同规则被并成了同一桶：{both:?}");
         assert_eq!(only_fast.len(), 1);
         assert_eq!(only_deep.len(), 1);
+    }
+
+    /// DD-0013 的判据本体：cargo 档深轨的 crate 相对路径必须与快轨的调用者路径归一到
+    /// 同一坐标才算「两边都报」；归一**必须带上 base**，否则两个 crate 里同名的
+    /// `src/lib.rs` 会假撞成一个键（那比双计更糟——它会造出并不存在的相互印证）。
+    #[test]
+    fn ledger_key_normalizes_cargo_relative_paths_onto_the_target() {
+        let base = Path::new("D:/KF/ADV/crates/adv-cli/tests/data/taint-crate");
+        let items = vec![
+            fnd(
+                ENGINE_FAST,
+                "D:/KF/ADV/crates/adv-cli/tests/data/taint-crate/src/lib.rs",
+                10,
+            ),
+            fnd(ENGINE_MIR, "src/lib.rs", 10),
+            fnd(ENGINE_MIR, "src/inner.rs", 5),
+        ];
+        let (both, only_fast, only_deep) = three_way_buckets(&items, Some(base));
+        assert_eq!(both.len(), 1, "cargo 相对路径没和快轨归一：{both:?}");
+        assert_eq!(
+            both[0].1,
+            "D:/KF/ADV/crates/adv-cli/tests/data/taint-crate/src/lib.rs"
+        );
+        assert!(
+            only_fast.is_empty(),
+            "归一后不该再有快轨独有：{only_fast:?}"
+        );
+        assert_eq!(
+            only_deep.len(),
+            1,
+            "快轨没报的那条仍该只归深轨：{only_deep:?}"
+        );
+
+        let other = vec![
+            fnd(ENGINE_FAST, "D:/else/crate/src/lib.rs", 10),
+            fnd(ENGINE_MIR, "src/lib.rs", 10),
+        ];
+        let (both2, _, _) = three_way_buckets(&other, Some(base));
+        assert!(
+            both2.is_empty(),
+            "丢掉 base 就会把不同 crate 的同名文件并成假「两边都报」：{both2:?}"
+        );
+
+        // 相对目标调用（2026-10-07 第一版就是在这里露馅：快轨的相对路径已经含目标目录，
+        // 再叠一次 base 会造出 `目标/目标/…`，两边都不相等了）。
+        let rel_base = Path::new("crates/adv-cli/tests/data/taint-crate");
+        let rel_items = vec![
+            fnd(
+                ENGINE_FAST,
+                "crates/adv-cli/tests/data/taint-crate/src/lib.rs",
+                10,
+            ),
+            fnd(ENGINE_MIR, "src/lib.rs", 10),
+        ];
+        let (both3, only_fast3, only_deep3) = three_way_buckets(&rel_items, Some(rel_base));
+        assert_eq!(
+            both3,
+            vec![key("crates/adv-cli/tests/data/taint-crate/src/lib.rs", 10)],
+            "相对目标调用下两边没归一（快轨被二次加前缀）：{both3:?}"
+        );
+        assert!(only_fast3.is_empty() && only_deep3.is_empty());
+
+        // 逐文件 mir 档：两边本来就同形，`None` 表示一个字符都不该动。
+        let per_file = vec![
+            fnd(ENGINE_FAST, "crates/x/tests/fixtures/taint_direct.rs", 6),
+            fnd(ENGINE_MIR, "crates/x/tests/fixtures/taint_direct.rs", 6),
+        ];
+        let (both4, _, _) = three_way_buckets(&per_file, None);
+        assert_eq!(
+            both4,
+            vec![key("crates/x/tests/fixtures/taint_direct.rs", 6)],
+            "非 cargo 档不该被拼接出第三种形状"
+        );
+
+        assert_eq!(
+            ledger_file(
+                &fnd(ENGINE_MIR, r"src\lib.rs", 1),
+                Some(Path::new(r"crates\x"))
+            ),
+            "crates/x/src/lib.rs",
+            "反斜杠要折成分隔符"
+        );
+        assert_eq!(
+            ledger_file(&fnd(ENGINE_MIR, "a.rs", 1), Some(Path::new("."))),
+            "a.rs",
+            "\"./\" 前缀不该造出假差异"
+        );
     }
 
     /// 档位解析：缺省 ast，`--engine` 三档认，未知档由调用方退出码 2 处理。
