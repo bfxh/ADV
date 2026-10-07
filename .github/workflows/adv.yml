@@ -36,7 +36,7 @@ jobs:
         # （2026-10-07 CI 实测：它在这一步断言失败，因为 runner 默认 PATH 里没有 MSYS2 的 patch/make），
         # 再走 cmake+make。所以把 mingw64/usr 两个 bin 也写进 GITHUB_PATH——这就是本机已验证能编过的组合。
         run: |
-          /c/msys64/usr/bin/pacman -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-make
+          /c/msys64/usr/bin/pacman -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-make patch
           echo 'C:\msys64\mingw64\bin' >> "$GITHUB_PATH"
           echo 'C:\msys64\usr\bin' >> "$GITHUB_PATH"
       # 冷建要编 vectorscan（本机实测 21m43s）；缓存它的构建目录，键含 vendored 提交号
@@ -52,6 +52,23 @@ jobs:
         run: python -X utf8 scripts/fmt_workspace.py
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      # build.rs 会把 `patch` 的输出吞掉（它只 assert 退出码），所以失败时看不到原因。
+      # 这一步在**任何情况下**都跑：把"patch 是谁的、为什么打不上"变成日志里的证据。
+      - name: 诊断：vectorscan 补丁为什么打不上（失败后仍跑）
+        if: always()
+        shell: bash
+        run: |
+          echo "--- which -a patch"; which -a patch || echo "(PATH 里没有 patch)"
+          echo "--- patch --version"; patch --version | head -1 || true
+          p=$(ls -d "$HOME"/.cargo/registry/src/*/vectorscan-rs-sys-0.0.5 2>/dev/null | head -1)
+          echo "--- registry 源: $p"
+          if [ -n "$p" ]; then
+            rm -rf /tmp/vsp && mkdir -p /tmp/vsp && tar xzf "$p/5.4.11.tar.gz" -C /tmp/vsp
+            cd /tmp/vsp/vectorscan-vectorscan-5.4.11 || exit 0
+            echo "--- 复现 build.rs 那一步（--dry-run）"
+            patch -p1 --dry-run < "$p/vectorscan.patch" 2>&1 | tail -25
+            echo "--- dry-run 退出码: ${PIPESTATUS[0]}"
+          fi
       - name: test (nextest)
         run: cargo nextest run --workspace
       - name: coverage（lcov 工件；棘轮阈值待 M2 基线后接）
