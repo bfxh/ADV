@@ -985,8 +985,8 @@
   "max_type_members": 0
  },
  "scripts/god_gate.py": {
-  "file_lines": 463,
-  "max_fn_lines": 68,
+  "file_lines": 471,
+  "max_fn_lines": 69,
   "max_type_members": 0
  },
  "scripts/guard_gate.py": {
@@ -1515,7 +1515,7 @@
   "max_type_members": 0
  },
  "tests/test_s167_god_gate.py": {
-  "file_lines": 151,
+  "file_lines": 179,
   "max_fn_lines": 27,
   "max_type_members": 0
  },

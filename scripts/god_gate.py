@@ -291,6 +291,11 @@ def evaluate(files: dict, base: dict, cfg: dict) -> tuple[list[str], list[str], 
     """
     bad, grew, shrank = [], [], []
     pct = cfg.get("file_growth_with_fn_shrink_pct", 10)
+    # 表外新面必须**先登记**（DD-0012）：没有基线时按引导期口径只判阈值（见 main 的警告），
+    # 有基线后凡是扫描面里出现而基线里没有的文件都要红——否则"扩大计量面"这件事本身
+    # 不可观察，一个面可以从创建长到硬阈而不判红（实测 72 个面就这么漂了好几片）。
+    # Rust 侧 `xtask god` 的 `ratchet_violations` 早就判 `未登记`，这一条是把两把尺对齐。
+    require_registration = bool(base)
     for rel, m in sorted(files.items()):
         b = base.get(rel)
         for key, lim in (("file_lines", cfg["max_file_lines"]),
@@ -298,9 +303,12 @@ def evaluate(files: dict, base: dict, cfg: dict) -> tuple[list[str], list[str], 
                          ("max_type_members", cfg["max_type_members"])):
             v = m[key]
             bv = (b or {}).get(key, 0)
-            if b is None:                                   # 新文件：只看阈值
+            if b is None:                                   # 新文件：先登记，再谈阈值
                 if v > lim:
                     bad.append(f"{rel}: {key}={v} > {lim}（新增，无基线）")
+                elif require_registration and key == "file_lines":
+                    # 只在文件维度点一次名：三个键各报一条会把同一件事刷成三行。
+                    bad.append(f"{rel}: 未登记（新面：跑 --write-baseline 登记并披露）")
                 continue
             if key == "max_fn_lines" and cfg.get("fn_hard_threshold") and v > lim:
                 # 硬阈（S170）：函数长度不接受祖父化——棘轮只保证"别更胖"，管不住

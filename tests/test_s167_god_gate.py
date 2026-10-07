@@ -70,6 +70,34 @@ def test_gate_red_when_baseline_value_grows(tmp_path):
     assert cp.returncode != 0 and "不许变胖" in cp.stdout, cp.stdout
 
 
+def test_unregistered_new_file_reddens_once_a_baseline_exists(tmp_path):
+    """DD-0012 的判据：有基线之后，表外新面必须判红。
+
+    旧口径只对"超硬阈"的新文件报红，没超阈就一声不响 ⇒ 一个面从创建长到硬阈之间
+    可以任意生长而门恒绿（实测 72 个面在门底下漂了好几片）。这条钉两半：
+    ① 新面未登记 ⇒ 红并点名；② `--write-baseline` 登记后 ⇒ 绿（门要的是点名，不是堵死）。
+    """
+    (tmp_path / "god.gate.json").write_text(json.dumps({"max_file_lines": 100000}),
+                                            encoding="utf-8")
+    (tmp_path / "old.py").write_text("y = 1\n", encoding="utf-8")
+    assert _run("--root", str(tmp_path), "--write-baseline").returncode == 0
+    (tmp_path / "newface.py").write_text("z = 2\n", encoding="utf-8")   # 远低于硬阈
+    cp = _run("--root", str(tmp_path), "--top", "0")
+    assert cp.returncode == 1, cp.stdout + cp.stderr
+    assert "newface.py: 未登记" in cp.stdout, cp.stdout
+    assert _run("--root", str(tmp_path), "--write-baseline").returncode == 0
+    assert _run("--root", str(tmp_path), "--top", "0").returncode == 0, "登记后仍红"
+
+
+def test_no_baseline_keeps_the_bootstrap_path(tmp_path):
+    """引导期口径不许变：没有基线时只判阈值（否则新仓第一步就红死，门会被直接关掉）。"""
+    (tmp_path / "god.gate.json").write_text(json.dumps({"max_file_lines": 100000}),
+                                            encoding="utf-8")
+    (tmp_path / "a.py").write_text("y = 1\n", encoding="utf-8")
+    cp = _run("--root", str(tmp_path), "--top", "0")
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+
+
 def test_mask_handles_lifetimes_and_byte_literals():
     """金丝雀：`&'static str` / `b'{'` 不许把掩码带跑。
 
