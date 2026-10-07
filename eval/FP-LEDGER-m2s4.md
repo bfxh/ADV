@@ -1440,6 +1440,31 @@ propagator / sanitizer 两档（`std::env::var(x).unwrap_or_default()` 的尾段
 - clippy `-D warnings` exit 0 · `cargo test --workspace` **102 passed / 0 failed** ·
   `xtask god` / `gate` 绿 · fmt 0 差异。
 
+## 片M 收尾（全档，HEAD `ec4cc37`）
+
+```
+变异面 总=453 捕获=392 未捕获=22 unviable=36 档=全档
+超时 1 条（不计入 missed…）：xtask/src/maturity.rs::seg_eq
+mutants: 绿
+```
+
+面从 433 涨到 453（片M 新增的 4 个函数 + 3 个测试文件的变异面），捕获 372 → 392、未捕获**不变 22**、
+unviable 不变 36。`reconcile_mutants.py` 四份清单全空 ⇒ RECONCILE OK；逐键核查本片新面全部"真被杀"：
+
+| 新面 | 计数 |
+|---|---|
+| `adv-rules/src/taint.rs::method_tier_in`（链式尾段匹配本体） | CaughtMutant **7** / Missed 0 |
+| `adv-rules/src/taint.rs::tail_segment` | CaughtMutant **6** / Missed 0 |
+| `adv-cli/src/main.rs::ledger_file`（DD-0013 B 案归一） | CaughtMutant **7** / Missed 0 |
+| `adv-cli/src/main.rs::three_way_buckets` | CaughtMutant **12** / Missed 0 |
+
+（`--keys` 那一栏对四条都打了"真被杀"，所以这次的 `RECONCILE OK` 不是"没测到"。）
+
+档位耗时观察（同一台机）：本轮全档比片K 那轮**明显更长**——片M 新增的端到端测试会起深轨边车，
+cargo-mutants 每变一条都要重跑一遍 adv-cli 测试集。这条属实测记账，供下片决定要不要把
+"起边车的端到端"挪出变异面。
+
+
 
 
 
