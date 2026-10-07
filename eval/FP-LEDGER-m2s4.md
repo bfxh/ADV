@@ -1464,6 +1464,33 @@ unviable 不变 36。`reconcile_mutants.py` 四份清单全空 ⇒ RECONCILE OK�
 cargo-mutants 每变一条都要重跑一遍 adv-cli 测试集。这条属实测记账，供下片决定要不要把
 "起边车的端到端"挪出变异面。
 
+# 片N（2026-10-07）：DD-0012 —— python god 门补上"表外新面必须先登记"
+
+修的是一类**盲区**而不是一条数值：旧口径对表外新文件只在**超硬阈**时报
+`（新增，无基线）`，没超阈就一声不响 ⇒ 一个面从创建长到硬阈之间可以任意生长而门恒绿。
+实测形状见片L：一次重录补登记了 **72 个从未进表的面**（0 移除、2 变大），全是历片新建的 Rust 面。
+
+改法（`scripts/god_gate.py::evaluate`）：`require_registration = bool(base)`，新文件在**文件维度**
+报一条 `未登记（新面：跑 --write-baseline 登记并披露）`；只在文件维度点一次名，键维度各报一条
+会把同一件事刷成三行。与 Rust 侧 `xtask god::ratchet_violations` 的 `None => 未登记 …` 对齐。
+
+两条边界（都进代码注释 + 金丝雀）：
+- **没有基线时不启用**（引导期口径不变，否则新仓第一步就红死、门会被直接关掉）；
+- **登记后必须转绿**：门要的是点名，不是堵死。所以新金丝雀是两半——
+  `test_unregistered_new_file_reddens_once_a_baseline_exists`（新面 ⇒ 红且输出含
+  `newface.py: 未登记`；`--write-baseline` 后 ⇒ 绿）与 `test_no_baseline_keeps_the_bootstrap_path`。
+
+先证红再证绿（拿本次自身增长当输入，不造合成文件）：门报 3 条
+`✗ god_gate.py: file_lines 463 → 471`、`✗ god_gate.py: max_fn_lines 68 → 69`、
+`✗ tests/test_s167_god_gate.py: file_lines 151 → 179`；`--write-baseline` 后
+`基线 452 → 452 键（新增 0、移除 0、行数变大 2）`、门转绿。这条恰好又演示了记忆里那条纪律：
+**只改测试/脚本也要跑门**，行数棘轮照算。
+
+DD-0012 销（`retired_in 3ab41b7`）。**在册只剩 2 条**：DD-0005（云端全量扫描口径，等裁）、
+DD-0008（提交路径钩子，等快档真能绿）；已销 11。python 分片 **52 passed**（含两条新金丝雀）；
+门线除 debt-gate 外全绿。
+
+
 
 
 
