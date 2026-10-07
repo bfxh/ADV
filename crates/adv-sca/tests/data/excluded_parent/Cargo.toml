@@ -1,0 +1,4 @@
+[workspace]
+resolver = "2"
+members = ["app", "crates/sub/inner"]
+exclude = ["crates/sub"]

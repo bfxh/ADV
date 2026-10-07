@@ -474,6 +474,11 @@
   "max_fn_lines": 94,
   "max_type_members": 5
  },
+ "crates/adv-sca/tests/enumeration.rs": {
+  "file_lines": 80,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
  "crates/adv-sca/tests/lockcheck.rs": {
   "file_lines": 136,
   "max_fn_lines": 31,

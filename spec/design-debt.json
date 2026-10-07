@@ -44,6 +44,17 @@
       "since": "b7d5ab8f",
       "due_after_tasks": 10,
       "guards": "无自动判据（靠本登记到期判红）。三条出圈路径，任选其一即可销账，销账要带实测证据：① 把 git 枚举从我们的依赖图里摘掉——`third_party/noseyparker/crates/noseyparker/Cargo.toml` 里 `gix = 0.73` 与 `input-enumerator` 都是非可选，要么重新裁定 vendor 契约（改上游清单），要么把用到的能力拆成不含 git 的上游子集；② 换一个仍在维护、且能钉到 gix-date >=0.12 的 secrets 引擎；③ 出现可同步的上游版本（上游已退役，实测无解；若社区 fork 则重评）。另有一条硬约束：**谁把 git 面接进 adv-secrets，必须先撤 deny.toml 里这条豁免**——豁免的理由是「够不到」，接进来就同时失效。"
+    },
+    {
+      "id": "DD-0016",
+      "surface": "深轨 cargo 档测试的驱动前置（crates/adv-cli/tests/deep_cargo.rs）",
+      "kind": "test-harness",
+      "defect": "2026-10-08 实测。`crates/adv-cli/tests/deep_cargo.rs` 的三条测试（cargo_mode_reports_cross_module_flows_and_respects_sanitizer / cargo_mode_golden_freezes_the_lines / cargo_mode_on_non_crate_dir_is_red）要求 `target/debug/adv-ast-rust-driver.exe` 已经存在——这个前置**既不在测试里构建，也不在任何包依赖里声明**，CLI 只在找不到时报「用 --driver 指定，或先 cargo build -p adv-ast-rust」。本机 dev 循环碰巧构建过驱动，所以本地一直绿。兑现的后果：变异门**增量档**（`mutants --base 6201ea4 --since b7d5ab8f^`）里 cargo-mutants 只为受变异影响的包建测试（本轮命令实测是 `--package=adv-cli@0.1.0 --package=adv-sca@0.1.0`，不含 adv-ast-rust）⇒ **未变异基线当场红**（deep_cargo.rs:86/165/183 三处 panic，文本就是那句「深轨驱动不在预期位置」）⇒ cargo-mutants exit 4 ⇒ 门如实报「判不了」（exit 3），M3-2 因此拿不到变异读数。对照组：全档（`--base 6201ea4`，包集合天然含 adv-ast-rust）的基线是 ok 的（实测「ok Unmutated baseline 200s build + 41s test」）。",
+      "why_from_design": "深轨驱动是 **bin**（`crates/adv-ast-rust/Cargo.toml` 的 [[bin]] name = adv-ast-rust-driver），测试通过「target 目录里应该有这个 exe」的路径约定拿它，等于把一条构建顺序写在人脑里；cargo 的包作用域（谁负责构建哪个 bin）与这个约定之间没有任何门核对过。同一形状会在一切「只跑本包测试」的机制上复现——变异门只是第一个把它逼出来的：本地绿不等于别人按自己的包集合跑也绿（这条与本仓「本机过≠CI 过」是同一类缺陷的两个面）。",
+      "origin": "1fc62d3",
+      "since": "0b74891a",
+      "due_after_tasks": 10,
+      "guards": "无自动判据（靠本登记到期判红；变异门增量档每跑一次就会当场报一次「判不了」，那才是真信号源）。三条出路，任选一条并带实测证据即可销账：① 测试自己确保前置：在需要驱动的测试里先构建 adv-ast-rust（并把产物路径交给 --driver，别依赖 target 目录的巧合）；② 把驱动改造成能被包依赖自然拉起的形态（lib + 薄 bin，测试走 API 而不是找 exe）；③ 变异门侧把 adv-ast-rust 纳入增量档的包集合——这条只是绕开门，不修耦合，若选它要在账里写清。硬约束：不许为了让增量档变绿而给这三条测试加静默跳过（skip 的门等于没有门）。"
     }
   ],
   "retired_fields": [

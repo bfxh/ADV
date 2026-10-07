@@ -2072,3 +2072,48 @@ run 37656346995（`b7d5ab8f`）里 `deny` 真跑了，并当场判红。读数�
 `find_locks` 的布尔算子）。**先不下结论**：`Report::red` 那条的断言其实在 `adv-cli` 的退出码测试里，
 跨包 ⇒ 按本仓实测过的包作用域，门不算它被覆盖（这条要在增量档里复核，复核不动就先按债处理，
 不靠重录基线洗）。
+
+## M3-2 收尾：变异门两轮都是「判不了」，手动分诊把 4 处空洞逐条补上
+
+**两轮失败的原因不同，都没当结论用**：
+
+| 轮次 | 读数 | 卡在哪 |
+|---|---|---|
+| 全档 `--base 6201ea4` | exit 3 判不了 | D 盘被 scratch 吃满（worker 报 `os error 112`）；泄漏的 4 个 `cargo-mutants-*.tmp` 占 3.65GB，531 个变异的并发窗口放不进 15GB |
+| 增量档 `--since b7d5ab8f^` | exit 3 判不了 | **未变异基线自测红**：`FAILED Unmutated baseline`，三处 panic 全是 `deep_cargo.rs` 的「深轨驱动不在预期位置」。根因见 **DD-0016**：那三条测试要 `target/debug/adv-ast-rust-driver.exe`，而增量档的包集合是 `{adv-cli, adv-sca}`（cargo-mutants 实测命令），不含 adv-ast-rust ⇒ 驱动没被构建。对照：全档的基线是 ok 的 |
+
+**分诊（playbook §2.2）**：全档那轮残缺输出里 `crates/adv-sca/*` 报了 9 条 MISSED，挑可编译形态的手动打进源码、逐条跑本包与跨包测试。读数：
+
+| 变异 | adv-sca（本包） | adv-cli（跨包） | 性质 |
+|---|---|---|---|
+| `Report::red -> empty()` | **green** | red（`drifted_corpus_exits_one_with_the_drift_code`） | 归属错：断言只活在 adv-cli 的退出码测试里 |
+| `join -> String::new()` / `"xyzzy"` | **green** | green | 真·断言弱：`detail` 文本没人看 |
+| `skip_dir -> true` | **green** | — | 覆盖空洞：目录枚举面零测试 |
+| `exclude` 的 `\|\| -> &&` | **green** | — | 覆盖空洞：exclude 逻辑零测试 |
+| `find_locks` 的 `== -> !=` | **green** | — | 同上（文件名判据没有测试碰） |
+
+分诊脚本自己翻过两次车，都记下来免得下次再踩：① 第一版把 `-p adv-sca` 当**一个 argv** 传给 cargo ⇒ 5 条全 "red" 且无失败测试名——**没有失败测试名的红不是红**，那是用法错；② 把「编不过」和「测不过」混成一个 red，而门里这是 Unviable 与 Missed 两回事（第一版把语法错误锚点打进去，测的是编译器）。
+
+**补法（playbook §2.3：判据搬回代码所在包）**：新增 `crates/adv-sca/tests/enumeration.rs`（79 行，3 条测试）
++ 两棵新语料树（`dir_scan/` 带三个诱饵：`target/Cargo.lock`、`node_modules/Cargo.lock`、`other.lock`；
+`excluded_parent/` 的 `exclude = ["crates/sub"]` 剪掉显式列在 members 里的 `crates/sub/inner`）。
+`lockcheck.rs` 与旧语料**一字未动**（god 尺对它是 135 行的登记值，动一行就要付重录的账）。
+
+**改后同尺复核（A/B，7 条全部命中）**：
+
+```
+✓ Report::red 恒空 → red（the_red_filter_and_the_detail_text_are_pinned_in_this_package）
+✓ join 换空串 / 换 xyzzy → red（同一条测试）
+✓ skip_dir 恒真 → red（三条测试同时响）    ✓ skip_dir 恒假 → red
+✓ exclude || 换 && → red（excluded_parent_prunes_the_member_under_it）
+✓ find_locks == 换 != → red（三条测试同时响）
+```
+
+每条打完后逐字节还原，`git diff --numstat -- crates` 为空（.rs 无残留；新语料是本轮新增，另计）。
+
+**收尾重放**：`fmt`（13 成员）0 / `cargo test -p adv-sca -p adv-cli` 12 组全 ok / `clippy --workspace
+--all-targets -D warnings` 0 / `xtask god` 与 python `god_gate` 都是 added-only（Rust 5 键、python 3 键，
+全属 `tests/enumeration.rs` 这一个新面；changed 0 / removed 0）/ `xtask mir` 绿 / 窄版线 16 步绿。
+
+**仍欠的一条**：全档变异门对本片没有读数（D 盘放不下），已在「M3-1/M3-2 之间」那节写明，不算绿也不算红；
+等盘位腾出来再补。增量档这条路被 DD-0016 挡着（修好它才有增量读数），DD-0016 的 guards 里写了三条出路。
