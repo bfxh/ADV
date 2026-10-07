@@ -48,27 +48,30 @@ jobs:
             target/debug/build/vectorscan-rs-sys-*
             target/release/build/vectorscan-rs-sys-*
           key: vectorscan-${{ runner.os }}-${{ hashFiles('third_party/noseyparker/VENDOR.md') }}
+      # build.rs 把 `patch` 的输出吞了（只 assert 退出码），失败时看不到原因。
+      # 这里**在构建前**把两个候选 patch（MSYS2 的、Git 的）都试一遍并把完整输出留进日志，
+      # 一步把"谁的 patch、为什么打不上"钉死；`; rc=$?` 明确挡掉 shell 的 -e/-o pipefail。
+      - name: 前置对照：两个 patch 各试一次 vectorscan 的补丁
+        shell: bash
+        run: |
+          echo "--- which -a patch"; which -a patch || true
+          curl -sL -o /tmp/sys.crate https://static.crates.io/crates/vectorscan-rs-sys/vectorscan-rs-sys-0.0.5.crate
+          mkdir -p /tmp/sys && tar xzf /tmp/sys.crate -C /tmp/sys
+          pf=/tmp/sys/vectorscan-rs-sys-0.0.5/vectorscan.patch
+          echo "--- 补丁文件指纹"; ls -l "$pf"; sha256sum "$pf"; head -c 200 "$pf" | od -c | head -4
+          mkdir -p /tmp/vsp && tar xzf /tmp/sys/vectorscan-rs-sys-0.0.5/5.4.11.tar.gz -C /tmp/vsp
+          echo "--- 解包后首个文件的行尾"; head -c 200 /tmp/vsp/vectorscan-vectorscan-5.4.11/README.md | od -c | head -2
+          for cand in "msys:/usr/bin/patch" "git:/c/Program Files/Git/usr/bin/patch"; do
+            name="${cand%%:*}"; exe="${cand#*:}"
+            rm -rf /tmp/try && cp -r /tmp/vsp/vectorscan-vectorscan-5.4.11 /tmp/try
+            ( cd /tmp/try && "$exe" -p1 --dry-run < "$pf" > /tmp/p.out 2>&1 ); rc=$?
+            echo "=== $name ($exe) 版本=$("$exe" --version | head -1) dry-run 退出码: $rc"
+            tail -15 /tmp/p.out || true
+          done
       - name: fmt（只面本仓成员；cargo fmt --all 会格式化 vendored 上游源码）
         run: python -X utf8 scripts/fmt_workspace.py
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
-      # build.rs 会把 `patch` 的输出吞掉（它只 assert 退出码），所以失败时看不到原因。
-      # 这一步在**任何情况下**都跑：把"patch 是谁的、为什么打不上"变成日志里的证据。
-      - name: 诊断：vectorscan 补丁为什么打不上（失败后仍跑）
-        if: always()
-        shell: bash
-        run: |
-          echo "--- which -a patch"; which -a patch || echo "(PATH 里没有 patch)"
-          echo "--- patch --version"; patch --version | head -1 || true
-          p=$(ls -d "$HOME"/.cargo/registry/src/*/vectorscan-rs-sys-0.0.5 2>/dev/null | head -1)
-          echo "--- registry 源: $p"
-          if [ -n "$p" ]; then
-            rm -rf /tmp/vsp && mkdir -p /tmp/vsp && tar xzf "$p/5.4.11.tar.gz" -C /tmp/vsp
-            cd /tmp/vsp/vectorscan-vectorscan-5.4.11 || exit 0
-            echo "--- 复现 build.rs 那一步（--dry-run）"
-            patch -p1 --dry-run < "$p/vectorscan.patch" 2>&1 | tail -25
-            echo "--- dry-run 退出码: ${PIPESTATUS[0]}"
-          fi
       - name: test (nextest)
         run: cargo nextest run --workspace
       - name: coverage（lcov 工件；棘轮阈值待 M2 基线后接）
