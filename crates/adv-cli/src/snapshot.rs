@@ -81,6 +81,7 @@ pub(crate) fn advisory_findings(
                 "package": f.package,
                 "version": f.version,
                 "severity": f.severity,
+                "informational": f.informational,
                 "red": f.red,
                 "detail": f.detail,
             })

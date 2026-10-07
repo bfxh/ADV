@@ -49,7 +49,10 @@ pub struct AdvFinding {
     pub severity: String,
     /// 摘要首行。
     pub detail: String,
-    /// 是否参与退出码（命中恒真；留字段是为了与 `LockIssue` 同心智）。
+    /// RustSec 的 informational 标记（`unsound`/`unmaintained`/`notice`）；有它 ⇒ 不是漏洞通告。
+    pub informational: Option<String>,
+    /// 是否参与退出码。**informational 类不判红**（unmaintained ≠ 漏洞；一律判红会把 496 条
+    /// 公告变成噪声，噪声会让判据失去牙齿——与本仓「多版本只出信号」同一条纪律）。
     pub red: bool,
 }
 
@@ -127,6 +130,7 @@ pub fn match_inventory(inv: &Inventory, idx: &AdvisoryIndex) -> Result<Vec<AdvFi
             if !covered {
                 continue;
             }
+            let informational = adv.informational();
             out.push(AdvFinding {
                 code: ADV_HIT,
                 id: adv.id.clone(),
@@ -134,7 +138,8 @@ pub fn match_inventory(inv: &Inventory, idx: &AdvisoryIndex) -> Result<Vec<AdvFi
                 version: pkg.version.clone(),
                 severity: adv.severity_label(),
                 detail: adv.summary.lines().next().unwrap_or("").trim().to_string(),
-                red: true,
+                red: informational.is_none(),
+                informational,
             });
         }
     }

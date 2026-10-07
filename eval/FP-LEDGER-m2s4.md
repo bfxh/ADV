@@ -2194,3 +2194,34 @@ changed 5。5 处变胖全在上面这条链上，逐处披露：`main.rs` 626�
 
 RustSec 路（`git clone` + 钉 SHA + front matter 解析）与**对账器**是 M3-3b；severity 分级（哪些算红、
 哪些算信号）的口径未定——本片 14 条命中一律判红，是**待定的默认**，等 M3-3b 一起裁。
+
+## M3-3a 修正：`informational` 漏读（实测才发现的模型缺陷）+ 判红口径定档
+
+**怎么发现的**：写 M3-3b 先量时对账两库，才发现"RustSec 的 informational（unmaintained/unsound/notice）
+在 OSV 侧只有 **affected[].database_specific** 这一层有"（顶层那个 `database_specific` 只有 license/cwe）。
+我 M3-3a 的模型只读了顶层 ⇒ **496 条"不是漏洞通告"的公告会被当漏洞判红**。这是模型缺陷，不是实现手滑。
+
+**量出来的三件事实**（写进判据与口径）：
+
+- OSV 快照里 `informational` 取值分布（经 RustSec 库核对）：`unmaintained` 276 / `unsound` 213 / `notice` 6
+  ——全库 **496 条**；这些 ID 在 OSV 快照里**全都在**（496/496）。
+- 两库在 RUSTSEC ID 空间上**完全同步**：OSV 侧 1275 条、RustSec DB 1274 条、**交集 1274**、
+  仅 OSV 1 条（`RUSTSEC-2025-0000`）、仅 RustSec 0 条 ⇒ RustSec 路的增量价值不在 RUSTSEC 面上，
+  而在 **OSV 独有的 1621 条非 RUSTSEC 条目（GHSA 等）**——本仓那 13 条额外命中就来自这里。
+- RustSec 的 front matter **没有可用的受影响区间**（只有 `[versions] patched = [...]`），
+  要当"第二把匹配尺"得重实现 cargo-audit 的语义 ⇒ M3-3b 的 RustSec 路定位是**覆盖核对**（ID 级对账），
+  不是第二个 matcher。这条是量的结论，不是排期偷懒。
+
+**修正**：`Affected` 补 `database_specific` 字段；新增 `OsvRecord::informational()`；
+`severity_label()` 退化为 `informational(<值>)`；`AdvFinding` 补 `informational` 字段，
+**判红口径定为 `informational.is_none()`**——unmaintained ≠ 漏洞，一律判红会把 496 条公告变成噪声
+（与「多版本只出信号」同一条纪律）。JSONL 同步带出该字段。
+
+**加语料**：真切片 `RUSTSEC-2021-0120`（`abomonation`，`informational = "unsound"`，1482 字节，
+ETag 与内容 MD5 逐字相等——第三个验证对象）+ 测试 `informational_advisories_are_signals_not_red`
+（命中、`informational == Some("unsound")`、`red == false`、severity 标成 `informational(unsound)`）。
+
+**对本仓那 14 条命中的影响：0**——实测按 id 去重后是 13 条 advisory，**没有一条是 informational**，
+所以口径修正不改变本仓读数（14 条仍判红、rc=1）。棘轮随之重录并披露：Rust 尺 added 3 / removed 1
+（改名的那条测试）/ changed 10、python 尺 changed 7——全部落在这次修正触及的 5 个面上，
+没有静默吸收；`severity_label` 反而从 20 行降到 16 行。

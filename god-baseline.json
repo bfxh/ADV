@@ -285,8 +285,8 @@
   "max_type_members": 2
  },
  "crates/adv-cli/src/snapshot.rs": {
-  "file_lines": 93,
-  "max_fn_lines": 47,
+  "file_lines": 94,
+  "max_fn_lines": 48,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/data/py-corpus/a_evals.py": {
@@ -470,7 +470,7 @@
   "max_type_members": 0
  },
  "crates/adv-sca/src/advisory.rs": {
-  "file_lines": 322,
+  "file_lines": 337,
   "max_fn_lines": 34,
   "max_type_members": 7
  },
@@ -490,9 +490,9 @@
   "max_type_members": 5
  },
  "crates/adv-sca/src/matcher.rs": {
-  "file_lines": 171,
-  "max_fn_lines": 39,
-  "max_type_members": 7
+  "file_lines": 176,
+  "max_fn_lines": 40,
+  "max_type_members": 8
  },
  "crates/adv-sca/src/snapshot.rs": {
   "file_lines": 383,
@@ -500,7 +500,7 @@
   "max_type_members": 4
  },
  "crates/adv-sca/tests/advisories.rs": {
-  "file_lines": 151,
+  "file_lines": 164,
   "max_fn_lines": 31,
   "max_type_members": 0
  },

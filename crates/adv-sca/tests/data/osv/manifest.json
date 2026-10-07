@@ -13,6 +13,12 @@
       "md5": "f680efa7a65d5dfb346031994837c67c",
       "size": 1442,
       "last_modified": "2026-09-10T04:00:13.326Z"
+    },
+    "crates.io/RUSTSEC-2021-0120.json": {
+      "etag": "76cf128612d988a658f46bdb2ea0b13a",
+      "md5": "76cf128612d988a658f46bdb2ea0b13a",
+      "size": 1482,
+      "last_modified": "2026-10-08T00:00:00Z"
     }
   }
 }

@@ -31,9 +31,9 @@ fn lock_with(entries: &[(&str, &str)]) -> Inventory {
 }
 
 #[test]
-fn the_fixture_snapshot_loads_both_records() {
+fn the_fixture_snapshot_loads_all_three_records() {
     let idx = load_snapshot(&data("osv")).unwrap();
-    assert_eq!(idx.records, 2);
+    assert_eq!(idx.records, 3);
     assert_eq!(idx.advisories_for("time").len(), 1);
     assert_eq!(idx.advisories_for("rustc-serialize").len(), 1);
     assert!(idx.advisories_for("definitely-not-a-crate").is_empty());
@@ -109,7 +109,7 @@ fn manifest_etags_equal_the_md5_of_the_files_they_describe() {
     // GCS 对普通对象的 ETag 就是内容 MD5（2026-10-08 对两份真对象实测）。
     // 这条测试把那个事实钉在语料上：manifest 里 etag == md5 == 文件的 md5。
     let m = load_manifest(&data("osv")).unwrap();
-    assert_eq!(m.objects.len(), 2);
+    assert_eq!(m.objects.len(), 3);
     for (key, meta) in &m.objects {
         let bytes = std::fs::read(data("osv").join(key)).unwrap();
         assert_eq!(md5_hex(&bytes), meta.md5, "{key} 的 md5 与记账不符");
@@ -147,4 +147,17 @@ fn scan_with_advisories_judges_exactly_the_locks_lockcheck_judged() {
     let idx = load_snapshot(&data("osv")).unwrap();
     let (_, judged) = scan_with_advisories(&locks, &idx).unwrap();
     assert_eq!(judged, report.checked_locks, "两面判过的锁必须逐字一致");
+}
+
+#[test]
+fn informational_advisories_are_signals_not_red() {
+    // 真语料 RUSTSEC-2021-0120 是 `informational = "unsound"`（RustSec 的「不是漏洞通告」一类）。
+    // 本层口径：带 informational 的命中**不参与退出码**，但要把标记与严重度如实带出来。
+    let idx = load_snapshot(&data("osv")).unwrap();
+    let hit = match_inventory(&lock_with(&[("abomonation", "0.1.7")]), &idx).unwrap();
+    assert_eq!(hit.len(), 1, "{hit:?}");
+    assert_eq!(hit[0].id, "RUSTSEC-2021-0120");
+    assert_eq!(hit[0].informational.as_deref(), Some("unsound"));
+    assert!(!hit[0].red, "informational 类不许参与退出码");
+    assert_eq!(hit[0].severity, "informational(unsound)");
 }

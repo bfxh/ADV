@@ -66,6 +66,11 @@ pub struct Affected {
     /// 显式受影响版本表；非空时以它为准。
     #[serde(default)]
     pub versions: Vec<String>,
+    /// 自由字段。**`informational` 就住在这一层**（实测取值 `unsound`/`unmaintained`/`notice`），
+    /// 顶层那个 `database_specific` 只有 license/cwe 这类——读错层会把 unmaintained 当漏洞
+    /// 判红（全库 496 条），是这次实测才发现的漏读。
+    #[serde(default)]
+    pub database_specific: Option<Value>,
 }
 
 /// OSV 里的包标识。
@@ -219,6 +224,20 @@ impl OsvRecord {
 
     /// 一行给人看的严重度：CVSS 向量优先，退化到 `database_specific.severity`，
     /// RustSec 的 informational（unmaintained 一类）如实带出。
+    /// RustSec 的 informational 标记（`unsound` / `unmaintained` / `notice`），没有则 `None`。
+    /// 语义是「这条不是漏洞通告」；判不判红由调用方定，本层只如实取出来。
+    pub fn informational(&self) -> Option<String> {
+        self.affected.iter().find_map(|aff| {
+            aff.database_specific
+                .as_ref()
+                .and_then(|d| d.get("informational"))
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        })
+    }
+
+    /// 一行给人看的严重度：CVSS 向量优先，退化到 `database_specific.severity`，
+    /// 再退化到 RustSec 的 informational 标记。
     pub fn severity_label(&self) -> String {
         if let Some(s) = self.severity.first() {
             return format!("{} {}", s.kind, s.score);
@@ -230,12 +249,8 @@ impl OsvRecord {
         {
             return lvl.to_string();
         }
-        if spec
-            .and_then(|d| d.get("informational"))
-            .map(|i| !i.is_null())
-            .unwrap_or(false)
-        {
-            return "informational".to_string();
+        if let Some(info) = self.informational() {
+            return format!("informational({info})");
         }
         "unknown".to_string()
     }
