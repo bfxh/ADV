@@ -1627,6 +1627,45 @@ DD-0005 继续挂账（未出结论）。**纪律重申**：`canceled` 态下的
 成因仍未查明、不猜。⇒ 继续在本机重试没有信息量；要推进只有两条：① 用户侧在控制台看该项目
 的任务为何被取消；② 换通道（例如换个 project/平台形态）——两条都需要人，不再自动重试。
 
+# 片C 先量（2026-10-07）：旧引擎 Python 污点 vs 新快轨，同一批语料上的旧/新账
+
+M2 的最后一片。开工前先把两边真跑一遍（这是本线固定动作），命令与原话输出如下。
+
+## 小语料（冻结的三方账语料，2 文件）
+
+```
+UNIFIED_RX_SANDBOX='*' cargo run -q --manifest-path rust/Cargo.toml --bin rx-taint -- \
+  crates/adv-cli/tests/data/py-corpus
+→ {"files_scanned":2,"findings":[
+     {"file":"a_evals.py","line":4,"sink":"eval","var":"cmd","source_line":3,
+      "source_kind":"param","flow":"direct","severity":"high","kind":"clue"},
+     {"file":"b_exec.py","line":3,"sink":"exec","var":"text","source_line":2,
+      "source_kind":"param","flow":"direct","severity":"high","kind":"clue"}],
+   "errors":[],"cross_file_findings":0}
+
+cargo run -q -p adv-cli -- scan crates/adv-cli/tests/data/py-corpus --rules rules --engine ast
+→ 2 个文件，3 条发现（PY-EVAL-USE ×2 @a_evals.py:4,:5；PY-EXEC-USE ×1 @b_exec.py:3）
+```
+
+## 大语料（本仓 `scripts/`，45 文件）
+
+| 引擎 | 结果 |
+|---|---|
+| 旧 `rx-taint` | **65 条**、跨文件 4 条；sink 分布：`.read_text` 18 / `subprocess.run` 17 / `.replace` 8 / `.write_text` 5 / `shutil.rmtree` 4 / `.mkdir` 3 / `os.walk` 2 / `os.makedirs` 2 / 其余 6 |
+| 新快轨 | **0 条**（新仓 Python 规则只有 4 条：`PY-EVAL-USE` / `PY-EXEC-USE` / `PY-SUBPROCESS-SHELL` / `PY-TAINT-EVAL`） |
+
+## 先量得出的三条口径事实（片C 要写清的就是它们）
+
+1. **规则集不同源**（计划里已预判）：旧引擎的 source/sink 是**编译进 `rust/` 内部**的；新仓在
+   `rules/python/*.yaml`（`taint-eval.yaml` 声明 `sources:[input]`、`sinks:[eval, exec, os.system]`）。
+2. **判定形态不同**：旧引擎输出**污点流**（`source_line`/`source_kind`/`flow`）；新仓同名的
+   `PY-EVAL-USE` 是**模式规则**（见到 `eval(` 就报），污点另有一条 `PY-TAINT-EVAL`。
+   所以小语料上旧 2 条 / 新 3 条——**不是谁漏报，是同名不同义**。
+3. **覆盖面差一个量级**：旧引擎的 sink 集里有大量**文件 I/O 与路径操作**（`.read_text`/`.write_text`/
+   `shutil.*`/`os.walk`…），新仓 Python 侧一条都没有 ⇒ 大语料上 65 vs 0。
+   （旧引擎里那 4 条跨文件流在新仓也**无对应**：新快轨的跨函数摘要在 Rust 侧才有。）
+
+
 
 
 
