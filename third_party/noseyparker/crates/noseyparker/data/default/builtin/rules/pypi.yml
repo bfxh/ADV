@@ -1,0 +1,25 @@
+rules:
+
+- name: PyPI Upload Token
+  id: np.pypi.1
+
+  # NOTE: these can actually be arbitrarily long
+  pattern: |
+    (?x)
+    \b
+    (pypi-AgEIcHlwaS5vcmc[a-zA-Z0-9_-]{50,})
+    (?:[^a-zA-Z0-9_-]|$)
+
+  categories: [api, secret]
+
+  references:
+  # GitHub Secrets Scanning implementation issue and discussion
+  - https://github.com/pypa/warehouse/issues/6051
+  # A library that generates PyPI tokens (which are b64-encoded macaroons)
+  - https://pypi.org/project/pypitoken/
+  # The library that PyPi uses in its backend?
+  - https://github.com/ecordell/pymacaroons
+  - https://en.wikipedia.org/wiki/Macaroons_(computer_science)
+  - https://github.com/pypa/warehouse/blob/82815b06d9f98deed5f205c66e054de59d22a10d/docs/development/token-scanning.rst
+  - https://research.google/pubs/pub41892/
+

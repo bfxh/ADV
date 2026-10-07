@@ -1,0 +1,17 @@
+[package]
+name = "content-guesser"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+libmagic = ["magic"]
+
+[dependencies]
+magic = { version = "0.16", optional = true }
+mime_guess = "2"
+mime = "0.3"
+thiserror = "2"

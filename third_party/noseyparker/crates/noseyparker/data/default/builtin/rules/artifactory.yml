@@ -1,0 +1,14 @@
+rules:
+
+- name: Artifactory API Key
+  id: np.artifactory.1
+  # FIXME: all the real ones start with `AKC`?
+  pattern: '(?i)artifactory.{0,50}\b([a-z0-9]{73})\b'
+
+  references:
+  - https://jfrog.com/help/r/jfrog-rest-apis/introduction-to-the-artifactory-rest-apis
+
+  categories:
+  - api
+  - fuzzy
+  - secret

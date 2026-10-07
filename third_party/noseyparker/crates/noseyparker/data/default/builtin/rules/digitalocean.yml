@@ -1,0 +1,44 @@
+rules:
+
+- name: DigitalOcean Application Access Token
+  id: np.digitalocean.1
+
+  pattern: |
+    (?x)(?i)
+    \b
+    (doo_v1_[a-f0-9]{64})
+    \b
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.digitalocean.com/reference/api/
+
+- name: DigitalOcean Personal Access Token
+  id: np.digitalocean.2
+
+  pattern: |
+    (?x)(?i)
+    \b
+    (dop_v1_[a-f0-9]{64})
+    \b
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.digitalocean.com/reference/api/
+
+- name: DigitalOcean Refresh Token
+  id: np.digitalocean.3
+
+  pattern: |
+    (?x)(?i)
+    \b
+    (dor_v1_[a-f0-9]{64})
+    \b
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.digitalocean.com/reference/api/
+

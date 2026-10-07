@@ -1,0 +1,24 @@
+rules:
+
+- name: Tavily API Key
+
+  id: np.tavily.1
+
+  description: >
+    A Tavily API Key was found.
+    Tavily provides web search capabilities for AI and LLM applications.
+    An attacker could use this API key to consume limited, possibly paid resources, or cause denial-of-service.
+
+  pattern: |
+    (?x)
+    \b
+    (
+      tvly-[a-zA-Z0-9]{32}
+    )
+    \b
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.tavily.com/api-reference
+

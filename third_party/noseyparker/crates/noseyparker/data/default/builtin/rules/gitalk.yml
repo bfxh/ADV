@@ -1,0 +1,24 @@
+rules:
+
+- name: Gitalk OAuth Credentials
+  id: np.gitalk.1
+
+  pattern: |
+    (?x)
+    \b
+    new \s+ Gitalk \s* \( \s* \{ \s*
+      clientID: \s* '([a-f0-9]{20})', \s*
+      clientSecret: \s* '([a-f0-9]{40})',
+
+  categories: [api, secret, fuzzy]
+
+  description: >
+    Gitalk OAuth credentials were found.
+    Gitalk is a GitHub-based commenting system.
+    An attacker may be able to use these credentials to impersonate the Gitalk
+    app and control its data.
+
+  references:
+  - https://gitalk.github.io
+  - https://github.com/gitalk/gitalk
+

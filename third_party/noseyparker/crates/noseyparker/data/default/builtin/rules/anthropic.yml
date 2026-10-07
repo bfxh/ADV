@@ -1,0 +1,21 @@
+rules:
+
+- name: Anthropic API Key
+  id: np.anthropic.1
+
+  pattern: |
+    (?x)
+    \b
+    (sk-ant-api[0-9]{2}-[a-zA-Z0-9_-]{95})
+    (?: [^a-zA-Z0-9_-] | $ )
+
+  categories: [api, secret]
+
+  description: >
+    An Anthropic API key was found.
+    Anthropic is an AI company.
+    An attacker could use this API key to consume limited resources, cause denial-of-service, or access internal fine-tuned models.
+
+  references:
+  - https://docs.anthropic.com/en/api/getting-started
+  - https://support.anthropic.com/en/articles/9767949-api-key-best-practices-keeping-your-keys-safe-and-secure

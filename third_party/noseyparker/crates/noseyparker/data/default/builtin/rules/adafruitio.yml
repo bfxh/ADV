@@ -1,0 +1,17 @@
+rules:
+
+- name: Adafruit IO Key
+  id: np.adafruit.1
+
+  pattern: |
+    (?x)
+    \b
+    (aio\_[a-zA-Z0-9]{28})
+    \b
+
+  references:
+  - https://io.adafruit.com/api/docs
+
+  categories:
+  - api
+  - secret

@@ -1,0 +1,25 @@
+rules:
+
+- name: Twitch Stream Key
+  id: np.twitch.1
+
+  pattern: |
+    (?xi)
+    (?:
+      \b (?:twitch)? (?:[_-]?)? stream (?:[_-]?)? key \b
+      [^A-Za-z0-9]{0,3}
+    )?
+    ["']?
+    (
+      live_                                (?# live_ prefix)
+      \d{8,12}                             (?# 8–12 digit account ID - examples have 9, unsure of variance)
+      _
+      [A-Za-z0-9]{30,36}                   (?# underscore followed by 30-36 chars)
+    )
+    ["']?
+
+  categories: [api, secret]
+
+  references:
+  - https://help.twitch.tv/s/article/twitch-stream-key-faq?language=en_US
+

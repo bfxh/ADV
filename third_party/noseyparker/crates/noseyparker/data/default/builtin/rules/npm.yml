@@ -1,0 +1,18 @@
+rules:
+
+- name: NPM Access Token (fine-grained)
+  id: np.npm.1
+
+  pattern: |
+    (?x)
+    \b
+    (npm_[A-Za-z0-9]{36})
+    \b
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.npmjs.com/about-access-tokens
+  - https://github.com/github/roadmap/issues/557
+  - https://github.blog/changelog/2022-12-06-limit-scope-of-npm-tokens-with-the-new-granular-access-tokens/
+

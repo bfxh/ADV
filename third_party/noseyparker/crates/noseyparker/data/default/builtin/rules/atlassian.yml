@@ -1,0 +1,19 @@
+rules:
+
+- name: Atlassian Cloud API Token
+  id: np.atlassian.1
+  pattern: |
+    (?x)
+    \b(
+    ATATT3xFfGF0 [a-zA-Z0-9_-]{20,200} =[0-9A-F]{8}
+    )\b
+
+  categories: [api, secret]
+
+  description: >
+    An Atlassian Cloud API Token was found.
+    An attacker could use this to access resources including Confluence wiki and Jira project management resources.
+
+  references:
+  - https://developer.atlassian.com/cloud/jira/software/basic-auth-for-rest-apis/
+

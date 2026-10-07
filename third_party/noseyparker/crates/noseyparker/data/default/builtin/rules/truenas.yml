@@ -1,0 +1,45 @@
+rules:
+
+- name: TrueNAS API Key (WebSocket)
+  id: np.truenas.1
+
+  pattern: |
+    (?x)
+    "params"\s*:\s*\[\s*"
+    (\d+-[a-zA-Z0-9]{64})
+    "\s*\]
+
+  categories:
+  - api
+  - fuzzy
+  - secret
+
+  references:
+  - https://www.truenas.com/docs/api/core_websocket_api.html
+  - https://www.truenas.com/docs/api/scale_rest_api.html
+  - https://www.truenas.com/docs/scale/scaletutorials/toptoolbar/managingapikeys/
+  - https://www.truenas.com/docs/scale/scaleclireference/auth/cliapikey/
+  - https://www.truenas.com/docs/scale/api/
+  - https://www.truenas.com/community/threads/api-examples-in-perl-python.108053/
+
+- name: TrueNAS API Key (REST API)
+  id: np.truenas.2
+
+  pattern: |
+    (?x)
+    Bearer\s*
+    (\d+-[a-zA-Z0-9]{64})
+    \b
+
+  categories:
+  - api
+  - fuzzy
+  - secret
+
+  references:
+  - https://www.truenas.com/docs/api/core_websocket_api.html
+  - https://www.truenas.com/docs/api/scale_rest_api.html
+  - https://www.truenas.com/docs/scale/scaletutorials/toptoolbar/managingapikeys/
+  - https://www.truenas.com/docs/scale/scaleclireference/auth/cliapikey/
+  - https://www.truenas.com/docs/scale/api/
+  - https://www.truenas.com/community/threads/api-examples-in-perl-python.108053/

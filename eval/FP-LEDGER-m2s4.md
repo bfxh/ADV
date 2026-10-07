@@ -1754,19 +1754,60 @@ python god `454 → 459`（新增 5：4 个语料 .py + 1 个测试 .rs）。
 **M2 到这里全部收口**：片A1–A6、片B1/B2、片C、片D–P 全部完成；M2 的验收判据（三方账出账 + 两端金样）
 有实测数与冻金样撑着。下一站是 M3（secrets+SCA）或按你指定的顺序。
 
+# M3-1（2026-10-07 起）：secrets 面 vendor Nosey Parker 的勘察与落地
 
+用户拍板：**A（vendor 源码）+ 先 secrets**。勘察与落地分步留痕如下。
 
+## 已做完的（可核）
 
+- **上游取用**：`git clone --depth 1 https://github.com/praetorian-inc/noseyparker`，
+  提交 `2e6e7f36ce36619852532bbe698d8cb7a26d2da7`（2026-02-21）。浅克隆 **6MB**（API 报的 30MB 是含历史）。
+  上游语言实测是 **Rust**（`gh api … .language`）——我先前"它是 Go"的印象是错的，当场纠正；
+  本机 Go 1.27 属多余信息（用不上）。
+- **vendor 落位**：`third_party/noseyparker/`＝上游 `crates/` 全量 + 根 `Cargo.toml` + `Cargo.lock`
+  + `LICENSE` + `NOTICE`（Apache-2.0 要求随源码分发）+ 新增 `VENDOR.md`（出处锚＝上面的提交号）。
+  共 93 个 `.rs`、约 2MB。**不是**我们 workspace 的成员：不进 fmt/clippy/god 计量面，我们也不改它。
+- **门口径**：`god.gate.json` 的 exclude 增 `**/third_party/**` 并附 `_third_party_doc`（理由：上游源码
+  不是我们的维护面，用我们的棘轮量它只会制造噪声——与试验面同一条纪律）。**实证**：带排除 459 文件 /
+  去掉排除 552（差正好 93 个 vendored `.rs`）。
+- **依赖面实测**（决定接入深度的那个表）：核心库 `noseyparker` **252** 包；仅规则集
+  `noseyparker-rules` **91** 包；本仓现有 workspace **74** 包。用户据此选了**深接核心库**。
+- **上游能否在本机编**：第一次编失败——`vectorscan-rs-sys` 的原生库要 cmake，而本机没有
+  （`cmake: command not found`）；且 `noseyparker` 的 features 里**没有关掉 vectorscan 的开关**
+  （只有 `rule_profiling` / `github`）⇒ 必须把它的 C++ 编出来。经 MSYS2 装了 `cmake 4.4.4` + `ninja`
+  **仍失败**：cmake-rs 在 windows-gnu 下只按两个探针选生成器（实读 `cmake-0.1.54/src/lib.rs:598-615`）：
+  `make` 或 `mingw32-make`，两者都没有就报 "no valid generator found for GNU toolchain"。
+  补装 `mingw-w64-x86_64-make`（GNU Make 4.4.1）后重编中。
+  CI 侧不用改：GitHub 的 Windows runner 自带 cmake/ninja/mingw32-make。
 
+## M3-1 落地（同日续）：接线 + 金丝雀 + CI 改造
 
-
-
-
-
-
-
-
-
-
-
+- **接线**：`crates/adv-secrets` 以 path 依赖接 `third_party/noseyparker/crates/{noseyparker,noseyparker-rules}`；
+  根 `Cargo.toml` 的 `exclude` 合并为 `["rust", "third_party"]`——理由实测：不 exclude 时 cargo 会沿路径
+  向上把 vendored crate 的 `workspace.package.*` 继承到**我们**的根，报
+  `workspace.package.rust-version was not defined`。依赖树 **74 → 275** 包。
+- **薄壳**（`crates/adv-secrets/src/lib.rs`，~140 行）：枚举（跳过 .git/target/node_modules/__pycache__、
+  超 8MB 留痕不静默）→ `Blob::from_bytes` 内容寻址 → 上游 `Matcher::scan_blob` →
+  归一成 `SecretFinding{rule,path,line,masked}`（掩码 X10：定长 `***`）。**没搬**上游 1255 行的
+  `cmd_scan`（那会把 CLI 也内化，依赖树 275 → 473）。
+- **金丝雀 2 条，先证过红再绿**：合成 key（运行时拼接）命中 `np.aws.1`、干净文件零报、
+  **同内容两份文件只出一条账**（内容寻址去重）、接口 Debug 里不出现原文、超限文件留痕；
+  夹具按 S123 纪律运行时拼接 ⇒ 不必动 `.gitleaks.toml`/secrets 门的白名单。
+- **GNU 链接坑（实测）**：`vectorscan-rs-sys` 自带 C++ 里同一个模板实例被两个 `.obj` 定义 ⇒
+  `ld: multiple definition`（上游 CI 走 MSVC 没覆盖这条组合）。落 `.cargo/config.toml` 的
+  `[target.x86_64-pc-windows-gnu] rustflags = ["-C","link-arg=-Wl,--allow-multiple-definition"]`，
+  代价如实记：GNU 目标下"重复符号"从报错降成静默取其一，守它的办法就是上面那两条金丝雀。
+- **`cargo fmt --all` 的语义坑（实测）**：官方定义是"所有包**以及它们的本地 path 依赖**"——
+  vendored 之后它会把 `third_party/**` 上游源码一起格式化（diff 里全是上游文件），等于逼我们改上游。
+  为此新增 `scripts/fmt_workspace.py`（从根 Cargo.toml 的 members 现读、`--manifest-path` 逐个查），
+  接成门步 `fmt-workspace`（STEPS + adv-m2/pre-commit 两条线 + `spec/ci-wiring.json` 认领），
+  adv.yml 的 fmt 步改调它。**vendored 树与上游逐字节一致**（`diff -rq` 0 差异）已核。
+- **CI 改造**（用户选的"维持深接"）：runner 实测有 CMake 3.31/Ninja 1.13/MSYS2(`C:\msys64`)、
+  **缺** Boost 与 mingw32-make ⇒ adv.yml 加一步 `pacman -S mingw-w64-x86_64-boost mingw-w64-x86_64-make`，
+  并用 `actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830`（v4，SHA 已核）缓存
+  `target/{debug,release}/build/vectorscan-rs-sys-*`，键含 `third_party/noseyparker/VENDOR.md` 的哈希
+  （上游一换缓存自然失效）。本地冷建实测 21m43s。
+- 本机为编译补齐的前置：`cmake 4.4.4` / `ninja` / `mingw32-make`（GNU Make 4.4.1）/ `boost`（MSYS2）。
+- 顺带定的两条：`cargo deny check licenses bans sources` 在新树下 **exit 0**（bans/licenses/sources 全 ok）；
+  claim-gate 照例抓到文档步数过期（32/36/39 → **33/37/40**），按真值源改完。
 

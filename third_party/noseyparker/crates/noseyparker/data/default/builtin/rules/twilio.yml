@@ -1,0 +1,13 @@
+rules:
+
+- name: Twilio API Key
+  id: np.twilio.1
+
+  pattern: '(?i)twilio.{0,20}\b(sk[a-f0-9]{32})\b'
+
+  categories: [api, fuzzy, secret]
+
+  references:
+  - https://www.twilio.com/docs/usage/api
+  - https://www.twilio.com/docs/usage/api#authenticate-with-http
+  - https://www.twilio.com/docs/usage/api#authenticate-using-the-twilio-sdks

@@ -1,0 +1,75 @@
+rules:
+
+# XXX what are these?
+# pattern: '\b(xoxa-[0-9]{12}-[0-9]{12}-[a-f0-9]{32})\b'
+# pattern: '\b(xoxa-[0-9]{12}-[0-9]{12}-[0-9]{12}-[a-f0-9]{32})\b'
+# pattern: '\b(xoxr-[0-9]{12}-[0-9]{12}-[a-z0-9]{24})\b'
+
+- name: Slack Bot Token
+  id: np.slack.2
+  pattern: '\b(xoxb-[0-9]{10,12}-[0-9]{10,14}-[a-zA-Z0-9]{23,25})\b'
+
+  references:
+  - https://api.slack.com/authentication
+  - https://api.slack.com/authentication/best-practices
+  - https://api.slack.com/authentication/token-types
+
+  categories:
+  - api
+  - secret
+
+  description: >
+    A Slack Bot Token was found.
+    An attacker could use the token to impersonate or control the corresponding Slack bot.
+
+- name: Slack User Token
+  id: np.slack.4
+  pattern: '\b(xoxp-[0-9]{12}-[0-9]{12}-[0-9]{12}-[a-f0-9]{32})\b'
+
+  references:
+  - https://api.slack.com/authentication
+  - https://api.slack.com/authentication/best-practices
+  - https://api.slack.com/authentication/token-types
+
+  categories:
+  - api
+  - secret
+
+- name: Slack App Token
+  id: np.slack.5
+  pattern: '\b(xapp-[0-9]{12}-[a-zA-Z0-9/+]{24})\b'
+
+  categories:
+  - api
+  - secret
+
+  references:
+  - https://api.slack.com/authentication
+  - https://api.slack.com/authentication/best-practices
+  - https://api.slack.com/authentication/token-types
+
+- name: Slack Legacy Bot Token
+  id: np.slack.6
+  pattern: '\b(xoxb-[0-9]{10,13}-[a-zA-Z0-9]{24})\b'
+
+  categories:
+  - api
+  - secret
+
+  references:
+  - https://api.slack.com/authentication
+  - https://api.slack.com/authentication/best-practices
+  - https://api.slack.com/authentication/token-types
+  - https://api.slack.com/legacy/custom-integrations/legacy-tokens
+
+- name: Slack Webhook
+  id: np.slack.3
+  pattern: '(?i)(https://hooks.slack.com/services/T[a-z0-9_]{8}/B[a-z0-9_]{8,12}/[a-z0-9_]{24})'
+
+  categories:
+  - api
+  - secret
+
+  references:
+  - https://api.slack.com/messaging/webhooks
+

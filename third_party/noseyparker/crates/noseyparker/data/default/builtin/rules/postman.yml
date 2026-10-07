@@ -1,0 +1,17 @@
+rules:
+
+- name: Postman API Key
+  id: np.postman.1
+
+  pattern: |
+    (?x)
+    \b
+    (PMAK-[a-zA-Z0-9]{24}-[a-zA-Z0-9]{34})
+    \b
+
+  categories: [api, secret]
+
+  references:
+  - https://learning.postman.com/docs/developer/intro-api/
+  - https://learning.postman.com/docs/developer/postman-api/authentication/
+  - https://learning.postman.com/docs/administration/managing-your-team/managing-api-keys/

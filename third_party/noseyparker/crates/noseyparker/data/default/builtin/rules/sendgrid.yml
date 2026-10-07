@@ -1,0 +1,11 @@
+rules:
+
+- name: SendGrid API Key
+  id: np.sendgrid.1
+
+  pattern: '\b(SG\.[0-9A-Za-z_-]{22}\.[0-9A-Za-z_-]{43})\b'
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.sendgrid.com/ui/account-and-settings/api-keys

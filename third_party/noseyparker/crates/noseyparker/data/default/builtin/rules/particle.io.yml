@@ -1,0 +1,35 @@
+rules:
+
+
+- name: particle.io Access Token
+  id: np.particleio.1
+
+  pattern: |
+    (?x)
+    https://api\.particle\.io/v1/[a-zA-Z0-9_\-\s/"\\?]*
+    (?:access_token=|Authorization:\s*Bearer\s*)
+    \b
+    ([a-zA-Z0-9]{40})
+    \b
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.particle.io/reference/cloud-apis/api/
+
+
+- name: particle.io Access Token
+  id: np.particleio.2
+
+  pattern: |
+    (?x)
+    (?:access_token=|Authorization:\s*Bearer\s*)
+    \b
+    ([a-zA-Z0-9]{40})
+    \b
+    [\s"\\]*https://api\.particle\.io/v1
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.particle.io/reference/cloud-apis/api/

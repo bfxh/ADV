@@ -1,0 +1,60 @@
+rules:
+
+- name: JSON Web Token (base64url-encoded)
+  id: np.jwt.1
+
+  # `header . payload . signature`, all base64-encoded
+  # Unencoded, the header and payload are JSON objects, usually starting with
+  # `{"`, which gets base64-encoded starting with `ey`.
+  pattern: |
+    (?x)
+    \b
+    (
+      ey[a-zA-Z0-9_-]{12,}  (?# header )
+      \.
+      ey[a-zA-Z0-9_-]{12,}  (?# payload )
+      \.
+      [a-zA-Z0-9_-]{12,}    (?# signature )
+    )
+    (?:[^a-zA-Z0-9_-]|$)   (?# this instead of a \b anchor because that doesn't play nicely with `-` )
+
+  categories: [api]
+
+  references:
+  - https://en.wikipedia.org/wiki/JSON_Web_Token
+  - https://datatracker.ietf.org/doc/html/rfc7519
+  - https://en.wikipedia.org/wiki/Base64#URL_applications
+  - https://datatracker.ietf.org/doc/html/rfc4648
+  - https://developer.okta.com/blog/2018/06/20/what-happens-if-your-jwt-is-stolen
+
+- name: JSON Web Token Secret
+  id: np.jwt.2
+
+  pattern: |
+    (?x)(?m)(?i)
+    ^\s*
+    (?: jwt: \s+ secret: | jwtsecret: )
+    \s+
+    "( [^"]{6,200} )"
+
+  categories: [fuzzy, secret]
+
+  references:
+  - https://en.wikipedia.org/wiki/JSON_Web_Token
+
+
+# This kind of thing is often seen in spring config files and other configs
+- name: JSON Web Token Secret
+  id: np.jwt.3
+
+  pattern: |
+    (?x)(?m)(?i)
+    ^\s*
+    (?: jwt: \s+ secret: | jwtsecret: )
+    \s+
+    '( [^']{6,200} )'
+
+  categories: [fuzzy, secret]
+
+  references:
+  - https://en.wikipedia.org/wiki/JSON_Web_Token

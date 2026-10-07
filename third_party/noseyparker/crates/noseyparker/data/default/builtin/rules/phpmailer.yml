@@ -1,0 +1,17 @@
+rules:
+
+- name: PHPMailer Credentials
+  id: np.phpmailer.1
+
+  pattern: |
+    (?x)
+    \$mail->Host     \s* = \s* '([^'\n]{5,})'; \s* (?: //.* )?
+    (?: \s* .* \s* ){0,3}
+    \$mail->Username \s* = \s* '([^'\n]{5,})'; \s* (?: //.* )?
+    (?: \s* .* \s* ){0,3}
+    \$mail->Password \s* = \s* '([^'\n]{5,})';
+
+  categories: [fuzzy, secret]
+
+  references:
+  - https://github.com/PHPMailer/PHPMailer

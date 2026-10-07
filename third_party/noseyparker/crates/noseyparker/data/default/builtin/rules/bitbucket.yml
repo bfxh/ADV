@@ -1,0 +1,18 @@
+rules:
+
+- name: Bitbucket App Password
+  id: np.bitbucket.1
+
+  pattern: |
+    (?x)
+    \b
+    (ATBB[a-zA-Z0-9]{32})
+    \b
+
+  references:
+  - https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/
+  - https://support.atlassian.com/bitbucket-cloud/docs/using-app-passwords/
+
+  categories:
+  - api
+  - secret

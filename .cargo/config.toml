@@ -13,3 +13,15 @@ target-dir = "target"
 # 也不引入 nightly（避免 rust-toolchain.toml 的单一事实源被破）。
 [env]
 RUSTC_BOOTSTRAP = "1"
+
+# M3-1（2026-10-07）：内化 Nosey Parker 后，GNU 目标需要放行"重复符号定义"，否则**链接**失败。
+# 实测（HEAD 前的探针）：`vectorscan-rs-sys 0.0.5` 的自带 C++ 源码里
+# `SuperVector<unsigned short>16>::SuperVector(const&)` 同时被 `impl.cpp.obj` 与
+# `noodle_engine.cpp.obj` 定义 ⇒ `ld: multiple definition`（GCC 16 / windows-gnu）。
+# 上游 CI 走 MSVC，这条组合它没覆盖。给 GNU 目标加这一个链接旗标后，
+# `adv-secrets` 的两条金丝雀（合成 key 命中 / 干净零报 / 同内容去重 / 掩码）实测全过。
+# **代价如实记**：它把 GNU 目标下"重复符号"这一类链接错误从"报错"降成"静默取其一"，
+# 影响面是全仓而不只是上游那份 C++。守它的办法是 adv-secrets 的金丝雀——真出 ODR 问题
+# 会先在行为断言上露出来，而不是在链接期。
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "link-arg=-Wl,--allow-multiple-definition"]

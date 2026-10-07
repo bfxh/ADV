@@ -1,0 +1,20 @@
+rules:
+
+- name: Credentials in ODBC Connection String
+  id: np.odbc.1
+
+  pattern: |
+    (?x)(?i)
+    (?: User | User\ Id | UserId | Uid) \s*=\s* ([^\s;]{3,100}) \s* ;
+    [\ \t]* .{0,10} [\ \t]*  (?# possible extra stuff, e.g., string concatenation)
+    (?: Password | Pwd) \s*=\s* ([^\t\ ;]{3,100})
+    \s* (?: [;"'] | $)
+
+  categories: [fuzzy, secret]
+
+  references:
+  - https://docs.aws.amazon.com/redshift/latest/mgmt/configure-odbc-connection.html
+  - https://docs.microsoft.com/en-us/azure/data-explorer/kusto/api/connection-strings/kusto
+  - https://docs.microsoft.com/en-us/azure/mariadb/howto-connection-string
+  - https://docs.microsoft.com/en-us/azure/mysql/single-server/how-to-connection-string
+  - https://www.connectionstrings.com/

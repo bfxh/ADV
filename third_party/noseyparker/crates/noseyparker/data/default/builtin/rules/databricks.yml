@@ -1,0 +1,18 @@
+rules:
+
+- name: Databricks Personal Access Token
+  id: np.databricks.1
+  pattern: |
+    (?x)
+    \b
+    (
+      dapi[a-f0-9]{32}
+      (?: -[0-9]+ )?      (?# optional -NUM suffix )
+    )
+    \b
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.databricks.com/en/dev-tools/auth/pat.html
+

@@ -1,0 +1,25 @@
+rules:
+
+- name: Auth0 Application Credentials
+  id: np.auth0.1
+
+  pattern: |
+    (?x)(?s)
+    (?: AUTH0_DOMAIN | AUTH0_ISSUER_BASE_URL ) \s* = \s* ['"] ( (?:https?://)? [a-zA-Z0-9._-]{10,100}) ['"]
+    .{0,100}
+    AUTH0_CLIENT_ID \s* = \s* ['"] ([a-zA-Z0-9]{32}) ['"]
+    .{0,100}
+    AUTH0_CLIENT_SECRET \s* = \s* ['"] ([a-zA-Z0-9_-]{32,80}) ['"]
+
+  categories: [api, secret, fuzzy]
+
+  references:
+  - https://auth0.com/docs
+  - https://auth0.com/docs/api/authentication
+  - https://auth0.com/docs/secure/application-credentials
+
+  description: >
+    Auth0 OAuth credentials were found.
+    Auth0 is an identity platform that provides authorization and authentication capabilities for applications.
+    An attacker may be able to use these credentials to impersonate an application or access protected resources.
+

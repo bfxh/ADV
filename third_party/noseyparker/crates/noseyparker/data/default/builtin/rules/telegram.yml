@@ -1,0 +1,18 @@
+rules:
+
+- name: Telegram Bot Token
+  id: np.telegram.1
+
+  pattern: |
+    (?x)
+    \b
+    (\d+:AA[a-zA-Z0-9_-]{32,33})
+    (?: [^a-zA-Z0-9_-] | $)
+
+  categories:
+  - api
+  - secret
+
+  references:
+  - https://core.telegram.org/bots/api
+  - https://core.telegram.org/bots/features#botfather

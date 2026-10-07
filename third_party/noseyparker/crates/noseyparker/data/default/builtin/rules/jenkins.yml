@@ -1,0 +1,39 @@
+rules:
+
+- name: Jenkins Token or Crumb
+  id: np.jenkins.1
+
+  pattern: |
+    (?x)
+    (?i)
+    jenkins.{0,12}(?: (?: crumb | token ) .{0,10} )?
+    \b
+    ( [0-9a-f]{32,36} | [a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12} )
+    (?: [^0-9a-f-] | $ )
+
+  categories: [api, fuzzy, secret]
+
+  references:
+  - https://www.jenkins.io/blog/2018/07/02/new-api-token-system/
+  - https://www.jenkins.io/doc/book/security/csrf-protection/
+
+
+- name: Jenkins Setup Admin Password
+  id: np.jenkins.2
+
+  pattern: |
+    (?x)(?m)
+    Please\ use\ the\ following\ password\ to\ proceed\ to\ installation:
+    (?: \n\n | \r\n\r\n )
+    ([a-f0-9]{30,36})$
+
+  categories: [fuzzy, secret]
+
+  description: |
+    A Jenkins setup wizard admin user password was detected.
+    This password is used to configure a new Jenkins installation.
+    An attacker with possession of this password could control the Jenkins instance.
+    This could enable exfiltration of proprietary code, insertion of backdoors, or lateral movement to other resources.
+
+  references:
+  - https://www.jenkins.io/doc/book/installing/linux/#setup-wizard

@@ -17,6 +17,7 @@
       "workflow": ".github/workflows/adv.yml",
       "why": "新工作区（M2 深轨线）唯一的守门 workflow。core.yml 的 on.push 只列 main，所以接在那边的门对本分支等于没接——这句话就是 DD-0010 的由来。",
       "gates": [
+        "fmt-workspace",
         "xtask-gate",
         "ci-wiring-gate",
         "debt-gate",

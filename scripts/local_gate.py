@@ -48,6 +48,8 @@ STEPS = [
                      "--allow-name", "unified-rx-rs", "--allow-name", "unified-rx-pytest"],
      "fast", "命名纪律门（占位词/杂物/退役旧名；主名 ADV 白名单外全专业）"),
     ("path-gate",   [PY, "-X", "utf8", "scripts/path_gate.py"], "fast", "路径门（符号链接/文件名卫生/越界写）"),
+    ("fmt-workspace", [PY, "-X", "utf8", "scripts/fmt_workspace.py"], "fast",
+     "fmt 只格式化本仓成员（cargo fmt --all 会连 vendored path 依赖一起格式化的坑）"),
     ("hook-status",  [PY, "-X", "utf8", "scripts/hook_status.py"], "fast",
      "提交路径门自证（DD-0008）：已装/未装/不一致三态，只有不一致红"),
     ("debt-gate",   [PY, "-X", "utf8", "scripts/debt_gate.py"], "fast",

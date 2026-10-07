@@ -1,0 +1,18 @@
+[package]
+name = "bstring-serde"
+authors.workspace = true
+edition = "2021"
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64 = { version = "0.22" }
+bstr = { version = "1", features = ["serde"] }
+schemars = { version = "0.8" }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1.7"
+serde_json = "1.0"

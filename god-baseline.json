@@ -450,8 +450,13 @@
   "max_type_members": 0
  },
  "crates/adv-secrets/src/lib.rs": {
-  "file_lines": 20,
-  "max_fn_lines": 3,
+  "file_lines": 149,
+  "max_fn_lines": 41,
+  "max_type_members": 4
+ },
+ "crates/adv-secrets/tests/scan_canary.rs": {
+  "file_lines": 80,
+  "max_fn_lines": 51,
   "max_type_members": 0
  },
  "crates/adv-server/src/lib.rs": {
@@ -999,6 +1004,11 @@
   "max_fn_lines": 55,
   "max_type_members": 0
  },
+ "scripts/fmt_workspace.py": {
+  "file_lines": 54,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
  "scripts/gitleaks_gate.py": {
   "file_lines": 85,
   "max_fn_lines": 45,
@@ -1040,7 +1050,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 291,
+  "file_lines": 293,
   "max_fn_lines": 70,
   "max_type_members": 0
  },
@@ -1147,6 +1157,11 @@
  "scripts/usage_audit.py": {
   "file_lines": 162,
   "max_fn_lines": 53,
+  "max_type_members": 0
+ },
+ "scripts/vendor_redact.py": {
+  "file_lines": 88,
+  "max_fn_lines": 31,
   "max_type_members": 0
  },
  "scripts/vuln_hunt.py": {

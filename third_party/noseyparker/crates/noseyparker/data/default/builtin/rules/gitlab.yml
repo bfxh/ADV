@@ -1,0 +1,34 @@
+rules:
+
+
+- name: GitLab Runner Registration Token
+  id: np.gitlab.1
+  pattern: '\b(GR1348941[0-9a-zA-Z_-]{20})(?:\b|$)'
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.gitlab.com/runner/security/
+  - https://docs.gitlab.com/ee/security/token_overview.html#runner-registration-tokens-deprecated
+  - https://docs.gitlab.com/ee/security/token_overview.html#security-considerations
+
+- name: GitLab Personal Access Token
+  id: np.gitlab.2
+  pattern: '\b(glpat-[0-9a-zA-Z_-]{20})(?:\b|$)'
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html
+
+- name: GitLab Pipeline Trigger Token
+  id: np.gitlab.3
+  pattern: '\b(glptt-[0-9a-f]{40})\b'
+
+  categories: [api, secret]
+
+  references:
+  - https://docs.gitlab.com/ee/ci/triggers/
+  - https://gitlab.com/gitlab-org/gitlab/-/issues/371396
+  - https://gitlab.com/gitlab-org/gitlab/-/issues/388379
+

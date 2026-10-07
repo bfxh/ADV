@@ -1,0 +1,15 @@
+[package]
+name = "noseyparker-digest"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gix-hash = "0.19"
+hex = "0.4"
+
+[dev-dependencies]
+pretty_assertions = "1.4"

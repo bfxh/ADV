@@ -11,3 +11,10 @@ workspace = true
 
 [dependencies]
 adv-core = { path = "../adv-core" }
+anyhow.workspace = true
+walkdir.workspace = true
+# 上游内化源码（见 third_party/noseyparker/VENDOR.md：出处锚 + 只读不改）。
+# 走 path 依赖而不是 git/crates.io：内化就是"源码进仓"，同时**不做 workspace 成员**
+# ——上游代码不进我们的 fmt/clippy/god 计量面（god.gate.json 的 third_party 排除条目）。
+noseyparker = { path = "../../third_party/noseyparker/crates/noseyparker" }
+noseyparker-rules = { path = "../../third_party/noseyparker/crates/noseyparker-rules" }

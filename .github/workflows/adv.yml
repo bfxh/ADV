@@ -27,8 +27,23 @@ jobs:
       - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-nextest,cargo-deny,cargo-llvm-cov
-      - name: fmt
-        run: cargo fmt --all --check
+      # 内化 Nosey Parker（third_party/noseyparker，见其 VENDOR.md）引入 vectorscan 这个 C++ 原生库。
+      # 实测 runner 清单（images/windows/Windows2025-Readme.md）：**有** CMake 3.31 / Ninja 1.13 /
+      # MSYS2(C:\msys64)，**没有** Boost 与 mingw32-make ⇒ 这两样在这里补。
+      - name: vectorscan 构建前置（Boost + mingw32-make）
+        shell: bash
+        run: /c/msys64/usr/bin/pacman -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-make
+      # 冷建要编 vectorscan（本机实测 21m43s）；缓存它的构建目录，键含 vendored 提交号
+      # ⇒ 上游一换（VENDOR.md 里那个 SHA）缓存自然失效，不会拿旧产物配新源码。
+      - name: 缓存 vectorscan 构建产物
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            target/debug/build/vectorscan-rs-sys-*
+            target/release/build/vectorscan-rs-sys-*
+          key: vectorscan-${{ runner.os }}-${{ hashFiles('third_party/noseyparker/VENDOR.md') }}
+      - name: fmt（只面本仓成员；cargo fmt --all 会格式化 vendored 上游源码）
+        run: python -X utf8 scripts/fmt_workspace.py
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test (nextest)

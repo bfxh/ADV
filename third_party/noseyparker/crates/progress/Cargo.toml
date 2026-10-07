@@ -1,0 +1,12 @@
+[package]
+name = "progress"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# TODO Consider switching from indicatif to status_line: https://docs.rs/status-line/latest/status_line/struct.StatusLine.html
+indicatif = { version = "0.18", features = ["improved_unicode"] }

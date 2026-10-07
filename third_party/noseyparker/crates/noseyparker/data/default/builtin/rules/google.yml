@@ -1,0 +1,116 @@
+rules:
+
+- name: Google Client ID
+  id: np.google.1
+
+  pattern: '(?i)\b([0-9]+-[a-z0-9_]{32})\.apps\.googleusercontent\.com'
+
+  categories: [api, identifier]
+
+- name: Google OAuth Client Secret
+  id: np.google.2
+
+  pattern: |
+    (?x)
+    \b
+    (GOCSPX-[a-zA-Z0-9_-]{28})
+    (?:[^a-zA-Z0-9_-] | $)
+
+  categories: [api, secret]
+
+- name: Google OAuth Client Secret
+  id: np.google.3
+
+  pattern: |
+    (?x)(?i)
+    client.?secret .{0,10}
+    \b
+    ([a-z0-9_-]{24})
+    (?: [^a-z0-9_-] |$)
+
+  categories: [api, fuzzy, secret]
+
+- name: Google OAuth Access Token
+  id: np.google.4
+
+  pattern: |
+    (?x)
+    \b
+    (ya29\.[0-9A-Za-z_-]{20,1024})
+    (?: [^0-9A-Za-z_-]|$)  (?# Used instead of `\b` because that doesn't play well with trailing `-` )
+
+  categories: [api, secret]
+
+- name: Google API Key
+  id: np.google.5
+
+  pattern: |
+    (?x)
+    \b
+    (AIza[0-9A-Za-z_-]{35})
+    (?: [^0-9A-Za-z_-] | $ )
+
+  categories: [api, secret]
+
+  references:
+  - https://cloud.google.com/docs/authentication/api-keys#securing
+  - https://support.google.com/googleapi/answer/6310037
+  # Note: the following reference claims that as far as Google is concerned, API keys that start with `AIza` are public.
+  # Though other Google resources disagree.
+  - https://bughunters.google.com/learn/invalid-reports/google-products/5222475159961600/understanding-api-key-leaks
+
+- name: Google Cloud Storage Bucket
+  id: np.gcs.1
+
+  pattern: |
+    (?x)
+    (?: ^ | [\s/"'] | %2F )
+    (
+    (?: [a-zA-Z0-9_-]+ \. )+    (?# bucket name as subdomain )
+    storage\.googleapis\.com
+    )
+    \b
+
+  categories: [api, identifier]
+
+  references:
+  - https://cloud.google.com/storage/docs/request-endpoints
+
+- name: Google Cloud Storage Bucket
+  id: np.gcs.2
+
+  pattern: |
+    (?x)
+    (?: ^ | [\s/"'] | %2F )
+    (
+    storage\.googleapis\.com
+    /
+    [a-zA-Z0-9_-]+ (?: \. [a-zA-Z0-9_-]+ )*    (?# bucket name as path )
+    )
+    (?: [^a-zA-Z0-9_-] | $ )                   (?# this instead of a \b anchor because that doesn't play nicely with `-` )
+
+  categories: [api, identifier]
+
+  references:
+  - https://cloud.google.com/storage/docs/request-endpoints
+
+- name: Google OAuth Credentials
+  id: np.google.6
+
+  pattern: |
+    (?x)
+    \b
+    ([0-9]+-[a-z0-9_]{32}\.apps\.googleusercontent\.com)            (?# client ID )
+    (?: (?s) .{0,40} )                                              (?# Arbitrary intermediate stuff; ?s causes . to match newlines )
+    \b
+
+    (?: (?i) client.?secret .{0,10} )?
+
+    ( (?:GOCSPX-[a-zA-Z0-9_-]{28})                                  (?# prefixed client secret )
+    | (?:\b [a-zA-Z0-9_-]{24})                                      (?# non-prefixed client secret )
+    )
+
+    (?:[^a-zA-Z0-9_-] | $)
+
+  categories: [api, fuzzy, secret]
+

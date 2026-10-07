@@ -4,6 +4,7 @@
     "adv-m2": {
       "why": "深轨重写线（M2）真正改动的面：Rust 工作区 + 仓库卫生与账本类门。这些步红就是本线的账，收尾重放必须绿。",
       "steps": [
+        "fmt-workspace",
         "path-gate",
         "debt-gate",
         "arch-gate",
@@ -53,6 +54,7 @@
       "why": "提交路径那条窄版线（.githooks/pre-commit 跑的就是它）：本线负责的门必须绿，否则每次提交都被挡。**刻意不含 debt-gate**——「账拖没拖」按既有分工由 CI 判（tests/test_debt_gate.py 只断结构、CI 的 Debt gate 判超期）；本地再判一次超期，等于在修这笔账的时候被这笔账挡住提交，是死锁不是纪律。",
       "steps": [
         "hook-status",
+        "fmt-workspace",
         "path-gate",
         "arch-gate",
         "claim-gate",

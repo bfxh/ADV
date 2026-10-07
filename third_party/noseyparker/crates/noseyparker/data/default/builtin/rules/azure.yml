@@ -1,0 +1,98 @@
+rules:
+
+- name: Azure Connection String
+  id: np.azure.1
+
+  # XXX There are a bunch of other keys that seem to have secret content assigned to them:
+  #
+  #   - SharedAccessSignature
+  #   - Authorization
+  #   - UserToken
+  #   - ApplicationToken
+  #
+  # Maybe we can generalize this rule one day.
+  pattern: |
+    (?x)
+    (?i)
+    (?: AccountName | SharedAccessKeyName | SharedSecretIssuer) \s*=\s* ([^${;<\[.\s*"'\#] [^.;\n"'\#]{2,80}) \s*;\s*
+    .{0,10}\s*  (?# possible extra stuff, e.g., string concatenation)
+    (?: AccountKey | SharedAccessKey | SharedSecretValue) \s*=\s* ([a-zA-Z0-9/+]{20,100}[=]{0,3})
+    (?: [^a-zA-Z0-9/+=] | $ )
+
+  references:
+  - https://azure.microsoft.com/en-us/blog/windows-azure-web-sites-how-application-strings-and-connection-strings-work/
+  - https://docs.microsoft.com/en-us/azure/storage/common/storage-configure-connection-string
+  - https://learn.microsoft.com/en-us/azure/service-bus-messaging/service-bus-sas#best-practices-when-using-sas
+
+  categories:
+  - api
+  - fuzzy
+  - secret
+
+  description: >
+    Credentials in an Azure connection string were found.
+    Depending on assigned privileges, these may allow an attacker read or write access to Azure storage.
+
+- name: Azure App Configuration Connection String
+  id: np.azure.2
+
+  pattern: |
+    (?x)
+    (https://[a-zA-Z0-9-]+\.azconfig\.io);
+    Id=(.{4}-.{2}-.{2}:[a-zA-Z0-9+/]{18,22});
+    Secret=([a-zA-Z0-9+/]{36,50}=)
+
+  categories:
+  - api
+  - fuzzy
+  - secret
+
+  references:
+  - https://docs.microsoft.com/en-us/azure/azure-app-configuration/
+  - https://docs.microsoft.com/en-us/azure/azure-app-configuration/howto-best-practices
+  - https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/appconfiguration/azure-appconfiguration/azure/appconfiguration/_utils.py
+
+
+# This detects various hardcoded PATs that come from Microsoft example documentation
+- name: Azure DevOps Personal Access Token
+  id: np.azure.3
+
+  pattern: |
+    (?x)
+    (?i: ADO_PAT | pat_token | personal_?access_?token | \$token )
+    \s* = \s*
+    ["']
+    ([a-z0-9]{52})
+    ["']
+
+  references:
+  - https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate
+
+  categories:
+  - api
+  - fuzzy
+  - secret
+
+  description: >
+    An Azure DevOps Personal Access Token was found.
+    Azure DevOps is a code hosting, testing, and deployment platform.
+    Depending on the privileges granted to the token, an attacker may be able to use it to access source code, secrets, and build resources, enabling a supply chain attack.
+
+
+- name: Azure DevOps Personal Access Token
+  id: np.azure.4
+
+  pattern: '\b([a-zA-Z0-9]{76}AZDO[a-zA-Z0-9]{4})\b'
+
+  references:
+  - https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate
+  - https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops&tabs=Windows#changes-to-format
+
+  categories:
+  - api
+  - secret
+
+  description: >
+    An Azure DevOps Personal Access Token was found.
+    Azure DevOps is a code hosting, testing, and deployment platform.
+    Depending on the privileges granted to the token, an attacker may be able to use it to access source code, secrets, and build resources, enabling a supply chain attack.
