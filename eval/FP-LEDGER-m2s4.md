@@ -1665,6 +1665,56 @@ cargo run -q -p adv-cli -- scan crates/adv-cli/tests/data/py-corpus --rules rule
    `shutil.*`/`os.walk`…），新仓 Python 侧一条都没有 ⇒ 大语料上 65 vs 0。
    （旧引擎里那 4 条跨文件流在新仓也**无对应**：新快轨的跨函数摘要在 Rust 侧才有。）
 
+# 片C 正文（2026-10-07）：旧/新 Python 账落成金样 + 判据
+
+## 语料（`crates/adv-cli/tests/data/py-old-new/`，4 文件，逐条为某个口径差而写）
+
+| 文件 | 形状 | 存在的理由 |
+|---|---|---|
+| `d_param.py` | `def d(cmd): eval(cmd)` | 两边**共命中**（旧：污点流 param/direct；新：`PY-EVAL-USE` 模式） |
+| `e_literal.py` | `def e(): eval("1 + 1")` | **新独有**：字面量无源点，旧不报、新照样报 ⇒ 同名不同义 |
+| `f_cross_lib.py` | `def sink_it(x): eval(x)` | 跨文件流的**汇点定义处**（两边都报这一行，但语义不同） |
+| `g_cross_use.py` | `def g(cmd): sink_it(cmd)` | 跨文件流的**调用点**：两边都不报这里，旧会把参数一路追到上面那行 |
+
+## 实测账（两把尺的原话）
+
+```
+# 旧：UNIFIED_RX_SANDBOX='*' cargo run -q --manifest-path rust/Cargo.toml --bin rx-taint -- \
+#       crates/adv-cli/tests/data/py-old-new
+{"files_scanned":4,"findings":[
+  {"file":"d_param.py","line":3,"sink":"eval","var":"cmd","source_line":2,
+   "source_kind":"param","flow":"direct","severity":"high","kind":"clue"},
+  {"file":"f_cross_lib.py","line":3,"sink":"eval","var":"x","source_line":5,
+   "source_kind":"param","flow":"cross","severity":"high","kind":"clue",
+   "origin":"g_cross_use.py:5 cmd(param) → f_cross_lib.py:sink_it.x"}],
+ "errors":[],"cross_file_findings":1,"cross_skipped_ambiguous":0}
+
+# 新：cargo run -q -p adv-cli -- scan crates/adv-cli/tests/data/py-old-new --rules rules --engine ast
+→ 4 个文件，3 条发现（全 PY-EVAL-USE）：d_param.py:3 / e_literal.py:4 / f_cross_lib.py:3
+```
+
+## 映射表（旧 sink/kind → 新规则码；**无对应的逐条点名**）
+
+| 旧账 | 新账 | 关系 |
+|---|---|---|
+| `eval` @ `d_param.py:3`，param/direct | `PY-EVAL-USE` @ 同行 | **同键**，语义不同（旧记源点行 2；新只知道这儿有 `eval(`） |
+| `eval` @ `f_cross_lib.py:3`，param/**cross**（带 origin 链） | `PY-EVAL-USE` @ 同行 | **同键、跨文件语义无对应**：新侧是"这行有 `eval(`"，与 `g_cross_use.py` 无关 |
+| —— | `PY-EVAL-USE` @ `e_literal.py:4` | **新独有**：模式规则没有源点概念 |
+| `subprocess.run`×17 / `.read_text`×18 / `.write_text`×5 / `shutil.rmtree`×4 / `.mkdir`×3 / `os.walk`×2 / `os.makedirs`×2 / `open`×1 / `.replace`×8 / 其余 6（大语料 `scripts/`） | **无**（新仓 Python 侧只有 4 条规则） | **无对应，逐类点名**：这是覆盖面差，不是缺陷——补哪些 sink 是 M1/M3 的排期内容，本片不改规则 |
+| 跨文件流（大语料 4 条 + 本语料 1 条） | **无**（新快轨的跨函数摘要在 Rust 侧才有） | 无对应 |
+
+## 判据（两份冻金样 + 一条端到端）
+
+- `crates/adv-cli/tests/golden/py-old-new.fast.jsonl`（新侧 3 行）与
+  `crates/adv-cli/tests/golden/py-old-new.old.json`（旧侧原文；重录命令写在该测试文件头，
+  与 `deep-cargo.jsonl` 同款"有意重录"纪律）。
+- `crates/adv-cli/tests/old_new_ledger.rs`：新侧**现跑**并逐行比金样（以仓根为 cwd + 相对路径，
+  免得金样嵌本机绝对路径）；旧侧用冻金样对语料结构逐条断言（行号一律锚回语料文本）：
+  同键两处、新独有一处、旧侧 origin 链点名调用者文件、两边都不在调用点报。
+- **先证红**：删掉新侧金样一行 ⇒ 该测试 FAILED（断言原文"新快轨在这批语料上的账漂了——改动必须是
+  有意识重录"）；按 md5 `e1ea2d95…` 逐字节还原后复绿。
+
+
 
 
 

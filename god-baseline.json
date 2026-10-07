@@ -289,6 +289,26 @@
   "max_fn_lines": 2,
   "max_type_members": 0
  },
+ "crates/adv-cli/tests/data/py-old-new/d_param.py": {
+  "file_lines": 4,
+  "max_fn_lines": 2,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/data/py-old-new/e_literal.py": {
+  "file_lines": 5,
+  "max_fn_lines": 2,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/data/py-old-new/f_cross_lib.py": {
+  "file_lines": 4,
+  "max_fn_lines": 2,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/data/py-old-new/g_cross_use.py": {
+  "file_lines": 7,
+  "max_fn_lines": 2,
+  "max_type_members": 0
+ },
  "crates/adv-cli/tests/data/taint-crate/src/inner.rs": {
   "file_lines": 7,
   "max_fn_lines": 4,
@@ -312,6 +332,11 @@
  "crates/adv-cli/tests/engine_mir.rs": {
   "file_lines": 210,
   "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/old_new_ledger.rs": {
+  "file_lines": 188,
+  "max_fn_lines": 70,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/report_counts.rs": {
