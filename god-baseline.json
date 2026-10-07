@@ -1,4 +1,9 @@
 {
+ "RESEARCH/registry/validate.py": {
+  "file_lines": 98,
+  "max_fn_lines": 57,
+  "max_type_members": 0
+ },
  "bench/_cancel_e2e_probe.py": {
   "file_lines": 87,
   "max_fn_lines": 3,
@@ -174,6 +179,266 @@
   "max_fn_lines": 13,
   "max_type_members": 0
  },
+ "crates/adv-ast-rust/build.rs": {
+  "file_lines": 57,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/src/driver_probe.rs": {
+  "file_lines": 49,
+  "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/src/lib.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/src/main.rs": {
+  "file_lines": 343,
+  "max_fn_lines": 67,
+  "max_type_members": 7
+ },
+ "crates/adv-ast-rust/src/spec.rs": {
+  "file_lines": 62,
+  "max_fn_lines": 21,
+  "max_type_members": 5
+ },
+ "crates/adv-ast-rust/src/taint_reach.rs": {
+  "file_lines": 298,
+  "max_fn_lines": 41,
+  "max_type_members": 5
+ },
+ "crates/adv-ast-rust/src/wrapper.rs": {
+  "file_lines": 47,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/driver_probe.rs": {
+  "file_lines": 104,
+  "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/dual/taint_dual_role.rs": {
+  "file_lines": 10,
+  "max_fn_lines": 5,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/fixtures/m1_probe.rs": {
+  "file_lines": 19,
+  "max_fn_lines": 5,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/fixtures/taint_branch.rs": {
+  "file_lines": 11,
+  "max_fn_lines": 7,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/fixtures/taint_direct.rs": {
+  "file_lines": 8,
+  "max_fn_lines": 4,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/fixtures/taint_operators.rs": {
+  "file_lines": 18,
+  "max_fn_lines": 8,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/fixtures/taint_sanitized.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 6,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/mir_probe.rs": {
+  "file_lines": 64,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/taint_reach.rs": {
+  "file_lines": 250,
+  "max_fn_lines": 37,
+  "max_type_members": 0
+ },
+ "crates/adv-ast-rust/tests/wrapper_mode.rs": {
+  "file_lines": 203,
+  "max_fn_lines": 64,
+  "max_type_members": 0
+ },
+ "crates/adv-bin/src/lib.rs": {
+  "file_lines": 20,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/src/main.rs": {
+  "file_lines": 467,
+  "max_fn_lines": 83,
+  "max_type_members": 4
+ },
+ "crates/adv-cli/src/mir.rs": {
+  "file_lines": 282,
+  "max_fn_lines": 54,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/data/py-corpus/a_evals.py": {
+  "file_lines": 6,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/data/py-corpus/b_exec.py": {
+  "file_lines": 4,
+  "max_fn_lines": 2,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/data/taint-crate/src/inner.rs": {
+  "file_lines": 7,
+  "max_fn_lines": 4,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/data/taint-crate/src/lib.rs": {
+  "file_lines": 26,
+  "max_fn_lines": 4,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/data/three-way-corpus/only_fast.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 5,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/deep_cargo.rs": {
+  "file_lines": 167,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/engine_mir.rs": {
+  "file_lines": 182,
+  "max_fn_lines": 56,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/report_counts.rs": {
+  "file_lines": 102,
+  "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/three_way_ledger.rs": {
+  "file_lines": 89,
+  "max_fn_lines": 43,
+  "max_type_members": 0
+ },
+ "crates/adv-core/src/lib.rs": {
+  "file_lines": 58,
+  "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "crates/adv-index/src/lib.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-parse/src/generic.rs": {
+  "file_lines": 189,
+  "max_fn_lines": 9,
+  "max_type_members": 6
+ },
+ "crates/adv-parse/src/lib.rs": {
+  "file_lines": 65,
+  "max_fn_lines": 16,
+  "max_type_members": 0
+ },
+ "crates/adv-parse/src/mapper.rs": {
+  "file_lines": 172,
+  "max_fn_lines": 33,
+  "max_type_members": 1
+ },
+ "crates/adv-parse/src/python.rs": {
+  "file_lines": 204,
+  "max_fn_lines": 84,
+  "max_type_members": 0
+ },
+ "crates/adv-parse/src/rust_lang.rs": {
+  "file_lines": 232,
+  "max_fn_lines": 88,
+  "max_type_members": 0
+ },
+ "crates/adv-parse/tests/ast_snap.rs": {
+  "file_lines": 20,
+  "max_fn_lines": 4,
+  "max_type_members": 0
+ },
+ "crates/adv-rules/src/lib.rs": {
+  "file_lines": 28,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-rules/src/matcher.rs": {
+  "file_lines": 232,
+  "max_fn_lines": 38,
+  "max_type_members": 9
+ },
+ "crates/adv-rules/src/rule.rs": {
+  "file_lines": 166,
+  "max_fn_lines": 38,
+  "max_type_members": 4
+ },
+ "crates/adv-rules/src/suppression.rs": {
+  "file_lines": 156,
+  "max_fn_lines": 76,
+  "max_type_members": 5
+ },
+ "crates/adv-rules/src/taint.rs": {
+  "file_lines": 421,
+  "max_fn_lines": 79,
+  "max_type_members": 3
+ },
+ "crates/adv-rules/src/testing.rs": {
+  "file_lines": 59,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
+ "crates/adv-rules/tests/golden.rs": {
+  "file_lines": 51,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "crates/adv-rules/tests/m1s2.rs": {
+  "file_lines": 100,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "crates/adv-rules/tests/m2s2.rs": {
+  "file_lines": 78,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "crates/adv-rules/tests/ruleid.rs": {
+  "file_lines": 112,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
+ "crates/adv-sandbox/src/lib.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-sca/src/lib.rs": {
+  "file_lines": 20,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-secrets/src/lib.rs": {
+  "file_lines": 20,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-server/src/lib.rs": {
+  "file_lines": 21,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-taint/src/lib.rs": {
+  "file_lines": 19,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
  "hub_auth.py": {
   "file_lines": 219,
   "max_fn_lines": 16,
@@ -245,8 +510,8 @@
   "max_type_members": 0
  },
  "registry.py": {
-  "file_lines": 718,
-  "max_fn_lines": 117,
+  "file_lines": 754,
+  "max_fn_lines": 116,
   "max_type_members": 0
  },
  "rust/src/appaudit.rs": {
@@ -679,6 +944,11 @@
   "max_fn_lines": 0,
   "max_type_members": 0
  },
+ "scripts/ci_wiring_gate.py": {
+  "file_lines": 218,
+  "max_fn_lines": 48,
+  "max_type_members": 0
+ },
  "scripts/claim_gate.py": {
   "file_lines": 250,
   "max_fn_lines": 32,
@@ -687,6 +957,11 @@
  "scripts/coverage_gate.py": {
   "file_lines": 136,
   "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "scripts/debt_gate.py": {
+  "file_lines": 222,
+  "max_fn_lines": 29,
   "max_type_members": 0
  },
  "scripts/deps_lock.py": {
@@ -782,6 +1057,11 @@
  "scripts/quality_pact_gate.py": {
   "file_lines": 109,
   "max_fn_lines": 50,
+  "max_type_members": 0
+ },
+ "scripts/reconcile_mutants.py": {
+  "file_lines": 174,
+  "max_fn_lines": 49,
   "max_type_members": 0
  },
  "scripts/secrets_history.py": {
@@ -909,6 +1189,16 @@
   "max_fn_lines": 7,
   "max_type_members": 0
  },
+ "tests/test_ci_wiring_gate.py": {
+  "file_lines": 117,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "tests/test_debt_gate.py": {
+  "file_lines": 234,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
  "tests/test_deps_lock.py": {
   "file_lines": 57,
   "max_fn_lines": 9,
@@ -917,6 +1207,11 @@
  "tests/test_game.py": {
   "file_lines": 75,
   "max_fn_lines": 14,
+  "max_type_members": 0
+ },
+ "tests/test_gate_lines.py": {
+  "file_lines": 116,
+  "max_fn_lines": 13,
   "max_type_members": 0
  },
  "tests/test_ide_build.py": {
@@ -992,6 +1287,11 @@
  "tests/test_r3_rename_impact.py": {
   "file_lines": 154,
   "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "tests/test_reconcile_mutants.py": {
+  "file_lines": 157,
+  "max_fn_lines": 31,
   "max_type_members": 0
  },
  "tests/test_s10.py": {
@@ -1170,7 +1470,7 @@
   "max_type_members": 0
  },
  "tests/test_s145_gates.py": {
-  "file_lines": 172,
+  "file_lines": 188,
   "max_fn_lines": 20,
   "max_type_members": 0
  },
@@ -1352,6 +1652,11 @@
  "tests/test_s208_stall_watchdog.py": {
   "file_lines": 75,
   "max_fn_lines": 12,
+  "max_type_members": 0
+ },
+ "tests/test_s210_reply_meter.py": {
+  "file_lines": 124,
+  "max_fn_lines": 18,
   "max_type_members": 0
  },
  "tests/test_s29_fuzz.py": {
@@ -1884,19 +2189,74 @@
   "max_fn_lines": 30,
   "max_type_members": 0
  },
- "tests/test_gate_lines.py": {
-  "file_lines": 116,
-  "max_fn_lines": 13,
+ "xtask/src/gate.rs": {
+  "file_lines": 23,
+  "max_fn_lines": 9,
   "max_type_members": 0
  },
- "tests/test_debt_gate.py": {
-  "file_lines": 234,
+ "xtask/src/god.rs": {
+  "file_lines": 349,
+  "max_fn_lines": 41,
+  "max_type_members": 4
+ },
+ "xtask/src/lib.rs": {
+  "file_lines": 13,
+  "max_fn_lines": 0,
+  "max_type_members": 0
+ },
+ "xtask/src/lockstep.rs": {
+  "file_lines": 88,
+  "max_fn_lines": 21,
+  "max_type_members": 0
+ },
+ "xtask/src/main.rs": {
+  "file_lines": 90,
+  "max_fn_lines": 61,
+  "max_type_members": 0
+ },
+ "xtask/src/maturity.rs": {
+  "file_lines": 99,
+  "max_fn_lines": 27,
+  "max_type_members": 1
+ },
+ "xtask/src/mir.rs": {
+  "file_lines": 45,
   "max_fn_lines": 22,
   "max_type_members": 0
  },
- "scripts/debt_gate.py": {
-  "file_lines": 222,
+ "xtask/src/mutants.rs": {
+  "file_lines": 537,
+  "max_fn_lines": 109,
+  "max_type_members": 1
+ },
+ "xtask/src/suppress.rs": {
+  "file_lines": 69,
   "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "xtask/src/verdict.rs": {
+  "file_lines": 44,
+  "max_fn_lines": 19,
+  "max_type_members": 0
+ },
+ "xtask/tests/canary.rs": {
+  "file_lines": 322,
+  "max_fn_lines": 44,
+  "max_type_members": 0
+ },
+ "xtask/tests/canary_gate.rs": {
+  "file_lines": 82,
+  "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "xtask/tests/canary_mutants.rs": {
+  "file_lines": 607,
+  "max_fn_lines": 60,
+  "max_type_members": 0
+ },
+ "xtask/tests/canary_verdict.rs": {
+  "file_lines": 203,
+  "max_fn_lines": 69,
   "max_type_members": 0
  }
 }

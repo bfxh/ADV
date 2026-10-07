@@ -1176,3 +1176,129 @@ mutants: 绿
 
 档位的实际收益（同一台机、同一轮）：全档 **433 条 / ~17 分钟**，增量档 **34 条 / 139 秒**；
 一片里中段自查走增量、收尾走全档，是这一片唯一被量出来成立的分档。
+
+# 片L（2026-10-07）：DD-0011 把壳搬到能喂进真红的位置 + 附一条诊断订正
+
+## 修法用的是登记里预选的那条杠杆
+
+DD-0011 的 `guards` 写着两条候选：「把 root 变成可注入参数让金丝雀能造一次真红的子门」或
+「让 merge_gate 一侧的等价性消失」。选前者：`gate_run` 本来就已经收 `root` 参数，真正不可注入的是
+**它住在 bin 里**——集成测试 import 不到 bin，所以没有任何测试能把红喂给它。搬进
+`xtask/src/gate.rs::run(root)` 后观察面立刻存在，bin 只剩一行 `gate::run(&root)`。
+
+金丝雀两条（`xtask/tests/canary_gate.rs`）：
+
+1. `canary_gate_run_does_not_swallow_a_red_subgate`：合成根——成员目录齐全、源码 3 行、
+   god 基线记 1 行 ⇒ 真值是「棘轮恶化」的红。断言 `gate::run` 清单**非空**，且每条明细带
+   `god:` / `suppress:` 前缀（前缀漂了就定位不到是哪道子门报的）。
+2. `canary_gate_run_reports_a_broken_subgate_as_unjudgeable`：成员目录缺失 ⇒ 必须 `Err`
+   （由 `verdict` 落成「判不了」+ 退出码 3）。换成空清单在这条上同样判红。
+
+先证红（老规矩，不靠"测试应该能抓到"）：把 `run` 整体手打成 `Ok(Default::default())` ⇒
+**两条同时 FAILED**；逐字节还原（md5 `07524f6ea2f7dc436d4a519b770cfd06` 对账，不用
+`git checkout --`）后复绿。
+
+## 门的原话（同一提交两轮，逐位一致）
+
+```
+判定轮  变异面 总=433 捕获=372 未捕获=22 unviable=36 档=全档
+        mutants: 红（1 条）
+          - 基线键本轮无可判定变异（不可验证…）：xtask/src/main.rs::gate_run
+重录轮  变异面 总=433 捕获=372 未捕获=22 unviable=36 档=全档
+        基线已写 tools/baselines/mutants-baseline.json（missed 10 条）
+        注意：本次重录从基线移除了 1 个键…：- xtask/src/main.rs::gate_run
+```
+
+与片K 收尾轮（HEAD `f73e4c0`：总=433 捕获=371 未捕获=23）对照：**总数不变、捕获 +1、未捕获 −1**，
+差值正是这条债。`reconcile_mutants.py --keys` 给 `xtask/src/gate.rs::run` =
+`{'CaughtMutant': 3}`（Missed 0）⇒ 新面是真被杀而不是没测到；旧键「本轮没出现该键」是因为函数搬走，
+不是因为构建/链接失败（同轮 unviable 仍是 36，未涨）。重录后默认对账四份清单全空 ⇒ RECONCILE OK。
+
+捕获率按门自己打印的数：372/433 = **85.9%**（含 unviable 分母）；只对可判定面 433−36=397 ⇒
+372/397 = **93.7%**。未捕获 22 条按键：`taint.rs` 四键 1+2+1+1、`main.rs::main` 2、
+`maturity.rs::pattern_matches` 1、`maturity.rs::seg_eq` 1（另有 Timeout 2 条不计入）、
+`mir.rs::run` 3、`mir.rs::rustc_print` 2、`mutants.rs::run` 8 —— 合计 22，与门打印数一致。
+
+god 侧：`xtask god --write` 基线 456 → 462，逐键点名（新增 7 面、**移除
+`fn:xtask/src/main.rs::gate_run`**、`file:xtask/src/lib.rs` 11→12）——移除那条正是搬家，
+不是丢面。
+
+## 这一片自己撞到的一条（而且是门在起作用）
+
+第一次收尾跑用的是命令默认 `--base`，本机没有 `main` 分支 ⇒ 门**没有**给数字，而是
+`mutants: 判不了（本轮没出判定，别把别的数当结论）：diff 口径 main...HEAD 取不到（git 退出码 128）…`
++ 退出码 3。片K 刚立的三态契约第一次在真实误用下兑现：如果它当时像旧版那样把失败当"没跑完"甩一句裸
+错误，我很可能又去复算别的数当结论。复跑口径改回本片一直在用的 `--base 6201ea4`。
+
+## 附：DD-0002 / DD-0003 的诊断被实测推翻（订正，不是新增债）
+
+登记里 DD-0003 写「快轨对 Rust 的污点**能力缺失**」、DD-0002 写「没有任何一条规则能同时在 AST 与
+MIR 成立 ⇒『两边都报』结构上凑不出来」。今天下午两条固定命令把这两句都判成**错**：
+
+| 语料（只差一处形态） | 快轨 `--engine ast` | 深轨 `--engine mir` | 三方账 |
+|---|---|---|---|
+| `chained.rs`：`let raw = std::env::var("X").unwrap_or_default(); Command::new(raw)` | **0 条** | 1 条 | 仅深轨 1 / 两边都报 0 |
+| `direct.rs`：同一句去掉 `.unwrap_or_default()` | **1 条**（`RS-TAINT-COMMAND`，engine=tree-sitter，行 3） | 1 条 | 同键可得 |
+| `crates/adv-ast-rust/tests/fixtures`（4 份污点夹具） | 0 条 | 4 条 | 仅深轨 4 |
+
+复现：`cargo run -q -p adv-cli -- scan <路径> --rules rules --engine ast|mir|both`。
+
+机制（读码定位，与上面 A/B 一致）：`crates/adv-parse/src/rust_lang.rs:142-177` 的 `dotted_callee`
+把链式调用的外层 callee 拼成 `std::env::var.unwrap_or_default`；`crates/adv-rules/src/taint.rs:279-280`
+判"调用即源点"用 `sources.iter().any(|s| s == callee)` 精确相等，`matcher.rs:163-172` 的裸名档也要求
+全等 ⇒ 赋值右侧永远匹配不上源点，声明过的 propagator（`unwrap_or_default`）同样落空。
+
+所以真实形状是：**快轨有 Rust 污点引擎且能用（`adv-rules/src/taint.rs`，Python 的 PY-TAINT-EVAL 正在
+用它），缺的是"链式调用上的源点/propagator 匹配"**。这把 DD-0003 从「切片顺序的代价（设计债）」降级
+为「产品级漏报（可修的判定缺陷）」——更严重而不是更轻：任何写成链式的 Rust 源点在快轨上静默流空。
+DD-0002 那句「结构上凑不出来」同时撤回：同一规则、同一文件、同一行（两边都报 1 条）在两轨是可得的，
+现在差的只有这条链。债条按实测改写，处置（含误杀面 A/B）留到片M。
+
+## 片L 重放
+
+`cargo fmt --check` 0 · clippy（先 touch，`--workspace --all-targets -D warnings`）exit 0 ·
+`cargo test --workspace` exit 0（44 条 `test result: ok`，xtask 侧 12+2+15+5=34）·
+`xtask gate` 绿 · `xtask mir` 绿 · `xtask god` 绿（重录后）· `debt_gate` 红 4 处
+（DD-0002/0003/0005/0008；DD-0011 已销，在册 4 / 已销 7）· 变异门全档两轮逐位一致（见上）·
+`reconcile_mutants` RECONCILE OK。
+
+## 附二：按线重放才发现的存量真红（公开撤回片J 的一条）
+
+上面那段"片L 重放"我最初也是按老习惯列的单脚本清单。这次改成跑**整条线**
+`python -X utf8 scripts/local_gate.py --line adv-m2`，第一步就把两片都没看见的东西抖出来了：
+
+- `test_s167_god_gate.py::test_baseline_exists_and_gate_green` FAILED ⇒ python 侧 god 门
+  `✗ tests/test_s145_gates.py: file_lines 172 → 188（不许变胖）`。查账：
+  `git show f470ded:tests/test_s145_gates.py | wc -l` = **187**，而**同一次提交**里的
+  `god-baseline.json` 该键写 `file_lines: 172` ⇒ 这道门从片J 起每个提交都该判红，一直没被看见。
+  **因此片J 重放栏里那句 `pytest … s167 7 … = 50 条过` 是错的**（我今天在同一台机上跑同一批
+  文件：49 过 1 红）。错因不是编码、不是环境，是我把"我跑了哪些脚本"当成了"门跑了哪些脚本"：
+  `god-gate` 明明在 `adv-m2` 这条线的 15 步里，而我两片都只挑单脚本跑，恰好跳过了它。
+- 另有一类是**我自己的调用口径**造成的假红：直接 `python -m pytest` 在本机 cp936 下会让
+  子进程读线程解码失败 ⇒ `cp.stdout is None` ⇒ 10 条测试报 `TypeError: NoneType`，看着像门坏。
+  加 `-X utf8` 后同一批 49 过 1 红。教训：本仓 python 侧一律 `python -X utf8 -m pytest`。
+
+## 附三：python god 门的一个盲区（登记为 DD-0012）
+
+清上面那条红要用 `--write-baseline`，重录时门自己打印的规模暴露了更大的事实：
+基线 **380 → 452 键**，其中**新增 72、移除 0、变大 2**。72 个新增几乎全是历片新建的 Rust 面
+（`xtask/tests/canary_mutants.rs` 607 行、`xtask/src/mutants.rs` 537、`crates/adv-cli/src/main.rs` 467、
+`crates/adv-rules/src/taint.rs` 421……）。机制核对（`scripts/god_gate.py:303`）：表外新文件只在
+**超硬阈**时才 `（新增，无基线）` 报红，没超阈就一声不响 ⇒ 棘轮实际只约束"已经在表里的键"，
+一个新面从创建到硬阈之间可以任意生长而不判红。同一形状在 Rust 侧会红
+（`god.rs::ratchet_violations` 的 `None => 未登记 …` 分支）。
+
+复跑门：`GOD-GATE OK 超标/变胖=0` ⇒ 这次登记没有把超阈面洗白（这是登记动作唯一的自证，
+所以我把它也写进账）。缺的判据本体登记成 **DD-0012**（在册 5 / 已销 7，债门仍红 4 处——
+DD-0012 的 `since` 是今天的 HEAD，还没到期）。
+
+## 片L 最终重放（按线）
+
+```
+LOCAL-GATE FAIL steps=14 skipped=['cli-bench', 'perf-gate', 'coverage-gate'] failed=['debt-gate'] total=22.9s
+```
+逐步：path-gate / arch-gate / ci-wiring-gate / claim-gate / name-ledger / bench-anchor /
+handoff-gate / deps-lock / **god-gate** / type-gate / quality-pact / cargo-test / clippy 全 OK；
+debt-gate 红 4 处（都是 D5 逾期，属"账没处置完"不是回归）；三个计时/覆盖率步按档跳过并写明开关。
+
+
