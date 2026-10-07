@@ -1397,6 +1397,50 @@ propagator / sanitizer 两档（`std::env::var(x).unwrap_or_default()` 的尾段
 - `cargo test --workspace` **101 passed / 0 failed** · clippy `-D warnings` exit 0 · fmt 0 差异 ·
   `xtask god` / `gate` / `mir` 全绿。
 
+# 片M-3（2026-10-07）：DD-0013 按 B 案修（只归一账的键，不动行契约与金样）
+
+用户拍板选 B。落点：`crates/adv-cli/src/main.rs` 新增 `ledger_file(finding, cargo_base)`，
+`three_way_buckets` / `three_way` / `report` 改收 `Option<&Path>`，`scan` 只在 `--deep-via-cargo`
+时传 `Some(target)`，逐文件 mir 档传 `None`（不拼接）。
+
+## 三条归一边界，每条都是我自己踩出来的
+
+第一版按"路径是否绝对"无差别 join，**用相对路径调用时当场露馅**：快轨的相对路径
+`crates/…/taint-crate/src/lib.rs` 已经含目标目录，再叠一次 base 得到
+`crates/…/taint-crate/crates/…/taint-crate/src/lib.rs`，两边都不相等 ⇒ 账仍是 0。
+（是我在改完后用 `adv scan crates/adv-cli/tests/data/taint-crate …` 复跑发现的，
+不是靠测试通过的绿——测试当时用的是绝对路径，恰好把这条掩盖了。）
+
+于是判据写成三条，各有单测：① 只作用于 `ENGINE_MIR` 且非绝对路径；② `cargo_base = None`
+（逐文件档）一个字符都不动；③ base 必须是调用者给的 target —— 反例单测钉住
+"不同 crate 的同名 `src/lib.rs` 不许撞上"，因为那种归一会造出**并不存在的相互印证**，
+比双计更糟。
+
+## 实测（三档调用形状）
+
+| 调用 | 改前 | 改后 |
+|---|---|---|
+| `--engine both --deep-via-cargo`（相对目标） | `6 条发现（快轨 3 / 深轨 3）`+`两边都报 0 / 仅快轨 3 / 仅深轨 3` | `两边都报 3 / 仅快轨 0 / 仅深轨 0` |
+| 同上（绝对目标） | 同形 0/3/3 | `两边都报 3 / 0 / 0` |
+| `--engine both`（逐文件档，fixtures） | `两边都报 3 / 0 / 1` | 不变 `3 / 0 / 1`（那 1 是 `taint_branch` 的 CFG 语义差） |
+
+**B 案的已知边界**（如实记，不算回归）：stdout 仍按两引擎各自的 file 形状出行，3 个流程 6 行——
+账里不再双计，回包侧要按 `engine` 分行才能对账（`deep_cargo.rs` 就是这么改的）。金样
+`crates/adv-cli/tests/golden/deep-cargo.jsonl` **一字节未改**，这是 B 与 A 的全部差别。
+
+`deep_cargo.rs` 里那条"钉症状"的断言按它自己的要求（改完必须判红并指名来改账）兑现了一次：
+先红，再把期望换成归一后的形状，注释里留了 6 行为什么不是 bug。
+
+## 片M-3 重放与账
+
+- DD-0013 销（`retired_in 45a76f4`）。在册 3（DD-0005 / DD-0008 / DD-0012）/ 已销 10；
+  debt_gate 红 **2** 处。
+- god 两侧重录并点名：xtask `474 → 476`（新增 `ledger_file` 与其测试；`file:main.rs` 466 → 588、
+  `fn:scan` 83 → 89、`fn:three_way_buckets` 17 → 20）；python god 452 键（1 处变大）。
+- clippy `-D warnings` exit 0 · `cargo test --workspace` **102 passed / 0 failed** ·
+  `xtask god` / `gate` 绿 · fmt 0 差异。
+
+
 
 
 

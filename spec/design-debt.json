@@ -44,17 +44,6 @@
       "since": "5f55eb0",
       "due_after_tasks": 10,
       "guards": "72 个面已随 `--write-baseline` 登记并由门逐键点名（新增 72、移除 0、变大 2），存量红已清。缺的判据本体：把 Rust 侧的 `未登记 ⇒ 红` 搬到 python 侧（或加 `扫描面 ⊆ 基线键` 检查）+ 一条金丝雀——基线里没有的 .py/.rs 文件必须让门判红，而不是只在超阈时才响。"
-    },
-    {
-      "id": "DD-0013",
-      "surface": "crates/adv-cli/src/mir.rs::scan_crate_via_cargo 的 finding.file 路径口径",
-      "kind": "design",
-      "defect": "`--engine both --deep-via-cargo` 下，深轨的 `file` 是 **crate 相对路径**（`src/lib.rs`），快轨的是**调用者给的路径**（`D:/KF/ADV/crates/adv-cli/tests/data/taint-crate/src/lib.rs`）⇒ 三方账的键 `(rule, file, line)` 不同源。2026-10-07 实测（同一份 taint-crate，3 条真流程）：`adv scan … --engine both --deep-via-cargo` 打 `6 条发现（快轨 3 / 深轨 3）` 且`三方账：两边都报 0 / 仅快轨 3 / 仅深轨 3`——3 个流程被算成 6 条，最有信息量的桶仍是 0。对照：非 cargo 档（逐文件 mir）两边同键，扫 `crates/adv-ast-rust/tests/fixtures` 得 `两边都报 3 / 仅快轨 0 / 仅深轨 1`。所以缺陷只出在 cargo 档的归属层。",
-      "why_from_design": "深轨边车在被扫 crate 的目录里由 cargo 起 rustc，span 天然是 crate 相对的；驱动把这个原文形状直接写进 jsonl，`scan_crate_via_cargo` 读回来时**没有把路径换回调用者的坐标系**（快轨没有这个换算，因为它自己走目录）。两轨的 file 字段没有共同的归属约定 ⇒ 任何跨引擎对账（三方账、以后的增量门、报表去重）都会静默双计并假装没有重叠。这与本仓反复的形状一致：不是判错，是两个判定各说各话却共用一个键名。",
-      "origin": "a9e8212",
-      "since": "da4675f",
-      "due_after_tasks": 10,
-      "guards": "症状已被钉住：`crates/adv-cli/tests/deep_cargo.rs` 断言 `两边都报 0 / 仅快轨 3 / 仅深轨 3`，路径口径一修就会判红并指名来改账（不许静默变绿）；同文件同时断言两侧各 3 条与夹具 `adv-expect: hit` 标记同数。**修法两选一待裁**：A=在 `scan_crate_via_cargo` 把 file 换成调用者坐标系（golden `deep-cargo.jsonl` 的 3 行 file 字段要**有意识重录**，属动冻结契约）；B=只在 `three_way_buckets` 的键上做路径归一（stdout/golden 不变，但两引擎回包仍不同形，双计只在账里消失）。"
     }
   ],
   "retired_fields": [
@@ -107,6 +96,11 @@
       "id": "DD-0002",
       "evidence": "2026-10-07 片M 填上并实测。旧登记说「没有任何一条规则能同时在 AST 与 MIR 成立 ⇒ 同键结构上凑不出来」——片L 的 A/B 已证伪，今天修完链式匹配后落成数字：扫 `crates/adv-ast-rust/tests/fixtures` `--engine both` 得 **两边都报 3** / 仅快轨 0 / 仅深轨 1（改前是 0 / 0 / 4）。\n钉法不是抄跑出来的数：`three_way_ledger.rs::both_bucket_is_non_empty_on_the_chained_rust_taint_flow` 把期望行号取回夹具文本（源点行必须早于汇点行），并断言三个桶的计数与两侧 `(规则,文件,行)` 集合**自洽**（两边都报 == |fast ∩ deep|、仅快轨 == |fast|−交集、仅深轨 == |deep|−交集）——桶不许自己数一套、集合并另一套。\n余两笔另有去处（不随本条销）：分支合流的 AST 语义差是设计取舍；cargo 档两引擎 file 字段不同源导致的双计/桶归零在 **DD-0013**。",
       "retired_in": "d55c62c"
+    },
+    {
+      "id": "DD-0013",
+      "evidence": "2026-10-07 按 **B 案**（只在账的键上归一，stdout 与金样不动）修完并实测。\n实现：`crates/adv-cli/src/main.rs` 新增 `ledger_file(finding, cargo_base)`，`three_way_buckets`/`three_way`/`report` 收 `Option<&Path>`；`scan` 只在 `via_cargo` 时传 `Some(target)`，逐文件 mir 档传 `None`（一个字符都不动）。归一条件三条：只作用于 `ENGINE_MIR` 且非绝对路径、`None` 时不拼、base 必须是调用者给的 target。\n为什么是三条而不是「统一拼接」：第一版我按字符串是否为绝对路径无差别 join，**用相对路径调用时当场露馅**——快轨的相对路径已经含目标目录，再叠 base 会造出 `目标/目标/…`，两边都不相等，账仍是 0。三条边界各有对应单测（含那条相对调用形状）。\n实测（`adv scan <taint-crate> --rules rules --engine both --deep-via-cargo`）：改前 `6 条发现（快轨 3 / 深轨 3）` + `两边都报 0 / 仅快轨 3 / 仅深轨 3`（3 流程双计、桶归零）；改后相对与绝对两种调用**都是** `两边都报 3 / 仅快轨 0 / 仅深轨 0`。逐文件档不变：`两边都报 3 / 仅快轨 0 / 仅深轨 1`（那 1 是 taint_branch 的 CFG 语义差）。\n判据落点：`ledger_key_normalizes_cargo_relative_paths_onto_the_target`（含「不同 crate 的同名 src/lib.rs 不许撞上」的反例，防止归一造出不存在的相互印证）；`crates/adv-cli/tests/deep_cargo.rs` 里那条刻意钉症状的断言按约定改账为归一后的形状，金样 `deep-cargo.jsonl` 一字节未改（B 案的取舍）。\nB 案的**已知边界**（不是回归）：stdout 两引擎仍各写自己那套 file 形状，3 个流程 6 行——账里不再双计，回包侧要按 engine 分行才能对账（本仓测试就是这么做的）。",
+      "retired_in": "45a76f4"
     }
   ]
 }
