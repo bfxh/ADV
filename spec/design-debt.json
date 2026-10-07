@@ -33,6 +33,17 @@
       "since": "9b9d5f26",
       "due_after_tasks": 10,
       "guards": "无自动判据（靠本登记到期判红）。推进口径已定（用户 2026-10-08 拍板「撤步 + 登记设计债」）：① 撤步不等于销账——ci-wiring.json 的 adv-rewrite 清单里 coverage-gate 已摘，W3 会盯着「清单有而步骤无」，反向的「步骤有而清单无」由 W4 盯；② 到期前重开覆盖率**必须换 host**（linux-gnu 分发带 profiler_builtins，即另开 ubuntu job 跑 cargo llvm-cov），前提是 vectorscan 在 Linux 上先验通——这条路本仓至今没验过，别按『apt 装个 boost 就行』估工；③ 不许用「msvc host + --exclude adv-secrets」的半覆盖充数：那样绿的是不含 secrets 面的子集，而 secrets 面正是 M3-1 内化的那块；④ 覆盖率数字在能真测之前一律按『没有』记账，不得写进 README/HARDENING（claim-gate 会要真值源）。"
+    },
+    {
+      "id": "DD-0015",
+      "surface": "vendored noseyparker 的 gix-date 依赖（deny advisories 面）",
+      "kind": "dependency",
+      "defect": "2026-10-08 实测：CI 的 `deny` 步第一次真跑（此前它一直是 skipped，被上游步骤判红遮住）就判红，全树恰好 1 条 advisory：`gix-date 0.10.7` 命中 RUSTSEC-2025-0140（「TimeBuf::as_str 能造出非 UTF-8 字符串，消费侧是不安全代码」）。修复只在 >=0.12.0，而 vendored 的 `crates/input-enumerator/Cargo.toml` 钉 `gix-date = 0.10` ⇒ semver 区间内无修复版（crates.io API 实测 0.10.x 线止于 0.10.7）；上游 Nosey Parker 已于 2026-02-21 退役（末次提交「Update README to reflect Nosey Parker retirement」，SHA 2e6e7f3 即本仓 VENDOR.md 出处锚）⇒ 等不到上游修，也不能改 vendored 清单（vendor 契约是只读不改）。处置：`deny.toml` 加**这一条 id 的窄豁免**并写明不可达证据——出事的 API 只被 `input-enumerator/src/git_commit_metadata.rs`（git 提交元数据枚举）用到，而 `adv-secrets` 的入口面只用 blob / blob_id_map / matcher / provenance / rules_database / defaults。**欠的是什么**：豁免说的是「当前入口够不到」，不是「无害」。依赖树里带着一个已知 UB 的 crate，一旦有人把 git 枚举面接进来（M3-1b 的 datastore/增量方向就可能接），这条豁免立刻变成真漏洞。",
+      "why_from_design": "内化 Nosey Parker 时按「整 crate 进来、我们只用其中一条路径」的薄封装接，而 `gix` 与 `input-enumerator` 是 `noseyparker` crate 的**非可选依赖** ⇒ 我们不用的 git 面照样进依赖图、照样进 Cargo.lock、照样吃 advisory。接线时没人核过「用不到的能力带来的依赖面由谁负责」；而本该答这道题的 deny 步一直 skipped（一道门红就把后面的读数全遮住），缺口因此沉默到今天。",
+      "origin": "91e14b6",
+      "since": "b7d5ab8f",
+      "due_after_tasks": 10,
+      "guards": "无自动判据（靠本登记到期判红）。三条出圈路径，任选其一即可销账，销账要带实测证据：① 把 git 枚举从我们的依赖图里摘掉——`third_party/noseyparker/crates/noseyparker/Cargo.toml` 里 `gix = 0.73` 与 `input-enumerator` 都是非可选，要么重新裁定 vendor 契约（改上游清单），要么把用到的能力拆成不含 git 的上游子集；② 换一个仍在维护、且能钉到 gix-date >=0.12 的 secrets 引擎；③ 出现可同步的上游版本（上游已退役，实测无解；若社区 fork 则重评）。另有一条硬约束：**谁把 git 面接进 adv-secrets，必须先撤 deny.toml 里这条豁免**——豁免的理由是「够不到」，接进来就同时失效。"
     }
   ],
   "retired_fields": [

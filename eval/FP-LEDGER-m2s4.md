@@ -2028,3 +2028,47 @@ run 37653030397（`4cc4477`）实测：`cargo-lock` 步在 runner 上 success，
 matcher 段与 OSV/RustSec 本地快照（要网络与验签）留 M3-3；npm/pnpm/uv/bun 读取器**等真语料**；
 D5-025 六条里第 2/3/4 条今天没有可验的锁，第 5 条（`-Zminimal-versions` 下界冒烟）要 nightly 没碰；
 XZ 的 9 条检测规则一条都没动。
+
+## M3-1/M3-2 之间插进来的一条真红：`deny` 第一次真跑就判红（DD-0015）
+
+**为什么现在才看见**：`adv.yml` 里 `deny` 步在前几轮一直是 `skipped`——它排在 `Debt gate` 后面，
+而后者判红就终止。上一提交给五处判定步加了 `if: always()`，**这一改动下一轮就直接兑现**：
+run 37656346995（`b7d5ab8f`）里 `deny` 真跑了，并当场判红。读数是
+`advisories FAILED, bans ok, licenses ok, sources ok`（不是全树炸，是一条公告）。
+
+**链条每一环都实测过**（本机 `cargo deny 0.20.2` 复现同一条，不是只看 CI 摘要）：
+
+1. `Cargo.lock:84` → `gix-date 0.10.7` 命中 **RUSTSEC-2025-0140**（`TimeBuf::as_str` 能造出非 UTF-8 字符串，
+   消费侧是不安全代码）。全树**恰好 1 条**（`grep -c 'error\[vulnerability\]'` = 1）。
+2. 公告给的解法是 `>=0.12.0`。crates.io API 实测 `gix-date` 的 **0.10.x 线止于 0.10.7** ⇒ semver 区间内无修复版。
+3. 钉住区间的是 vendored 清单：`third_party/noseyparker/crates/input-enumerator/Cargo.toml:17` = `gix-date = "0.10"`；
+   `cargo tree -i gix-date` 显示上游是 `gix v0.73.0` ← `input-enumerator` + `noseyparker` 两处。
+4. 上游 `praetorian-inc/noseyparker` 的最近提交（`gh api`）是
+   `2e6e7f3 2026-02-21 Update README to reflect Nosey Parker retirement (#288)`——**就是本仓 VENDOR.md 的出处锚**，
+   即上游已退役 ⇒ 「等上游修」这条路实测不存在，而「改 vendored 清单」破的是只读不改的契约。
+
+**不可达证据（豁免不是"无害"声明）**：出事的 `gix_date::parse::TimeBuf` 只被
+`input-enumerator/src/git_commit_metadata.rs`（git 提交元数据枚举）使用；`adv-secrets` 的入口面只调
+`blob` / `blob_id_map` / `matcher` / `provenance` / `rules_database` / `defaults::get_builtin_rules`
+（逐条在 `crates/adv-secrets/src/lib.rs:14-19,47`）。所以当前路径够不到，**但树里带着一个已知 UB 的 crate**。
+
+**处置（用户拍板「窄豁免 + 登记设计债」）**：`deny.toml` 只豁免这一条 id，理由把上面四环写全，
+并钉一条硬约束——**谁把 git 面接进 adv-secrets，必须先撤这行豁免**；同时登记 **DD-0015**
+（`origin=91e14b6` 即 vendor 那次、`since=b7d5ab8f`、`due_after_tasks=10`、三条出圈路径写在 guards）。
+复验：`cargo deny check` rc=0（advisories/bans/licenses/sources 全 ok）；
+`debt_gate.py` 只剩 DD-0005 一处红（DD-0014/DD-0015 都在限期里）。
+
+## 变异门：全档这轮**判不了**，没当结论用
+
+`TMP=D:/tmp/adv-mut cargo run -p xtask -- mutants --base 6201ea4` 跑到中途 worker 报
+`磁盘空间不足 (os error 112)`，门返回 **exit 3「判不了」**（三态契约正常动作，不是回归）。
+现场量：`D:` 预检时 11.2GB 空闲（过 8GB 闸门），但 scratch 里泄漏的 4 个
+`cargo-mutants-ADV-*.tmp` 就占 **3.65GB**（单个 583MB–1.8GB），加上 `target/debug` 的 25GB，
+531 个变异的并发窗口放不进这台机器的 D 盘。清掉泄漏 scratch 后 D 盘 15.4GB。
+⇒ **全档对本片没有读数**，这一条不算绿也不算红，改跑增量档（`--since b7d5ab8f^`，
+门自己禁止增量档重录基线：`refuse_incremental_update`），全档等盘位腾出来再补。
+
+中途那份残缺输出里 `crates/adv-sca/*` 有几条 MISSED（`Report::red -> empty()`、`join -> "xyzzy"`、
+`find_locks` 的布尔算子）。**先不下结论**：`Report::red` 那条的断言其实在 `adv-cli` 的退出码测试里，
+跨包 ⇒ 按本仓实测过的包作用域，门不算它被覆盖（这条要在增量档里复核，复核不动就先按债处理，
+不靠重录基线洗）。
