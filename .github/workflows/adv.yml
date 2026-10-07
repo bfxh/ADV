@@ -15,12 +15,6 @@ jobs:
   core:
     runs-on: windows-latest
     timeout-minutes: 30
-    # **CI 与本地同尺：用 GNU target**（2026-10-07 实测定的）。默认的 windows-latest 会选 MSVC，
-    # 而内化 Nosey Parker 带的 vectorscan 只吃 gcc/clang 的 C++ 工具链、且要 CMake 找到 mingw 的 Boost：
-    # MSVC 生成器下 find_package(Boost) 直接失败（CI 日志原文 "Configuring incomplete"）。
-    # 本机开发一直是 x86_64-pc-windows-gnu，改 CI 跟随它比反过来改本机风险小。
-    env:
-      CARGO_BUILD_TARGET: x86_64-pc-windows-gnu
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,7 +24,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
         with:
           components: clippy, rustfmt
-          targets: x86_64-pc-windows-gnu
+      # **CI 与本地同尺：gnu host**（2026-10-07 实测定）。runner 的 default-host 是 msvc，
+      # 而 `rust-toolchain.toml` 把 channel 钉成 `1.99.0` ⇒ CI 会解析出 1.99.0-**msvc**；
+      # 内化 Nosey Parker 带的 vectorscan 只吃 gcc/clang 的 C++ 工具链、且要 CMake 找到 mingw 的 Boost
+      # （MSVC 生成器下 find_package(Boost) 直接 "Configuring incomplete"，实测原文）。
+      # 所以显式装 gnu host 的同一版本，并用 RUSTUP_TOOLCHAIN 覆盖本文件解析——版本号与本仓
+      # `rust-toolchain.toml` 的 channel 保持一致（改一处要改两处，已在账本登记）。
+      - name: 装 GNU host 的 Rust 工具链（与 rust-toolchain.toml 同版本）
+        shell: bash
+        run: |
+          rustup toolchain install 1.99.0-x86_64-pc-windows-gnu --profile minimal --component rustfmt,clippy,rustc-dev
+          echo "RUSTUP_TOOLCHAIN=1.99.0-x86_64-pc-windows-gnu" >> "$GITHUB_ENV"
       - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-nextest,cargo-deny,cargo-llvm-cov
