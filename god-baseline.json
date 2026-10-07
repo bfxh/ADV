@@ -270,7 +270,7 @@
   "max_type_members": 0
  },
  "crates/adv-cli/src/main.rs": {
-  "file_lines": 627,
+  "file_lines": 629,
   "max_fn_lines": 89,
   "max_type_members": 4
  },
@@ -280,8 +280,13 @@
   "max_type_members": 0
  },
  "crates/adv-cli/src/sca.rs": {
-  "file_lines": 60,
-  "max_fn_lines": 46,
+  "file_lines": 95,
+  "max_fn_lines": 55,
+  "max_type_members": 2
+ },
+ "crates/adv-cli/src/snapshot.rs": {
+  "file_lines": 93,
+  "max_fn_lines": 47,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/data/py-corpus/a_evals.py": {
@@ -347,6 +352,11 @@
  "crates/adv-cli/tests/report_counts.rs": {
   "file_lines": 102,
   "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/sca_advisories.rs": {
+  "file_lines": 69,
+  "max_fn_lines": 20,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/sca_cmd.rs": {
@@ -459,13 +469,18 @@
   "max_fn_lines": 3,
   "max_type_members": 0
  },
+ "crates/adv-sca/src/advisory.rs": {
+  "file_lines": 322,
+  "max_fn_lines": 34,
+  "max_type_members": 7
+ },
  "crates/adv-sca/src/inventory.rs": {
   "file_lines": 341,
   "max_fn_lines": 69,
   "max_type_members": 5
  },
  "crates/adv-sca/src/lib.rs": {
-  "file_lines": 29,
+  "file_lines": 32,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
@@ -473,6 +488,21 @@
   "file_lines": 247,
   "max_fn_lines": 94,
   "max_type_members": 5
+ },
+ "crates/adv-sca/src/matcher.rs": {
+  "file_lines": 171,
+  "max_fn_lines": 39,
+  "max_type_members": 7
+ },
+ "crates/adv-sca/src/snapshot.rs": {
+  "file_lines": 383,
+  "max_fn_lines": 41,
+  "max_type_members": 4
+ },
+ "crates/adv-sca/tests/advisories.rs": {
+  "file_lines": 151,
+  "max_fn_lines": 31,
+  "max_type_members": 0
  },
  "crates/adv-sca/tests/enumeration.rs": {
   "file_lines": 80,

@@ -1,0 +1,18 @@
+{
+  "source": "https://osv-vulnerabilities.storage.googleapis.com/",
+  "prefix": "crates.io/",
+  "objects": {
+    "crates.io/RUSTSEC-2020-0071.json": {
+      "etag": "d5b43c07c6a025c2be387b782f3f23e0",
+      "md5": "d5b43c07c6a025c2be387b782f3f23e0",
+      "size": 4042,
+      "last_modified": "2026-06-02T03:54:30Z"
+    },
+    "crates.io/GHSA-2226-4v3c-cff8.json": {
+      "etag": "f680efa7a65d5dfb346031994837c67c",
+      "md5": "f680efa7a65d5dfb346031994837c67c",
+      "size": 1442,
+      "last_modified": "2026-09-10T04:00:13.326Z"
+    }
+  }
+}

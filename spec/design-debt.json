@@ -43,7 +43,7 @@
       "origin": "91e14b6",
       "since": "b7d5ab8f",
       "due_after_tasks": 10,
-      "guards": "无自动判据（靠本登记到期判红）。三条出圈路径，任选其一即可销账，销账要带实测证据：① 把 git 枚举从我们的依赖图里摘掉——`third_party/noseyparker/crates/noseyparker/Cargo.toml` 里 `gix = 0.73` 与 `input-enumerator` 都是非可选，要么重新裁定 vendor 契约（改上游清单），要么把用到的能力拆成不含 git 的上游子集；② 换一个仍在维护、且能钉到 gix-date >=0.12 的 secrets 引擎；③ 出现可同步的上游版本（上游已退役，实测无解；若社区 fork 则重评）。另有一条硬约束：**谁把 git 面接进 adv-secrets，必须先撤 deny.toml 里这条豁免**——豁免的理由是「够不到」，接进来就同时失效。"
+      "guards": "无自动判据（靠本登记到期判红）。三条出圈路径，任选其一即可销账，销账要带实测证据：① 把 git 枚举从我们的依赖图里摘掉——`third_party/noseyparker/crates/noseyparker/Cargo.toml` 里 `gix = 0.73` 与 `input-enumerator` 都是非可选，要么重新裁定 vendor 契约（改上游清单），要么把用到的能力拆成不含 git 的上游子集；② 换一个仍在维护、且能钉到 gix-date >=0.12 的 secrets 引擎；③ 出现可同步的上游版本（上游已退役，实测无解；若社区 fork 则重评）。另有一条硬约束：**谁把 git 面接进 adv-secrets，必须先撤 deny.toml 里这条豁免**——豁免的理由是「够不到」，接进来就同时失效。\n2026-10-08（M3-3a 实测）风险面更新：本仓锁 × OSV 真快照在这个依赖面上命中 **14 条**（8 个包：gix/gix-date/gix-fs/gix-pack/gix-packetline/gix-sec/gix-transport/gix-validate），其中只有 RUSTSEC-2025-0140 一条是 cargo-deny（RustSec 库）也报的——另 13 条是 OSV 侧（含 GHSA）才有的。结论不变（我们仍不调 git 面 ⇒ 够不到），但**风险面比登记时大**，出圈优先级上调；且这 13 条的差异正是 M3-3b 要对账的那类差异。"
     },
     {
       "id": "DD-0016",

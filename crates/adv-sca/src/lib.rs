@@ -9,8 +9,11 @@
 //! matcher 段与 OSV/RustSec 快照留 M3-3，非 Cargo 的锁读取器**等真语料出现**再进产品面
 //! （实测本仓只有 3 把 Cargo.lock，npm/uv/pnpm 一把都没有）。
 
+pub mod advisory;
 pub mod inventory;
 pub mod lockcheck;
+pub mod matcher;
+pub mod snapshot;
 
 pub use lockcheck::{LockIssue, Report, check_lock, find_locks, scan_paths};
 

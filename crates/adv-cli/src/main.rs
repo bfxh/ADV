@@ -9,6 +9,7 @@
 
 mod mir;
 mod sca;
+mod snapshot;
 
 use adv_rules::Finding;
 use std::path::{Path, PathBuf};
@@ -61,9 +62,10 @@ fn main() {
         Some("scan") => scan(&args[1..]),
         Some("secrets") => secrets(&args[1..]),
         Some("sca") => sca::run(&args[1..]),
+        Some("snapshot") => snapshot::run(&args[1..]),
         _ => {
             eprintln!(
-                "用法：adv <scan <目录> [--rules <规则目录>] [--engine ast|mir|both] [--driver <路径>] [--deep-via-cargo] | secrets <路径…> | sca <路径…>>"
+                "用法：adv <scan <目录> [--rules <规则目录>] [--engine ast|mir|both] [--driver <路径>] [--deep-via-cargo] | secrets <路径…> | sca <路径…> [--snapshot <目录>] | snapshot <目录>>"
             );
             std::process::exit(2);
         }

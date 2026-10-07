@@ -2131,3 +2131,66 @@ success  gates          success  CI wiring gate  failure  Debt gate     success 
   `deny` 排在它后面且 `if: always()` 让它照跑，这正是上一提交加那行的目的。
 - 顺带一条不计入账的现象：`0b74891a` 那轮（37697815553）被判 **cancelled**（新推送把它顶掉），
   没有完整读数——不追它，以 `d32b7a9c` 这轮为准。
+
+# M3-3a：OSV 快照（列目录 + 逐对象条件 GET）+ 匹配面
+
+## 口径改判：ZIP 那条路整个不要了（先量改的，不是拍脑袋）
+
+用户拍板「两路都接、对账互校」之后，我先把通道量了一遍，结果否掉了我上一轮提的 ZIP 岔路：
+
+- 桶支持 **V2 XML 列目录**（`?list-type=2&prefix=crates.io/`）：**2,898 个对象、3 页列完、5.2 秒**；
+  每个对象自带 `Key/ETag/Size/LastModified`。
+- **单对象直接可取**（200 + ETag；条件 GET `If-None-Match` 实测 **304**）。
+- `all.zip.sha256` / `.sig` / `manifest.json` / `.md5` **全 404** ⇒ 发布方没有签名，`all.zip` 只剩
+  「一次请求」这个优点，而它的代价是引入 zip 读取器（新依赖或手写解析）。
+
+⇒ 改成 **列目录 + 逐对象条件 GET**：首装 ~2900 个请求、之后只拉 ETag 变了的；没有 zip 依赖、没有手写解包。
+
+**一条量出来的事实撑起整套完整性**：GCS 对普通对象的 `ETag` 就是**内容的 MD5**——两份真对象逐字核对相等
+（`d5b43c07c6a025c2be387b782f3f23e0` / `f680efa7a65d5dfb346031994837c67c`，见语料 README）。
+所以 `manifest.json` 里的 `etag == md5` 不是约定，是**可核**的：落地时重算 MD5 与发布方 ETag 比对，
+不符即 `Err` 且**保留旧件**。如实登记「无签名」，只承诺「传输完整性 + 变更留痕」。
+
+## 依赖三问（新增两个 Rust 依赖，答案写在这里）
+
+| 依赖 | 版本/许可 | 三问答案 |
+|---|---|---|
+| `semver` | 1.0.28，dtolnay，MIT OR Apache-2.0（deny 白名单内） | 理念契合：它就是 semver 规范的实现，本层判「版本在不在区间里」直接决定报不报漏洞；**手写排序是漏报入口**。版本前沿：1.x 稳定线、90 天下载 10.5 亿。体积/风险：纯 Rust 无原生代码。 |
+| `md-5` | 0.11.0，RustCrypto，MIT OR Apache-2.0（白名单内） | 理念契合：与 GCS ETag **同算法**（MD5），是唯一能对发布方凭据做核对的选择；RustCrypto 的 `digest` 家族已在树里（`sha1` 借 gix 进来）。风险：纯 Rust。 |
+
+## 直连实测（真桶，不是 mock）
+
+- **首装**：列出 2898 个对象、全部抓到、0 失败；其中 **2896 份是 `.json` advisory**，另两个是
+  `all.zip` 与 `modified_id.csv`（桶里的非 JSON 对象；本层按 `.json` 过滤，`load_snapshot` 记 2896 份）。
+- **工人数是被单次耗时逼出来的**：单对象抓取实测 **0.815s**（curl 起进程 + TLS 握手），串行首装要
+  **~40 分钟**；改成 `WORKERS = 8` 的线程池后首装 **~6 分钟**，第二遍增量 **4.87s**（0 抓 / 2898 未变）。
+- **端到端对账当场兑现**：`adv sca Cargo.lock --snapshot <真快照>` ⇒ **14 条命中、真实退出码 1**
+  （管道 `| tail` 吞退出码的坑当场又踩了一次，重测才拿到 1——这条坑记在别处，这次再验一遍）。
+  14 条落在 8 个包上，全是 vendored noseyparker 的 git 面；其中 **RUSTSEC-2025-0140 与 cargo-deny
+  独立判出的完全同一条**，另 13 条（GHSA 侧、含 CVSS_V4 向量）是 RustSec 库没有的 ⇒ DD-0015 已补风险面证据。
+
+## 语料与测试
+
+- 真切片进仓：2 份真 advisory（`time` 的多段区间 16 事件；`rustc-serialize` 的 `last_affected` 闭上界）
+  + 一份真列表响应切片 + 一个**已提交**的空 `crates.io/`（带 `.gitkeep`，测试不往工作树写东西）；
+  出处与 sha256 在 `tests/data/osv/README.md`。
+- 测试 **11 + 3**（adv-sca 11 条：快照加载 / 四端点边界 / 本地包不匹配 / 空目录判不了 / `etag==md5` 对账 /
+  列表切片 / 两面判过的锁集合逐字一致；adv-cli 3 条：命中判 1、空快照判 3、缺值判 2）。
+- **期望被真数据纠正一次，记下来**：我按直觉写「0.2.7 已修」，真区间是 `[0.2.7-0, 0.2.23)`——
+  0.2.7 是**受影响**的。测试改成按真边界钉四个端点（0.2.0 / 0.2.7 / 0.2.22 / 0.2.23）。
+  这正是「语料期望必须锚到规则之外的观测」那条纪律的又一次兑现。
+
+## 棘轮与重放（两把尺，added-only + 5 处披露）
+
+`god --write` 重录后逐键 diff：Rust 尺 added 77 / removed 0 / changed 5、python 尺 added 18 / removed 0 /
+changed 5。5 处变胖全在上面这条链上，逐处披露：`main.rs` 626→628（一个 `mod` + 一个 match 臂）、
+`main()` 14→15（同上）、`sca.rs` 59→94 与 `run` 46→55（`--snapshot` 的解析与两面对账调度）、
+`lib.rs` 28→31（三个 `pub mod`）。advisory 的 CLI 逻辑已先搬进新面 `cli/snapshot.rs`（省下 sca.rs 的 50 行），
+剩下的都是接线行。
+重放：fmt（13 成员）0 / `cargo test -p adv-sca -p adv-cli` 14 组全 ok / `clippy --workspace --all-targets
+-D warnings` 0。
+
+## M3-3a 没做
+
+RustSec 路（`git clone` + 钉 SHA + front matter 解析）与**对账器**是 M3-3b；severity 分级（哪些算红、
+哪些算信号）的口径未定——本片 14 条命中一律判红，是**待定的默认**，等 M3-3b 一起裁。
