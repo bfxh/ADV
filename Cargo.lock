@@ -31,6 +31,7 @@ dependencies = [
  "adv-core",
  "adv-parse",
  "adv-rules",
+ "adv-sca",
  "adv-secrets",
  "ignore",
  "serde_json",
@@ -81,6 +82,10 @@ name = "adv-sca"
 version = "0.1.0"
 dependencies = [
  "adv-core",
+ "anyhow",
+ "serde",
+ "toml",
+ "walkdir",
 ]
 
 [[package]]

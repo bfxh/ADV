@@ -1,0 +1,11 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alias_one = { package = "actual-crate", version = "0.4" }
+plain = "1"
+
+[target."cfg(windows)".dependencies]
+winapi = "0.3"

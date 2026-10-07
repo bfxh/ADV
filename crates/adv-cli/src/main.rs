@@ -8,6 +8,7 @@
 //! `adv_rules::Finding`，不做第二套 schema。
 
 mod mir;
+mod sca;
 
 use adv_rules::Finding;
 use std::path::{Path, PathBuf};
@@ -59,10 +60,10 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("scan") => scan(&args[1..]),
         Some("secrets") => secrets(&args[1..]),
+        Some("sca") => sca::run(&args[1..]),
         _ => {
             eprintln!(
-                "用法：adv <scan <目录> [--rules <规则目录>] [--engine ast|mir|both] \
-                 [--driver <路径>] [--deep-via-cargo] | secrets <路径…>>"
+                "用法：adv <scan <目录> [--rules <规则目录>] [--engine ast|mir|both] [--driver <路径>] [--deep-via-cargo] | secrets <路径…> | sca <路径…>>"
             );
             std::process::exit(2);
         }

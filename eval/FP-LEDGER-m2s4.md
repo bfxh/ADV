@@ -1960,3 +1960,71 @@ cargo 会静默按 Cargo.toml 现算，锁过期与否对构建没有影响。�
 DD-0005 实测已拖 61 个 commit（`debt_gate.py` rc=1，唯一一处）。这条红是设计要它红，不是工具坏：
 用户已认领"去 Qoder 安全控制台查四轮云端扫描被取消的原因"，本机查不出（片P-6）。
 CI 从这一步起**不会全绿**，直到 DD-0005 有结论——这条账不接受放宽限期。
+
+---
+
+# M3-2：清单段 + 三条纯本地锁定完整性判据（Inventory→判定 分离的第一段）
+
+## 先量（改之前，探针在 `D:/tmp/adv-lock/probe_lock*.py`，跑完即弃、不进仓）
+
+语料就是本仓的三把真锁：根 `Cargo.lock` 298 包（279 带 source+checksum、19 本地包）、
+`rust/Cargo.lock` 1 包、`third_party/noseyparker/Cargo.lock` 552 包。三条判据各自的精度先量出来再写：
+
+| 判据 | 干净树上的读数 | 结论 |
+|---|---|---|
+| LC-1 缺 checksum | 三把锁都 **0 例**（279/279 齐） | 可当硬判据（判红不影响干净树） |
+| LC-2 锁↔清单 | **不限范围时报 5 处"缺"**：`noseyparker`→reqwest/tokio/chrono/pretty_assertions/test-case/secrecy、`bstring-serde`→proptest/serde_json、`input-enumerator`/`noseyparker-digest`/`noseyparker-rules`→pretty_assertions/proptest | 逐条追下去**全是非成员 path 依赖的 dev-dependencies**——cargo 本就不把它们解析进锁 ⇒ 合法形态。限制到 `[workspace].members` 后重测：**21 个成员 0 误报** |
+| LC-3 双轨 | 本地/registry 双轨 **0 例** | 判红成立 |
+| LC-3 多版本 | 根锁 **8 例**、noseyparker 锁 **30 例** | 判红就是噪声 ⇒ **只出信号、不参与退出码** |
+
+LC-2 那 5 处是这片最有价值的一条测量：如果不先量就按"本地包依赖应当齐"写判据，
+产品面第一天上架就带 5 条假红，而且假红会教所有人学会忽略这条门。
+
+## 落地
+
+- `crates/adv-sca/src/inventory.rs`（340 行）：`[[package]]` → `Package{name,version,source,checksum,dependencies}`
+  （依赖条目按空格切首 token，`syn 2.0.104 (registry+…)` 读成 `syn`）；成员账 = 根清单的
+  `[workspace].members` 展 `crates/*` 一层、减 `exclude`，单体 crate 算自己；声明账取四个段位
+  （dependencies / dev / build / `target.<cfg>` 下同样三段），**重命名按 `package = "…"` 的真名对账**
+  （别名当依赖名用会整条 LC-2 全假红）。`[[package]]` 一条都没有 ⇒ **判不了**（`Err`），不返回空清单。
+- `crates/adv-sca/src/lockcheck.rs`（246 行）：`check_lock(&Inventory,&Workspace)` 是纯函数（金丝雀与变异门都打这层），
+  `Report{issues, checked_locks, skipped}` 把"扫过哪几把锁"和结论一起返回——
+  `checked_locks` 为空时 `scan_paths` 直接 `Err("…这不等于干净")`。
+- `crates/adv-cli/src/sca.rs`（59 行）+ `adv sca <路径…>`：JSONL 走 `serde_json`（`detail` 带锁路径，
+  手拼 `format!` 遇引号/反斜杠会输出非法行），退出码 **0 无判红 / 1 有判红 / 2 用法 / 3 判不了**。
+- 语料 7 棵树 25 文件（`crates/adv-sca/tests/data/`，全部**不在 members 里、从不被构建**，
+  所以里面可以写假依赖名）：`clean`、`drift`（就是 `5d0b459` 的形状）、`member_absent`、`no_checksum`、
+  `dual_track`（一份语料同时钉住"双轨判红"与"多版本只出信号"）、
+  **`nonmember_devdeps`（假红守卫，期望值直接来自上面那条探针观测）**、**`rename`（假红守卫）**。
+- 测试 **19 个全过**：5 单测 + 10 集成（`adv-sca`）+ 4 CLI 边缘（`adv-cli/tests/sca_cmd.rs`，钉三态退出码）。
+  其中承重那条是 `the_three_real_locks_in_this_repo_produce_no_red`：三把真锁逐把显式给路径，
+  断言 0 判红 **且** 多版本信号数 > 0（一个信号都没有说明判据根本没跑起来）。
+- 端到端实测（`target/debug/adv.exe sca` 三把真锁）：`判过 3 把锁，0 条判红、38 条只出信号`，
+  38 = 根锁 8 + noseyparker 锁 30，与探针数对上。漂移语料 rc=1、无锁树 rc=3。
+
+## 棘轮与重放（不静默吸收）
+
+`main.rs` 原本要 +52 行——把处理器挪进 `crates/adv-cli/src/sca.rs`（`src/` 里已有 `mod mir;` 先例）
++ 用法串折成一行之后只剩 **+1**（一个 `mod` 声明 + 一个 match 臂，这是接一个子命令的不可约代价；
+再压就要删注释凑数，不做）。两把 god 尺各自重录并逐键对账：
+
+- Rust 尺 `tools/baselines/god-baseline.json`：**added 58 / changed 2 / removed 0**
+  （changed = `file:main.rs` 625→626、`file:crates/adv-sca/src/lib.rs` 19→28）
+- python 尺 `god-baseline.json`：**added 15 / changed 2 / removed 0**（同样两个面，它也在数 Rust 文件）
+
+`adv-sca/src/lib.rs` 的 +9 = 一个只有 `version()` 的 stub 变成两段式（两个 `pub mod` + 门面 `pub use`），
+行数下限就是结构本身。重放口径：fmt（13 成员）0 / clippy `--workspace --all-targets -D warnings` 0 /
+`cargo test -p adv-sca -p adv-cli` 全绿 / 两把 god 尺 0 / 窄版线 16 步 `LOCAL-GATE OK`（skipped 只有计时与覆盖率档）。
+
+## CI 顺带补的一块观察面
+
+run 37653030397（`4cc4477`）实测：`cargo-lock` 步在 runner 上 success，`gates`、`CI wiring gate` **第一次真跑并绿**，
+`Debt gate` 判红（DD-0005 已拖 61 commit，符合设计），而 `deny` 是 **skipped**——一道门红就把后面的读数全遮住。
+给 `gates` / `Set up Python` / `CI wiring gate` / `Debt gate` / `deny` 五处加 `if: always()`（YAML 复验通过，
+步数仍 16），下一轮起"哪几道门红"是一次跑齐的，不用一个红一轮 CI。
+
+## M3-2 没做什么（免得按整段蓝图估工）
+
+matcher 段与 OSV/RustSec 本地快照（要网络与验签）留 M3-3；npm/pnpm/uv/bun 读取器**等真语料**；
+D5-025 六条里第 2/3/4 条今天没有可验的锁，第 5 条（`-Zminimal-versions` 下界冒烟）要 nightly 没碰；
+XZ 的 9 条检测规则一条都没动。

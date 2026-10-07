@@ -270,13 +270,18 @@
   "max_type_members": 0
  },
  "crates/adv-cli/src/main.rs": {
-  "file_lines": 626,
+  "file_lines": 627,
   "max_fn_lines": 89,
   "max_type_members": 4
  },
  "crates/adv-cli/src/mir.rs": {
   "file_lines": 282,
   "max_fn_lines": 54,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/src/sca.rs": {
+  "file_lines": 60,
+  "max_fn_lines": 46,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/data/py-corpus/a_evals.py": {
@@ -342,6 +347,11 @@
  "crates/adv-cli/tests/report_counts.rs": {
   "file_lines": 102,
   "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/sca_cmd.rs": {
+  "file_lines": 83,
+  "max_fn_lines": 20,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/secrets_cmd.rs": {
@@ -449,9 +459,24 @@
   "max_fn_lines": 3,
   "max_type_members": 0
  },
+ "crates/adv-sca/src/inventory.rs": {
+  "file_lines": 341,
+  "max_fn_lines": 69,
+  "max_type_members": 5
+ },
  "crates/adv-sca/src/lib.rs": {
-  "file_lines": 20,
+  "file_lines": 29,
   "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-sca/src/lockcheck.rs": {
+  "file_lines": 247,
+  "max_fn_lines": 94,
+  "max_type_members": 5
+ },
+ "crates/adv-sca/tests/lockcheck.rs": {
+  "file_lines": 136,
+  "max_fn_lines": 31,
   "max_type_members": 0
  },
  "crates/adv-secrets/src/lib.rs": {

@@ -11,3 +11,7 @@ workspace = true
 
 [dependencies]
 adv-core = { path = "../adv-core" }
+anyhow.workspace = true
+serde.workspace = true
+toml.workspace = true
+walkdir.workspace = true

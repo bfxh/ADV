@@ -1,0 +1,8 @@
+[package]
+name = "vendored"
+version = "0.1.0"
+edition = "2021"
+
+[dev-dependencies]
+pretty_assertions = "1"
+proptest = "1"

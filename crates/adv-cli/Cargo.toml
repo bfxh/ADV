@@ -18,5 +18,6 @@ adv-secrets = { path = "../adv-secrets" }
 adv-core = { path = "../adv-core" }
 adv-parse = { path = "../adv-parse" }
 adv-rules = { path = "../adv-rules" }
+adv-sca = { path = "../adv-sca" }
 serde_json = { workspace = true }
 ignore = "0.4"
