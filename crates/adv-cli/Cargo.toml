@@ -14,6 +14,7 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+adv-secrets = { path = "../adv-secrets" }
 adv-core = { path = "../adv-core" }
 adv-parse = { path = "../adv-parse" }
 adv-rules = { path = "../adv-rules" }

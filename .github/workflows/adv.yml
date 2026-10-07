@@ -30,9 +30,15 @@ jobs:
       # 内化 Nosey Parker（third_party/noseyparker，见其 VENDOR.md）引入 vectorscan 这个 C++ 原生库。
       # 实测 runner 清单（images/windows/Windows2025-Readme.md）：**有** CMake 3.31 / Ninja 1.13 /
       # MSYS2(C:\msys64)，**没有** Boost 与 mingw32-make ⇒ 这两样在这里补。
-      - name: vectorscan 构建前置（Boost + mingw32-make）
+      - name: vectorscan 构建前置（Boost + mingw32-make，并把 MSYS2 加进后续步骤 PATH）
         shell: bash
-        run: /c/msys64/usr/bin/pacman -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-make
+        # 只装包不够：vectorscan-rs-sys 的 build.rs 先用 `patch` 给源码打补丁
+        # （2026-10-07 CI 实测：它在这一步断言失败，因为 runner 默认 PATH 里没有 MSYS2 的 patch/make），
+        # 再走 cmake+make。所以把 mingw64/usr 两个 bin 也写进 GITHUB_PATH——这就是本机已验证能编过的组合。
+        run: |
+          /c/msys64/usr/bin/pacman -S --noconfirm --needed mingw-w64-x86_64-boost mingw-w64-x86_64-make
+          echo 'C:\msys64\mingw64\bin' >> "$GITHUB_PATH"
+          echo 'C:\msys64\usr\bin' >> "$GITHUB_PATH"
       # 冷建要编 vectorscan（本机实测 21m43s）；缓存它的构建目录，键含 vendored 提交号
       # ⇒ 上游一换（VENDOR.md 里那个 SHA）缓存自然失效，不会拿旧产物配新源码。
       - name: 缓存 vectorscan 构建产物

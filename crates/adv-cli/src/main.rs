@@ -58,12 +58,49 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("scan") => scan(&args[1..]),
+        Some("secrets") => secrets(&args[1..]),
         _ => {
             eprintln!(
-                "用法：adv scan <目录> [--rules <规则目录>] [--engine ast|mir|both] \
-                 [--driver <路径>] [--deep-via-cargo]"
+                "用法：adv <scan <目录> [--rules <规则目录>] [--engine ast|mir|both] \
+                 [--driver <路径>] [--deep-via-cargo] | secrets <路径…>>"
             );
             std::process::exit(2);
+        }
+    }
+}
+
+/// `adv secrets <路径…>`：新 secrets 引擎（内化 Nosey Parker）的入口。
+///
+/// 行契约与 `adv scan` 对齐（stdout 出 JSONL、stderr 出摘要）：发现的原文**永不出接口**，
+/// `snippet` 只给 X10 口径的定长掩码 `***`。
+fn secrets(args: &[String]) {
+    let paths: Vec<PathBuf> = args
+        .iter()
+        .filter(|a| !a.starts_with("--"))
+        .map(PathBuf::from)
+        .collect();
+    if paths.is_empty() {
+        eprintln!("secrets 需要至少一个路径参数");
+        std::process::exit(2);
+    }
+    match adv_secrets::scan_paths(&paths) {
+        Ok(found) => {
+            for f in &found {
+                println!(
+                    "{{\"engine\":\"noseyparker\",\"rule\":\"{}\",\"file\":\"{}\",\"start_line\":{},\"snippet\":\"{}\"}}",
+                    f.rule, f.path, f.line, f.masked
+                );
+            }
+            eprintln!(
+                "adv secrets：{} 个路径，{} 条发现（engine=noseyparker）",
+                paths.len(),
+                found.len()
+            );
+        }
+        Err(e) => {
+            // 判不了 ≠ 没有发现（与 scan 档同一条纪律）。
+            eprintln!("adv secrets：探测失败（不折算为无发现）：{e:#}");
+            std::process::exit(3);
         }
     }
 }

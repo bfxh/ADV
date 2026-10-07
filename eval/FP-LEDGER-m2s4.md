@@ -1811,3 +1811,25 @@ python god `454 → 459`（新增 5：4 个语料 .py + 1 个测试 .rs）。
 - 顺带定的两条：`cargo deny check licenses bans sources` 在新树下 **exit 0**（bans/licenses/sources 全 ok）；
   claim-gate 照例抓到文档步数过期（32/36/39 → **33/37/40**），按真值源改完。
 
+## M3-1 推送关：GitHub 推送保护两次拦下 → vendor 时脱敏（用户拍板）
+
+第一次被拦，判据是 GitHub 的原话：`GH013 … GITHUB PUSH PROTECTION … Push cannot contain secrets`。
+逐轮记录（都是实测，不是推测）：
+
+| 轮 | 拦点 | 处置 |
+|---|---|---|
+| 1 | `noseyparker-cli/tests/scan/appmaker/snapshots/*.snap`（上游自己种的假 AWS key） | 裁掉整个 CLI crate——它本来就不在用途内（薄壳只用核心库+规则集），且会拖进 473 包的树。范围与两条理由写进 VENDOR.md |
+| 2 | 规则包自身的 `examples:`（sendgrid/google/mailgun/twilio…） | 用户拍板 **vendor 时脱敏**：删 `examples`/`negative_examples` 段（87 文件、~1.8k 行）。匹配只用 `pattern`，这两个是文档字段 ⇒ 行为无影响 |
+| 3 | 通过（`2c20e26..91e14b6`） | — |
+
+**脱敏实现自己踩了两个坑，都收进 `scripts/vendor_redact.py` 的注释**：
+① `examples` 有用块标量 `- |` 带多行 JSON 的（adobe.yml），只删键与首行会留下悬空缩进 ⇒ YAML 断；
+② auth0.yml 的键与项之间夹着注释行，把注释当"段结束"会把整段块标量留在原地。
+两轮都是**金丝雀判红的**（它要加载解析整包规则）——这正是"行为判据替脱敏背书"的设计意图。
+最终复核：`vendor_redact.py --check` 无残留 + PyYAML 逐文件可解析（87/87）+ 金丝雀 3 个测试二进制全过。
+
+**为什么不用 GitHub 侧放行**（另一选项）：那要逐个点 unblock 链接或改仓库的 push protection 路径白名单，
+每次上游更新都会复现；而"能删的密钥形状字面量就删"本来就是本仓纪律（`.gitleaks.toml` 的白名单是
+留给删不掉的场景）。**改写的是本地未推送的提交**（远端当时仍在 `2c20e26`），没有改写任何已发布历史，
+也不需要 force push。
+

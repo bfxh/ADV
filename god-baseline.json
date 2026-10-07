@@ -270,7 +270,7 @@
   "max_type_members": 0
  },
  "crates/adv-cli/src/main.rs": {
-  "file_lines": 589,
+  "file_lines": 626,
   "max_fn_lines": 89,
   "max_type_members": 4
  },
@@ -342,6 +342,11 @@
  "crates/adv-cli/tests/report_counts.rs": {
   "file_lines": 102,
   "max_fn_lines": 30,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/secrets_cmd.rs": {
+  "file_lines": 50,
+  "max_fn_lines": 33,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/three_way_ledger.rs": {
