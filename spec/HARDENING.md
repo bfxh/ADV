@@ -72,10 +72,11 @@
   push protection 兜底；改史治理走第 4 条泄漏响应顺序）。
 - **本地优先（S145，用户指令「把审核搞强点，不需要用 GitHub 和 Linux」；S147 再上强度）**：
   以上全部门禁已收敛为**一条本地命令** `python -X utf8 scripts/local_gate.py`
-  （快档 31 步秒级 / 全档 35 步含双测与 clippy），与 CI **同一套脚本**——CI 降格为
+  （快档 32 步秒级 / 全档 36 步含双测与 clippy），与 CI **同一套脚本**——CI 降格为
   镜像/备份通道，审核在本机（Windows + ZCode）即可完整跑完。`.githooks/`
-  版本化钩子（pre-commit 快门、pre-push 全门）经 `git config core.hooksPath
-  .githooks` 一次安装；本地门与 CI 的**不漂移**由 tests/test_s145_gates.py **双向**锁死
+  版本化钩子（pre-commit 跑本线窄版、pre-push 再叠 `xtask gate`）经
+  `python -X utf8 scripts/hook_status.py --install` 一次安装，并可用同脚本随时复核
+  装没装（三态，只有"记号说有、实际没装"判红——DD-0008）；本地门与 CI 的**不漂移**由 tests/test_s145_gates.py **双向**锁死
   （CI 出现的门脚本必须在 STEPS 里，**且** STEPS 每一步都必须在 CI 有落点——期望集合从
   `local_gate.py` 源码 ast 复算，不再手抄名单；pytest/cargo 这类按脚本名查不到的间接项
   走显式登记表 `CI_INDIRECT`，登记表造假也会被反假绿用例抓到）；真门验证

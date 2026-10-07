@@ -1,5 +1,7 @@
 #!/bin/sh
-# 本地快门（S145）：明文红线 + 自攻 + 数据流 + 工具面 + 任务级评测 + 对账硬门。
-# 秒级，提交前跑；全门（含 pytest/cargo/clippy）在 pre-push。
-# 一次性安装：git config core.hooksPath .githooks
-python -X utf8 scripts/local_gate.py --fast
+# 本地快门（S145 + DD-0008 窄版）：明文本仓负责的那条线，秒级。
+# 为什么不含 debt-gate：超期由 CI 判（见 spec/gate-lines.json 的 pre-commit.why）——
+# 本地再判一次，等于修这笔账时被这笔账挡住提交。
+# 安装：python -X utf8 scripts/hook_status.py --install（幂等，并落安装记号）
+python -X utf8 scripts/hook_status.py --require || exit 1
+python -X utf8 scripts/local_gate.py --line pre-commit

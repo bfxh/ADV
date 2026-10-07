@@ -999,6 +999,11 @@
   "max_fn_lines": 23,
   "max_type_members": 0
  },
+ "scripts/hook_status.py": {
+  "file_lines": 94,
+  "max_fn_lines": 23,
+  "max_type_members": 0
+ },
  "scripts/hub_gate.py": {
   "file_lines": 620,
   "max_fn_lines": 46,
@@ -1010,7 +1015,7 @@
   "max_type_members": 0
  },
  "scripts/local_gate.py": {
-  "file_lines": 289,
+  "file_lines": 291,
   "max_fn_lines": 70,
   "max_type_members": 0
  },
@@ -1210,8 +1215,13 @@
   "max_type_members": 0
  },
  "tests/test_gate_lines.py": {
-  "file_lines": 116,
+  "file_lines": 118,
   "max_fn_lines": 13,
+  "max_type_members": 0
+ },
+ "tests/test_hook_status.py": {
+  "file_lines": 53,
+  "max_fn_lines": 10,
   "max_type_members": 0
  },
  "tests/test_ide_build.py": {

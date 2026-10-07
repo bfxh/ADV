@@ -1,5 +1,7 @@
 #!/bin/sh
-# 本地全门（S145）：快门 + pytest 全量 + cargo test + clippy 零告警——
-# 仓库红线"pytest + cargo 双绿才准合入"的本地执行点（不依赖 GitHub/Linux）。
-# 一次性安装：git config core.hooksPath .githooks
-python -X utf8 scripts/local_gate.py
+# 本地推前门（DD-0008 窄版）：本线负责的覆盖面 + 新工作区的 Rust 门链。
+# 全量（pytest/cargo 双绿）仍在 CI：core.yml 守 main、adv.yml 守 adv-rewrite。
+# 安装：python -X utf8 scripts/hook_status.py --install（幂等，并落安装记号）
+python -X utf8 scripts/hook_status.py --require || exit 1
+python -X utf8 scripts/local_gate.py --line pre-commit || exit 1
+cargo run -q -p xtask -- gate || exit 1

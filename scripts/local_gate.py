@@ -48,6 +48,8 @@ STEPS = [
                      "--allow-name", "unified-rx-rs", "--allow-name", "unified-rx-pytest"],
      "fast", "命名纪律门（占位词/杂物/退役旧名；主名 ADV 白名单外全专业）"),
     ("path-gate",   [PY, "-X", "utf8", "scripts/path_gate.py"], "fast", "路径门（符号链接/文件名卫生/越界写）"),
+    ("hook-status",  [PY, "-X", "utf8", "scripts/hook_status.py"], "fast",
+     "提交路径门自证（DD-0008）：已装/未装/不一致三态，只有不一致红"),
     ("debt-gate",   [PY, "-X", "utf8", "scripts/debt_gate.py"], "fast",
      "设计债到期门（spec/design-debt.json：必填/成因/≤10 commit 限期/SHA 可核/销账留证；"
      "外加 spec/maturity.json 试验面登记格式）"),

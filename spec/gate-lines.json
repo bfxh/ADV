@@ -48,6 +48,26 @@
         "cli-bench",
         "perf-gate"
       ]
+    },
+    "pre-commit": {
+      "why": "提交路径那条窄版线（.githooks/pre-commit 跑的就是它）：本线负责的门必须绿，否则每次提交都被挡。**刻意不含 debt-gate**——「账拖没拖」按既有分工由 CI 判（tests/test_debt_gate.py 只断结构、CI 的 Debt gate 判超期）；本地再判一次超期，等于在修这笔账的时候被这笔账挡住提交，是死锁不是纪律。",
+      "steps": [
+        "hook-status",
+        "path-gate",
+        "arch-gate",
+        "claim-gate",
+        "name-ledger",
+        "deps-lock",
+        "bench-anchor",
+        "handoff-gate",
+        "god-gate",
+        "type-gate",
+        "quality-pact",
+        "cargo-test",
+        "clippy",
+        "coverage-gate",
+        "ci-wiring-gate"
+      ]
     }
   }
 }

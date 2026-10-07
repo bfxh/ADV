@@ -35,16 +35,18 @@ Bootstrap 95% 区间 → 三态**（`pass` / `inconclusive` 噪声带不算真�
 方法形态/**S161 模型适配三件**：失败回包也是 JSON、错误带 `next`、`structuredContent`
 与文本同形…）——**首跑抓到真违约**：未知方法原先返回"工具级 isError 结果"（JSON-RPC
 客户端会当成功），已改为 `error{code:-32601}`。
-**门清单 38 步**：本地门 38 步（快档 31 步 ~21s）+ pytest 内门套件，CI 与本地同源。
+**门清单 39 步**：本地门 39 步（快档 32 步 ~21s）+ pytest 内门套件，CI 与本地同源。
 **自提交 PR 的双门**：**key 门**（明文红线：工作树 + 历史 diff 两路）与**路径门**
 （`scripts/path_gate.py`：无符号链接 / 文件名卫生 / ≤1MB / 无越界写路径 / 无软链接逃逸），
-两者都写进了 `.githooks/pre-commit` 的快门脚本，但**提交路径当前没装上**：2026-10-06 实测本
-工作副本 `git config core.hooksPath` 无值、`.git/hooks/` 只剩 `.sample` ⇒ 生效面是 CI 与
-`python scripts/local_gate.py --fast`（缺口按 `spec/design-debt.json` 的 DD-0008 限期处置）。
+两者都写进 `.githooks/` 里那条**窄版线**（`local_gate.py --line pre-commit`，刻意不含
+debt-gate——超期由 CI 判，本地再判一次会在修这笔账时被这笔账挡住提交）。提交路径的装/没装现在有
+自证：`python -X utf8 scripts/hook_status.py`（三态：已装 / 未装 / **不一致**；只有"记号说有、
+实际没装"判红），装用 `--install`（幂等并落 `adv.hooksInstalledAt` 记号）——DD-0008 抓到的
+"版本化文件当成装好的钩子"这个形状从此会被点名。
 历史链：S147 审核三新门（历史明文/依赖红线/审计账本）+ 首个第三方仓审计（DeepSeek-Reasonix 报告 + 可移植套件）；S146 协议双支持（2025-06-18 +
 顶层 title）与握手账本加固；（用户指令：不需要 GitHub/Linux，就地把审核搞强）：`scripts/local_gate.py`
-一条命令跑完与 CI **同一套脚本**的全部门禁——快档 31 步（secrets / self-attack /
-data-flow / toolface / tool-evals / selftest / guard-gate / name-ledger / bench-anchor …，**~21 秒级**）与全档 35 步（+pytest 全量 +
+一条命令跑完与 CI **同一套脚本**的全部门禁——快档 32 步（secrets / self-attack /
+data-flow / toolface / tool-evals / selftest / guard-gate / name-ledger / bench-anchor …，**~21 秒级**）与全档 36 步（+pytest 全量 +
 cargo test + clippy）；`.githooks/` 版本化钩子（pre-commit 快门、pre-push 全门）经
 `git config core.hooksPath .githooks` 一次安装——**审核在本机即可完整跑完，CI 降格为
 镜像/备份**；本地门与 CI 不漂移（core.yml 出现的门脚本必须都在 local_gate 步骤里）

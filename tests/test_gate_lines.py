@@ -40,7 +40,9 @@ def test_registry_covers_every_step():
     """真仓自检：每一步都有归属，表里也没有漂出去的名字。"""
     lines, problems = LG.load_gate_lines(REGISTRY)
     assert problems == [], f"归属表不完整：{problems}"
-    assert set(lines) == {"adv-m2", "umbrella-py"}, sorted(lines)
+    # pre-commit 是 DD-0008 那条窄版线（.githooks/pre-commit 跑的就是它，刻意不含 debt-gate：
+    # 超期由 CI 判，本地再判一次会在修这笔账时被这笔账挡住提交）。
+    assert set(lines) == {"adv-m2", "umbrella-py", "pre-commit"}, sorted(lines)
     for name, entry in lines.items():
         assert (entry.get("why") or "").strip(), f"{name} 没写凭什么管这些步"
 
