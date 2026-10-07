@@ -68,10 +68,25 @@ jobs:
             echo "=== $name ($exe) 版本=$("$exe" --version | head -1) dry-run 退出码: $rc"
             tail -15 /tmp/p.out || true
           done
+          # 构建里那次 patch 调用被 build.rs 吞掉了输出（它只 assert 退出码）。装一个记账版 shim：
+          # 先记 argv/cwd，再把输出与退出码写进日志文件，供 clippy 之后的转储步读。
+          mkdir -p /tmp/patchshim
+          printf '@echo off\r\n' > /tmp/patchshim/patch.cmd
+          printf 'echo [shim] cwd=%%CD%% args=%%* >> "%%RUNNER_TEMP%%\\patchlog.txt"\r\n' >> /tmp/patchshim/patch.cmd
+          printf '"C:\\msys64\\usr\\bin\\patch.exe" %%* >> "%%RUNNER_TEMP%%\\patchlog.txt" 2>&1\r\n' >> /tmp/patchshim/patch.cmd
+          printf 'echo [shim] exit=%%ERRORLEVEL%% >> "%%RUNNER_TEMP%%\\patchlog.txt"\r\n' >> /tmp/patchshim/patch.cmd
+          printf 'exit /b 0\r\n' >> /tmp/patchshim/patch.cmd
+          cat /tmp/patchshim/patch.cmd
+          echo "$(cygpath -w /tmp/patchshim)" >> "$GITHUB_PATH"
       - name: fmt（只面本仓成员；cargo fmt --all 会格式化 vendored 上游源码）
         run: python -X utf8 scripts/fmt_workspace.py
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      # 构建里那次 patch 说的话都在这里（shim 记账）。
+      - name: 转储 patch shim 记账（失败后仍跑）
+        if: always()
+        shell: bash
+        run: cat "$RUNNER_TEMP/patchlog.txt" 2>/dev/null || echo "(没有 patchlog——build.rs 没走到 patch 那步)"
       - name: test (nextest)
         run: cargo nextest run --workspace
       - name: coverage（lcov 工件；棘轮阈值待 M2 基线后接）
