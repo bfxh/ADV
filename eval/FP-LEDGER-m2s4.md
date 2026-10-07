@@ -1714,6 +1714,27 @@ cargo run -q -p adv-cli -- scan crates/adv-cli/tests/data/py-corpus --rules rule
 - **先证红**：删掉新侧金样一行 ⇒ 该测试 FAILED（断言原文"新快轨在这批语料上的账漂了——改动必须是
   有意识重录"）；按 md5 `e1ea2d95…` 逐字节还原后复绿。
 
+## 片C 收尾（全档，HEAD `186c6c7`）
+
+```
+变异面 总=453 捕获=392 未捕获=22 unviable=36 档=全档
+超时 1 条（不计入 missed…）：xtask/src/maturity.rs::seg_eq
+mutants: 绿
+```
+
+面与前一片**逐位同**（453/392/22/36）——片C 一个 src 文件都没动（只加了测试、语料与金样），
+这正是"变异门只测 src 面"的实测注脚。`reconcile_mutants.py` 四份清单全空 ⇒ RECONCILE OK。
+两侧 god 基线重录并逐键点名：xtask `476 → 483`（新增 7，全是新测试文件的面）、
+python god `454 → 459`（新增 5：4 个语料 .py + 1 个测试 .rs）。
+
+**过程里被门挡了一次（记账）**：那条端到端测试格式化后 125 行 > god 的 120 行硬阈，
+`god --write` **拒绝**给它写基线（门的原话"存在硬阈违规，拒绝写基线"）⇒ 按纪律把它拆成两条
+测试（`…frozen_contract` 70 行 / `…cross_file_chain` 55 行），没有去放宽阈值。
+
+**M2 到这里全部收口**：片A1–A6、片B1/B2、片C、片D–P 全部完成；M2 的验收判据（三方账出账 + 两端金样）
+有实测数与冻金样撑着。下一站是 M3（secrets+SCA）或按你指定的顺序。
+
+
 
 
 
