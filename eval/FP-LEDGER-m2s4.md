@@ -1917,3 +1917,46 @@ cargo 会静默按 Cargo.toml 现算，锁过期与否对构建没有影响。�
 
 **claim-gate 当场抓到我把文档写旧了**：README 主张 40/33/37、HARDENING 主张 33/37，真值源给 41/34/38
 ⇒ 按真值改（`门清单 41 步 / 快档 34 步 / 全档 38 步`）。补一步门就必须动这两个数，这是设计意图而不是负担。
+
+## M3-1 收尾（四）：为什么漂移能活到今天 —— 不带 `--locked` 的构建会**就地重写锁**（机制取证）
+
+不是靠推理，是拿合成仓做的实验（`D:/tmp/adv-lock/probe`，两个成员 a/b、只含路径依赖）：
+先让 a **不**依赖 b 生成锁，再给 a 加一行 `b = { path = "../b" }`，然后跑**不带 `--locked`** 的
+`cargo metadata` —— rc=**0**，同一次调用把 `Cargo.lock` 改了：sha256 前缀 `e68eb3855fe7` → `b96f5021cee7`，
+锁里 a 的 dependencies 多出 `"b"`。
+
+⇒ 机制是：**任何一次正常构建都会自愈漂移**，所以漂移在"跑构建"的路径上永远不可能判红。
+本地 `pre-push` 的 `cargo run -q -p xtask -- gate`、CI 的 `clippy`/`nextest` 全属这类。
+这也解释了本轮的现场：我在工作树里看到那份平白 `M` 状态的 Cargo.lock，正是前一次构建替我改的——
+补齐的锁与 `5d0b459` 提交里那份的差，就是这一行 `adv-secrets`。
+所以 `cargo-lock` 这条判据不能被任何构建步替代：它必须是**唯一不写锁**的那一步（`--locked` 的语义就是不许写）。
+
+## M3-1 收尾（五）：L5 处置 = 撤步 + 登记 DD-0014（用户拍板），顺带清掉两个假绿形状
+
+**撤 CI coverage 档**（`adv.yml` 步数 20 → **16**，逐名核对删掉的是这四步）：
+`前置对照：两个 patch 各试一次 vectorscan 的补丁`、`转储 patch shim 记账（失败后仍跑）`、
+`coverage（lcov 工件…）`、`上传覆盖率`。L1 的**修法**（pacman 装 `patch` + MSYS2 进 PATH）保留，
+删的是已经答完的问题留下的脚手架；`taiki-e/install-action` 的工具清单同时摘掉 `cargo-llvm-cov`
+（没人用的工具清单会诱使下一个人以为覆盖率在跑）。`ci-wiring.json` 的 adv-rewrite 清单摘掉
+`coverage-gate`，`ci_wiring_gate` 实测 OK（2 分支 × 10 次门声明，无无主门步）。
+
+**顺带清掉的两个"步绿=没跑"形状**（都实测过，不是推测）：
+1. **patch shim 是一个假绿生成器**：诊断期写的 `patch.cmd` 末行是 `exit /b 0` —— 无条件返回成功。
+   它一旦排在 PATH 前面，build.rs 那次 patch 真失败也会被吞成成功，等于给 vectorscan 装上
+   "补丁永远打得上"的假保护。本轮随诊断层一起删除。
+2. **`上传覆盖率` 在 lcov.info 不存在时报 success**（run 37647787433 同轮实测：`coverage` = failure，
+   `上传覆盖率` = success）：`if-no-files-found: ignore` 把"没有工件"读成"传好了"。撤。
+
+**DD-0014 登记**（`spec/design-debt.json`，`since=9b9d5f26`、`due_after_tasks=10`、`origin=6201ea4` ——
+就是当初把覆盖率档写进工作区 CI 的那次提交，SHA 已过 `git cat-file -e`）。债的正文钉三件事：
+执行环境与深轨 host 口径互斥（vectorscan 只吃 gcc/clang ⇒ 必须 windows-gnu ⇒ 分发里没有 `profiler_builtins`）、
+本机 rustlib 清点的四个数（gnu 0 / msvc 2 / nightly-gnu 0 / linux-gnu 交叉目标 2）、
+以及三条不许：**不许**用 `msvc + --exclude adv-secrets` 的半覆盖充数（缺的正是 M3-1 内化的那块）、
+**不许**在能真测之前把覆盖率数字写进 README/HARDENING（claim-gate 要真值源）、
+**不许**按"apt 装个 boost 就行"估 ubuntu 那条路（vectorscan 在 Linux 至今没验过）。
+
+**撤步的直接收益与随之而来的红**：`gates`、`CI wiring gate`、`Debt gate`、`deny` 四步过去一直是
+`skipped`（前一步判红就终止），撤掉 coverage 后它们第一次真跑。其中 **Debt gate 会判红**——
+DD-0005 实测已拖 61 个 commit（`debt_gate.py` rc=1，唯一一处）。这条红是设计要它红，不是工具坏：
+用户已认领"去 Qoder 安全控制台查四轮云端扫描被取消的原因"，本机查不出（片P-6）。
+CI 从这一步起**不会全绿**，直到 DD-0005 有结论——这条账不接受放宽限期。

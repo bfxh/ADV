@@ -23,8 +23,7 @@
         "ci-wiring-gate",
         "debt-gate",
         "clippy",
-        "nextest",
-        "coverage-gate"
+        "nextest"
       ]
     },
     "main": {

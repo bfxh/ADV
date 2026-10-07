@@ -22,6 +22,17 @@
       "since": "1fc62d3",
       "due_after_tasks": 10,
       "guards": "无自动判据（靠本登记到期判红）。2026-10-07 补三条：① 口径已裁到「承重面」，重跑命令在账本片P；② **判定读数只认 status**：`No security issues found.` 在 canceled 时也会出现（两次实测），不得当作销账依据——与 mutants 的 exit 3、深轨失败面同一条纪律；③ 单文件诊断已证明取消与体量无关，别再花 Credits 重试同一条路。"
+    },
+    {
+      "id": "DD-0014",
+      "surface": "Rust 工作区覆盖率档（cargo llvm-cov）",
+      "kind": "capability",
+      "defect": "2026-10-08 现状：CI 的 coverage 步已从 adv.yml **撤下**（连同 install-action 工具清单里的 cargo-llvm-cov 与那条只会上传空 glob 也报 success 的『上传覆盖率』步），撤的原因是它在 windows-gnu host 上**结构性起不来**，不是配置没到位：`-C instrument-coverage` 要 link `profiler_builtins`，而 windows-gnu 分发的 std 不含它。两路独立实测——① CI run 37647787433 的 coverage 步报 `error[E0463]: can't find crate for `profiler_builtins` + note `the compiler may have been built without the profiler runtime`（rustup 自己 下载 llvm-tools 那步是成功的，缺的是运行时不是工具）；② 本机同族工具链 rustlib 目录数 profiler_builtins 的 rlib/rmeta：1.99.0-windows-gnu=0、1.99.0-windows-msvc=2、nightly-windows-gnu=0、stable-windows-gnu 的 aarch64-unknown-linux-gnu=2。**欠的是什么**：`scripts/coverage_gate.py` 的覆盖率棘轮自此没有执行环境（本地一直是 SKIP：本机也是 gnu host，同一条缺件；CI 撤步后连试都试不了），M2 收尾时说的『阈值待基线后接』因此仍然接不上——覆盖率不许算进『CI 绿』。",
+      "why_from_design": "覆盖率档当初是跟着「CI 步骤列表」一起定的（origin 6201ea4 把 coverage 步写进工作区 CI），没有先问一条前置约束：**instrumented 构建需要工具链分发带 profiler runtime**。而本仓的 host 口径是被 vectorscan 反向钉死的（C++ 侧只吃 gcc/clang ⇒ CI 必须用 windows-gnu host，见 L2/L3/L4 那三层），两条约束在同一个 host 上互斥这件事，接线时没人核过。也就是说缺陷不在『少装一个组件』，而在『覆盖率档的执行环境与深轨工具链口径之间没有过一次可核对的前置检查』。",
+      "origin": "6201ea4",
+      "since": "9b9d5f26",
+      "due_after_tasks": 10,
+      "guards": "无自动判据（靠本登记到期判红）。推进口径已定（用户 2026-10-08 拍板「撤步 + 登记设计债」）：① 撤步不等于销账——ci-wiring.json 的 adv-rewrite 清单里 coverage-gate 已摘，W3 会盯着「清单有而步骤无」，反向的「步骤有而清单无」由 W4 盯；② 到期前重开覆盖率**必须换 host**（linux-gnu 分发带 profiler_builtins，即另开 ubuntu job 跑 cargo llvm-cov），前提是 vectorscan 在 Linux 上先验通——这条路本仓至今没验过，别按『apt 装个 boost 就行』估工；③ 不许用「msvc host + --exclude adv-secrets」的半覆盖充数：那样绿的是不含 secrets 面的子集，而 secrets 面正是 M3-1 内化的那块；④ 覆盖率数字在能真测之前一律按『没有』记账，不得写进 README/HARDENING（claim-gate 会要真值源）。"
     }
   ],
   "retired_fields": [

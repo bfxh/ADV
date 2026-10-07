@@ -37,7 +37,10 @@ jobs:
           echo "RUSTUP_TOOLCHAIN=1.99.0-x86_64-pc-windows-gnu" >> "$GITHUB_ENV"
       - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
-          tool: cargo-nextest,cargo-deny,cargo-llvm-cov
+          # 刻意不含 cargo-llvm-cov：windows-gnu 分发里没有 profiler_builtins，`-C instrument-coverage`
+          # 在这个 host 上永远起不来（run 37647787433 实测 E0463）。覆盖率档的去向见 DD-0014，
+          # 接回来时要在**能测的 host** 上装，而不是留一行没人用的工具清单。
+          tool: cargo-nextest,cargo-deny
       # 内化 Nosey Parker（third_party/noseyparker，见其 VENDOR.md）引入 vectorscan 这个 C++ 原生库。
       # 实测 runner 清单（images/windows/Windows2025-Readme.md）：**有** CMake 3.31 / Ninja 1.13 /
       # MSYS2(C:\msys64)，**没有** Boost 与 mingw32-make ⇒ 这两样在这里补。
@@ -59,36 +62,6 @@ jobs:
             target/debug/build/vectorscan-rs-sys-*
             target/release/build/vectorscan-rs-sys-*
           key: vectorscan-${{ runner.os }}-${{ hashFiles('third_party/noseyparker/VENDOR.md') }}
-      # build.rs 把 `patch` 的输出吞了（只 assert 退出码），失败时看不到原因。
-      # 这里**在构建前**把两个候选 patch（MSYS2 的、Git 的）都试一遍并把完整输出留进日志，
-      # 一步把"谁的 patch、为什么打不上"钉死；`; rc=$?` 明确挡掉 shell 的 -e/-o pipefail。
-      - name: 前置对照：两个 patch 各试一次 vectorscan 的补丁
-        shell: bash
-        run: |
-          echo "--- which -a patch"; which -a patch || true
-          curl -sL -o /tmp/sys.crate https://static.crates.io/crates/vectorscan-rs-sys/vectorscan-rs-sys-0.0.5.crate
-          mkdir -p /tmp/sys && tar xzf /tmp/sys.crate -C /tmp/sys
-          pf=/tmp/sys/vectorscan-rs-sys-0.0.5/vectorscan.patch
-          echo "--- 补丁文件指纹"; ls -l "$pf"; sha256sum "$pf"; head -c 200 "$pf" | od -c | head -4
-          mkdir -p /tmp/vsp && tar xzf /tmp/sys/vectorscan-rs-sys-0.0.5/5.4.11.tar.gz -C /tmp/vsp
-          echo "--- 解包后首个文件的行尾"; head -c 200 /tmp/vsp/vectorscan-vectorscan-5.4.11/README.md | od -c | head -2
-          for cand in "msys:/usr/bin/patch" "git:/c/Program Files/Git/usr/bin/patch"; do
-            name="${cand%%:*}"; exe="${cand#*:}"
-            rm -rf /tmp/try && cp -r /tmp/vsp/vectorscan-vectorscan-5.4.11 /tmp/try
-            ( cd /tmp/try && "$exe" -p1 --dry-run < "$pf" > /tmp/p.out 2>&1 ); rc=$?
-            echo "=== $name ($exe) 版本=$("$exe" --version | head -1) dry-run 退出码: $rc"
-            tail -15 /tmp/p.out || true
-          done
-          # 构建里那次 patch 调用被 build.rs 吞掉了输出（它只 assert 退出码）。装一个记账版 shim：
-          # 先记 argv/cwd，再把输出与退出码写进日志文件，供 clippy 之后的转储步读。
-          mkdir -p /tmp/patchshim
-          printf '@echo off\r\n' > /tmp/patchshim/patch.cmd
-          printf 'echo [shim] cwd=%%CD%% args=%%* >> "%%RUNNER_TEMP%%\\patchlog.txt"\r\n' >> /tmp/patchshim/patch.cmd
-          printf '"C:\\msys64\\usr\\bin\\patch.exe" %%* >> "%%RUNNER_TEMP%%\\patchlog.txt" 2>&1\r\n' >> /tmp/patchshim/patch.cmd
-          printf 'echo [shim] exit=%%ERRORLEVEL%% >> "%%RUNNER_TEMP%%\\patchlog.txt"\r\n' >> /tmp/patchshim/patch.cmd
-          printf 'exit /b 0\r\n' >> /tmp/patchshim/patch.cmd
-          cat /tmp/patchshim/patch.cmd
-          echo "$(cygpath -w /tmp/patchshim)" >> "$GITHUB_PATH"
       - name: fmt（只面本仓成员；cargo fmt --all 会格式化 vendored 上游源码）
         run: python -X utf8 scripts/fmt_workspace.py
       # 依赖锁漂移（M3-1 补的门）：CI 的 cargo 步骤不传 --locked，锁与声明不同步时它会照编照过，
@@ -97,15 +70,8 @@ jobs:
         run: python -X utf8 scripts/cargo_lock.py
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
-      # 构建里那次 patch 说的话都在这里（shim 记账）。
-      - name: 转储 patch shim 记账（失败后仍跑）
-        if: always()
-        shell: bash
-        run: cat "$RUNNER_TEMP/patchlog.txt" 2>/dev/null || echo "(没有 patchlog——build.rs 没走到 patch 那步)"
       - name: test (nextest)
         run: cargo nextest run --workspace
-      - name: coverage（lcov 工件；棘轮阈值待 M2 基线后接）
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
       - name: gates（god 棘轮 + 版本锁步 + 抑制到期；本地与 CI 同尺）
         run: cargo run -p xtask -- gate
       # 设计债到期门接在**这条分支真正跑的 workflow**上：core.yml 只守 main（见其 on.push
@@ -128,11 +94,4 @@ jobs:
           name: nextest-junit
           # CARGO_BUILD_TARGET 定了 GNU 之后，产物在 target/<triple>/ 下 ⇒ 用 ** 覆盖两种布局。
           path: target/**/nextest/**/*.junit.xml
-          if-no-files-found: ignore
-      - name: 上传覆盖率
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: lcov
-          path: lcov.info
           if-no-files-found: ignore
