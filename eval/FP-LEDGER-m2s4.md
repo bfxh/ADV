@@ -1574,6 +1574,22 @@ DD-0005 **继续挂账**，并把两轮标识都留在账上：
 重跑由用户当场确认（上传+扣费闸门），提交命令与首轮同一条。取回：
 `~/.qodersec/bin/qodersec.exe scan poll --project github.com:bfxh/ADV --task-id 53772 --report detailed`。
 
+### 片P-3：第二轮也 canceled —— 两轮都没结论，且成因不在口径
+
+第二轮（`53772`）取回同形：`terminal=true / status=canceled / sast_count=0 / sca_count=0`。
+**连续两轮被取消**，而提交侧两次都是 `queued` 正常受理 ⇒ 取消发生在服务端，不是上传体积
+（首轮那次的体积阻塞已因口径裁到 ≈4MB 而消失——两轮都受理了）。这条**不猜成因**：
+只在账上记"两轮 canceled、无结论"，把可能的处置选项交回用户。
+
+| 轮次 | scan_id | 提交于 | 取回 |
+|---|---|---|---|
+| 首轮 | 53768 | 9d17d49 | `canceled` |
+| 重跑 | 53772 | 99b5b20 | `canceled` |
+
+DD-0005 继续挂账（未出结论）。**纪律重申**：`canceled` 态下的 `sast_count=0` 不是"没发现问题"，
+正如 `xtask mutants` 的 exit 3 不是"没有存活变异"、深轨有文件没跑成不折算为无发现。
+
+
 
 
 
