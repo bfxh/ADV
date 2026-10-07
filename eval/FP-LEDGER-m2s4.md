@@ -1301,4 +1301,16 @@ LOCAL-GATE FAIL steps=14 skipped=['cli-bench', 'perf-gate', 'coverage-gate'] fai
 handoff-gate / deps-lock / **god-gate** / type-gate / quality-pact / cargo-test / clippy 全 OK；
 debt-gate 红 4 处（都是 D5 逾期，属"账没处置完"不是回归）；三个计时/覆盖率步按档跳过并写明开关。
 
+变异门在**最终 HEAD `013700e`** 上另起独立第三轮（不带 `--update`，TMP 在 D 盘）：
+
+```
+变异面 总=433 捕获=372 未捕获=22 unviable=36 档=全档
+超时 1 条（不计入 missed…）：xtask/src/maturity.rs::seg_eq
+mutants: 绿
+```
+
+同面三轮（判定轮 / 重录轮 / 收尾轮）逐位一致 ⇒ 新基线 10 键不是"录下来正好自洽"，
+而是门在没有任何解释性动作的情况下自己说绿。
+
+
 
