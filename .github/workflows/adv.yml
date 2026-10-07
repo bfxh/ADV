@@ -15,6 +15,12 @@ jobs:
   core:
     runs-on: windows-latest
     timeout-minutes: 30
+    # **CI 与本地同尺：用 GNU target**（2026-10-07 实测定的）。默认的 windows-latest 会选 MSVC，
+    # 而内化 Nosey Parker 带的 vectorscan 只吃 gcc/clang 的 C++ 工具链、且要 CMake 找到 mingw 的 Boost：
+    # MSVC 生成器下 find_package(Boost) 直接失败（CI 日志原文 "Configuring incomplete"）。
+    # 本机开发一直是 x86_64-pc-windows-gnu，改 CI 跟随它比反过来改本机风险小。
+    env:
+      CARGO_BUILD_TARGET: x86_64-pc-windows-gnu
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -24,6 +30,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
         with:
           components: clippy, rustfmt
+          targets: x86_64-pc-windows-gnu
       - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-nextest,cargo-deny,cargo-llvm-cov
@@ -111,7 +118,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nextest-junit
-          path: target/nextest/**/*.junit.xml
+          # CARGO_BUILD_TARGET 定了 GNU 之后，产物在 target/<triple>/ 下 ⇒ 用 ** 覆盖两种布局。
+          path: target/**/nextest/**/*.junit.xml
           if-no-files-found: ignore
       - name: 上传覆盖率
         if: always()
