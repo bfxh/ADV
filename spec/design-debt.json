@@ -13,28 +13,6 @@
   ],
   "entries": [
     {
-      "id": "DD-0002",
-      "surface": "crates/adv-cli/src/main.rs::three_way_buckets（三方账「两边都报」桶）",
-      "kind": "coverage",
-      "defect": "剩下的半边：「两边都报」这一桶端到端恒空。2026-10-07 实测**推翻旧归因**（旧文本：没有任何一条规则能同时在 AST 与 MIR 成立 ⇒ 同键 `(规则, 文件, 行)` 结构上凑不出来）。反例：同一份链式污点语料 `--engine both` 现在给「仅深轨 1 / 两边都报 0」，而**去掉链**的同一句两轨都命中同一行 3 —— 同键是可得的，差的只有 DD-0003 那条链式源点匹配。故本条不是结构约束，而是 DD-0003 的下游表现；分桶本身（`crates/adv-cli/src/main.rs::three_way_buckets`）与键口径（(rule,file,start_line)，列不参与）经实测无需改动。",
-      "why_from_design": "蓝图把 M2 定成「深轨补快轨的语义盲区」，切片顺序让两引擎各做互不重叠的一面；一旦没有重叠规则，三方账最有信息量的那一桶（两边都报 = 相互印证）就注定为空。这是排序决策的代价，不是实现缺陷——要填它必须先在某一侧补对面已有的能力（见 DD-0003）。",
-      "origin": "a9e8212",
-      "since": "1fc62d3",
-      "due_after_tasks": 10,
-      "guards": "「仅快轨」桶已由 crates/adv-cli/tests/three_way_ledger.rs 端到端钉住（行号锚回夹具文本）；「两边都报」仍无判据。2026-10-07 补充：填它不需要新规则，只需要 DD-0003 修完链式匹配后在同一条语料上把 both 桶钉成非空（该片验收已预留位置）。"
-    },
-    {
-      "id": "DD-0003",
-      "surface": "快轨（tree-sitter）对 Rust 的污点能力",
-      "kind": "design",
-      "defect": "2026-10-07 实测**推翻本条旧诊断**（旧文本：快轨对 Rust 的污点**能力**缺失）。真实形状：快轨有 Rust 污点引擎并且能用（`crates/adv-rules/src/taint.rs`，Python 的 PY-TAINT-EVAL 已在用它），缺的是**链式调用上的源点/propagator 匹配**。A/B（只差一处形态，其余同）：`let raw = std::env::var(\"X\").unwrap_or_default(); Command::new(raw)` ⇒ `--engine ast` **0 条**；同一句去掉 `.unwrap_or_default()` ⇒ `--engine ast` **1 条**（RS-TAINT-COMMAND，engine=tree-sitter，行 3）；`crates/adv-ast-rust/tests/fixtures` 4 份污点夹具 ⇒ 快轨 0 / 深轨 4。机制：`rust_lang.rs:142-177` 的 `dotted_callee` 把外层 callee 拼成 `std::env::var.unwrap_or_default`，而 `taint.rs:279-280` 判源点用 `sources.iter().any(|s| s == callee)` 精确相等、`matcher.rs:163-172` 裸名档要求全等 ⇒ 赋值右侧永不命中源点，YAML 里声明过的 propagator 同样落空。复现：`cargo run -q -p adv-cli -- scan <路径> --rules rules --engine ast|mir|both`。",
-      "why_from_design": "严重性比旧登记**更高**而不是更低：这不是切片顺序的代价，而是产品级漏报——写成链式的 Rust 源点在快轨上静默流空（同一句深轨能报）。成因仍在设计层：快轨的被调名匹配只有「裸名全等 / 前导点末段 /点分路径全等」三档，没有「链上任一段是源点、且其后各段是声明过的 propagator」这一档；而规则记法（`std::env::var` + propagator `unwrap_or_default`）是按链式写法给的。旧文本把它归给「蓝图让深轨先行」的排序决策，实测不支持该归因，已在片L 附节公开撤回。",
-      "origin": "a9e8212",
-      "since": "1fc62d3",
-      "due_after_tasks": 10,
-      "guards": "crates/adv-cli/tests/three_way_ledger.rs（钉住\"仅快轨\"非空、\"两边都报\"为空这一事实）；填「两边都报」需要的能力本身无判据。"
-    },
-    {
       "id": "DD-0005",
       "surface": "全仓云端安全扫描",
       "kind": "process",
@@ -119,6 +97,16 @@
       "id": "DD-0011",
       "evidence": "变异门实测两轮逐位一致（HEAD 5f55eb0，`xtask mutants --base 6201ea4`，档=全档）：总=433 捕获=372 未捕获=22 unviable=36。与上一轮（片K 收尾 HEAD f73e4c0：总=433 捕获=371 未捕获=23）的差值恰为捕获 +1、未捕获 −1 —— 那一条就是本条的 `gate_run -> Ok(vec![])` 从存活变成被杀。\n修法（登记里预选的那条）：把聚合壳从 bin 搬进 lib —— `xtask/src/gate.rs::run(root)`，root 做成参数，于是测试可以喂进一根\"子门必然红\"的根。金丝雀两条（xtask/tests/canary_gate.rs）：①合成红根（god 基线记 1 行、源码实测 3 行 ⇒ 棘轮恶化）上断言清单非空且每条明细带子门名前缀；②成员目录缺失时必须返回 Err（由 verdict 落成\"判不了\"+ 退出码 3），换成空清单在这条上同样判红。先证红：手打 `run` 整体换成 `Ok(Default::default())` ⇒ 两条金丝雀同时 FAILED；逐字节还原（md5 07524f6ea2f7dc436d4a519b770cfd06 对账）后复绿。\n门侧披露：`scripts/reconcile_mutants.py --keys xtask/src/gate.rs::run` 给 {'CaughtMutant': 3}（Missed 0）⇒ 新面真被杀而不是没测到；旧键 `xtask/src/main.rs::gate_run` 本轮\"没出现该键\"（函数已搬走），随 `--update` 离账，基线 11 → 10，移除由门自己点名而不是静默吸收。重录后默认对账四份清单全空（新债 0 / 可划账 0 / 只有超时 0 / 不可验证 0）⇒ RECONCILE OK。",
       "retired_in": "5f55eb0"
+    },
+    {
+      "id": "DD-0003",
+      "evidence": "2026-10-07 片M 修掉并实测。\n改法（严式，只扩一档）：`crates/adv-rules/src/taint.rs` 新增 `tail_segment` + `method_tier_in`，把**链式调用的尾段**纳入 propagator / sanitizer 的匹配档（`std::env::var(x).unwrap_or_default()` 的尾段 `unwrap_or_default` 现在是声明过的传播子）；source / sink 仍走 `name_in` 的精确相等，并由 `source_and_sink_tiers_stay_exact` 反向钉住「扩档不许渗到源点/汇点」。深轨一行没动。\nA/B（同一把尺 `cargo run -q -p adv-cli -- scan <路径> --rules rules --engine ast|mir|both`）：\n| 语料 | 改前 | 改后 |\n| --- | --- | --- |\n| adv-ast-rust/tests/fixtures（5 文件） | ast 0 / mir 4；两边都报 0 / 仅快轨 0 / 仅深轨 4 | ast 3 / mir 4；**两边都报 3** / 仅快轨 0 / 仅深轨 1 |\n| adv-cli/tests/data/taint-crate（2 文件，逐文件档） | ast 0 / mir 1（+1 文件深轨跑失败） | ast 3 |\n| ruleid 夹具（新） | 漏报 (4) 实际 (6) | 两条链式与非链式都命中，误报清单为空 |\n残留的那 1 条「仅深轨」是 `taint_branch.rs`（分支合流，AST 档不建模 CFG）——两引擎的真实语义差，不是键不同源；键不同源的形状已另立 DD-0013。\n判据落点：`crates/adv-rules/tests/ruleid.rs` 的 RS_TAINT 夹具（ruleid 双向：标了必须报、没标必须不报，含 `.ok()` 这条防扩面锚点）、`crates/adv-rules/src/taint.rs` 的 3 条单测（在变异归属的包内）、`crates/adv-cli/tests/engine_mir.rs` 与 `three_way_ledger.rs` 的端到端桶计数自洽断言。",
+      "retired_in": "d55c62c"
+    },
+    {
+      "id": "DD-0002",
+      "evidence": "2026-10-07 片M 填上并实测。旧登记说「没有任何一条规则能同时在 AST 与 MIR 成立 ⇒ 同键结构上凑不出来」——片L 的 A/B 已证伪，今天修完链式匹配后落成数字：扫 `crates/adv-ast-rust/tests/fixtures` `--engine both` 得 **两边都报 3** / 仅快轨 0 / 仅深轨 1（改前是 0 / 0 / 4）。\n钉法不是抄跑出来的数：`three_way_ledger.rs::both_bucket_is_non_empty_on_the_chained_rust_taint_flow` 把期望行号取回夹具文本（源点行必须早于汇点行），并断言三个桶的计数与两侧 `(规则,文件,行)` 集合**自洽**（两边都报 == |fast ∩ deep|、仅快轨 == |fast|−交集、仅深轨 == |deep|−交集）——桶不许自己数一套、集合并另一套。\n余两笔另有去处（不随本条销）：分支合流的 AST 语义差是设计取舍；cargo 档两引擎 file 字段不同源导致的双计/桶归零在 **DD-0013**。",
+      "retired_in": "d55c62c"
     }
   ]
 }

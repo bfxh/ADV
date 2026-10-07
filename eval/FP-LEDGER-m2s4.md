@@ -1317,6 +1317,87 @@ mutants: 绿
 所以不响；无 D4 假红（`fetch-depth: 0` 仍在位）。即"带红推送"这条机制按预期工作：
 红的是账，不是回归。
 
+# 片M（2026-10-07）：快轨链式源点匹配——DD-0003 的漏报面收回来，「两边都报」填上
+
+## 改前的固定尺
+
+命令一律 `cargo run -q -p adv-cli -- scan <路径> --rules rules --engine ast|mir|both`（用户要求先出数）：
+
+| 语料 | `ast` | `mir` | `both` 三方账 |
+|---|---|---|---|
+| `crates/adv-ast-rust/tests/fixtures`（5 文件，含 4 份污点夹具） | 0 | 4 | 两边都报 **0** / 仅快轨 0 / 仅深轨 4 |
+| `crates/adv-cli/tests/data/taint-crate`（2 文件） | 0 | 1（1 文件深轨跑失败，退 2） | 两边都报 0 / 仅快轨 0 / 仅深轨 1 |
+| `three-way-corpus`（1 文件） | 2 | 0 | 两边都报 0 / 仅快轨 2 / 仅深轨 0 |
+| 真实面 `crates`（52 文件） | **27**＝PY-EVAL 2 + PY-EXEC 1 + RS-PANIC 12 + RS-UNWRAP 12，**RS-TAINT-COMMAND 0** | — | 误杀基线 |
+| 真实面 `xtask`（14 文件） | 0 | — | 同上 |
+
+先量风险半径：全仓 `crates/*/src` + `xtask/src` 里链式 `env::var(...)` 只有 2 处
+（`crates/adv-ast-rust/src/main.rs:184`、`xtask/src/mutants.rs:399`），且都接**未声明**的 `.ok()`
+⇒ 严式修法下预期产品面新增 0 条。
+
+## 改法：只扩一档，并把"不许渗到源点/汇点"反向钉住
+
+`crates/adv-rules/src/taint.rs` 加 `tail_segment` + `method_tier_in`，把**链式调用的尾段**纳入
+propagator / sanitizer 两档（`std::env::var(x).unwrap_or_default()` 的尾段正是名单里的
+`unwrap_or_default`）；`expr_taint` 里只有这两处改用 `method_tier_in`。source / sink 仍走 `name_in`
+的精确相等，并由单测 `source_and_sink_tiers_stay_exact` 断言
+`name_in("std::env::var.unwrap_or_default", ["std::env::var"]) == false` —— 扩档一旦渗进源点/汇点，
+`x.anything(env::var)` 这类形状就会被说成源点，扩面不可控。深轨一行没动。
+
+## 先证红（红测试在前，改动在后）
+
+新夹具 `crates/adv-rules/tests/ruleid.rs::RS_TAINT` 写完后**先跑**，门自己的话：
+`rs_taint: 规则注解不一致 / 漏报（注了没报）: [(4, "RS-TAINT-COMMAND")] / 误报（没注却报）: [] /
+实际: [(6, "RS-TAINT-COMMAND")]` —— 漏的正是链式那行（4），报的是非链式那行（6）。机制当场坐实，
+不靠我读码推断。改后同一夹具两条都中，`.ok()` 与 `"safe".to_string()` 两条反例仍不报。
+
+## 改后同一把尺
+
+| 语料 | `ast` | 三方账 |
+|---|---|---|
+| `adv-ast-rust/tests/fixtures` | 0 → **3** | 两边都报 0 → **3** / 仅快轨 0 / 仅深轨 **1** |
+| `taint-crate`（逐文件档） | 0 → **3** | — |
+| 真实面 `crates` | 27 → **34** | 新增 7 条**全是 RS-TAINT-COMMAND 且逐条落在夹具/语料里**：`taint_dual_role.rs:8`、`taint_direct.rs:6`、`taint_operators.rs:16`、`taint_sanitized.rs:19`、`taint-crate/src/inner.rs:5`、`src/lib.rs:10`、`src/lib.rs:15`；**产品代码新增 0 条** ⇒ 没引入误杀 |
+| 真实面 `xtask` | 0 → 0 | — |
+
+残留 1 条「仅深轨」是 `taint_branch.rs`（分支合流要 CFG）——两引擎的真实语义差，不是缺陷也不是键问题：
+快轨按语句序流敏感 + 未声明即保守杀，要在 AST 档建模合流才追得上，属设计取舍，不记债。
+
+## 这一片判红了 3 条旧测试，而它们钉的是漏报
+
+首轮 `cargo test --workspace` 有 3 条红（`deep_cargo.rs` 两条 + `engine_mir.rs` 一条），改前都是绿的：
+- `cargo_mode_reports_cross_module_flows_and_respects_sanitizer` 断言"stdout 全量行数 == 夹具标记数 3"
+  且每行 `engine == "mir"`，注释写着"快轨在该 rust 语料 0 条"——**把漏报钉成了期望**；
+- `cargo_mode_golden_freezes_the_lines` 拿全量行比金样，同样默认快轨贡献 0；
+- `both_reports_three_way_tally_on_stderr` 断言"并集应仍是这 4 条（快轨 0 条）"。
+
+处理不是放宽，而是把口径改对：新增 `lines_by_engine`，深轨行 = 金样 3 行（金样 `deep-cargo.jsonl`
+**一个字节没动**），快轨行单独与夹具 `adv-expect: hit` 标记对账（也是 3），并加两条结构性断言——
+快轨每条深轨都有同键条目（⇒ 这次修复没造出"快轨独有"的假阳面）、唯一那条仅深轨必须是
+`taint_branch.rs`。桶计数不许自己数一套、集合另一套：`three_way_ledger.rs` 新增的自洽断言把三个桶
+与 `|fast ∩ deep|` 绑在一起。
+
+## DD-0013：顺带量出来的第二个设计层缺陷（在册，**未修**）
+
+`--deep-via-cargo` 档下深轨 `file` 是 **crate 相对路径**（`src/lib.rs`），快轨是调用者给的长路径 ⇒
+三方账的键 `(rule, file, line)` 不同源。同一份 taint-crate 实测：`6 条发现（快轨 3 / 深轨 3）`
+但 `两边都报 0 / 仅快轨 3 / 仅深轨 3`——3 个流程被算成 6 条，最有信息量的桶仍是 0。逐文件档没这问题
+（才有上面「两边都报 3」）。修法两条待裁：A=在 `scan_crate_via_cargo` 把 file 换回调用者坐标系
+（要**有意识重录**金样 3 行的 `file` 字段，属动冻结契约）；B=只在 `three_way_buckets` 的键上归一
+（金样不动，但两引擎回包仍不同形，双计只在账里消失）。症状已钉进 `deep_cargo.rs`：桶计数一修就会
+判红并指名来改账，不许静默变绿。
+
+## 账与基线
+
+- DD-0003 销（`retired_in d55c62c`）：evidence 带改前/改后两张表 + 先证红原文 + 严式范围。
+- DD-0002 销：「两边都报」0 → 3，且断言桶计数与两侧集合自洽，不是抄跑出来的数。
+- DD-0013 登记（`origin a9e8212`、`due_after_tasks 10`）。debt_gate 现红 **2** 处
+  （DD-0005 拖 35、DD-0008 拖 30）；在册 4 / 已销 9。
+- god 两侧重录并逐键点名：xtask `462 → 474`（新增 12、变大 8、移除 0）；python god 452 文件（5 处变大）。
+- `cargo test --workspace` **101 passed / 0 failed** · clippy `-D warnings` exit 0 · fmt 0 差异 ·
+  `xtask god` / `gate` / `mir` 全绿。
+
+
 
 
 
