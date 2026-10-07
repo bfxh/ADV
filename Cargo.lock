@@ -31,6 +31,7 @@ dependencies = [
  "adv-core",
  "adv-parse",
  "adv-rules",
+ "adv-secrets",
  "ignore",
  "serde_json",
 ]

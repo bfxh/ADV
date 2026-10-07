@@ -969,6 +969,11 @@
   "max_fn_lines": 29,
   "max_type_members": 0
  },
+ "scripts/cargo_lock.py": {
+  "file_lines": 67,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
  "scripts/ci_gate.py": {
   "file_lines": 40,
   "max_fn_lines": 0,
@@ -1222,6 +1227,11 @@
  "tests/test_bevy.py": {
   "file_lines": 125,
   "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "tests/test_cargo_lock.py": {
+  "file_lines": 94,
+  "max_fn_lines": 15,
   "max_type_members": 0
  },
  "tests/test_cargoaudit.py": {

@@ -1833,3 +1833,87 @@ python god `454 → 459`（新增 5：4 个语料 .py + 1 个测试 .rs）。
 留给删不掉的场景）。**改写的是本地未推送的提交**（远端当时仍在 `2c20e26`），没有改写任何已发布历史，
 也不需要 force push。
 
+
+---
+
+## M3-1 收尾（一）：CI 洋葱账 —— 五层，逐层有 run 号与错误签名
+
+判红全部来自 `clippy` 这一步（工作区第一次真正编译 = vectorscan 的 build.rs 在这里跑），
+所以"错误签名"比步名更能定位是哪一层。逐条取自 `gh run view --log-failed`，非回忆：
+
+| 层 | 错误签名（原文摘录） | 判红的 run | 修法（提交） |
+|---|---|---|---|
+| L1 | `vectorscan-rs-sys-0.0.5\build.rs:85:9: assertion failed: output.status.success()`；诊断步 `which -a patch` 显示 runner PATH 里没有 patch | 37637177987 `91e14b6`、37639067068 `5d0b459`、37642679587 前置对照 | pacman 装 `patch` 并把 MSYS2 目录写进后续步骤 PATH（`1721a45`/`024bd63`/`a5e7c74` 三个诊断提交） |
+| L2 | `-- The CXX compiler identification is MSVC 19.51.36260.0` —— vectorscan 只吃 gcc/clang | 37642679587 `1721a45` | 把 cargo 的 target 对齐本地口径（`6c9cb80`） |
+| L3 | `error[E0463]: can't find crate for \`core\`` —— `rust-toolchain.toml` 钉 1.99.0，runner 默认 host 是 msvc，没装 **gnu host** | 37646023922 `6c9cb80` | 显式 `rustup toolchain install 1.99.0-x86_64-pc-windows-gnu` + `RUSTUP_TOOLCHAIN`（`8a29fd3`） |
+| L4 | `Could NOT find PkgConfig (missing: PKG_CONFIG_EXECUTABLE)`（CMakeLists.txt:29 find_package） | 37642679587 `1721a45` 与 37646897704 `8a29fd3` 各报一次 | pacman 装 `mingw-w64-x86_64-pkgconf`（`80431102`） |
+| L5 | `error[E0463]: can't find crate for \`profiler_builtins\`` + note `the compiler may have been built without the profiler runtime` | 37647787433 `80431102`（**coverage** 步，非 clippy） | 未修——见下节，成因是工具链分发缺件而非配置 |
+
+**L4 之后这轮（37647787433）实测过了什么**：`fmt` 绿、`clippy` **绿**（⇒ vectorscan 在 runner 上真编出来了）、
+`test (nextest)` 绿；`coverage` 红；**`gates`/`CI wiring gate`/`Debt gate`/`deny` 四步是 `skipped` 不是 `success`**
+（前一步判红后 workflow 直接终止）。也就是说那四道门在这条分支上**至今一次都没真跑过**——这条账不能算进"CI 绿"。
+`上传覆盖率` 反而 success（lcov 文件不存在时 actions/upload-artifact 拿到空 glob 也没拦），属于"步绿=没跑"的形状。
+
+## M3-1 收尾（二）：L5 是分发缺件，不是配置问题（本地两态实测）
+
+CI 那条 E0463 我不按记忆解释，直接在本机同族工具链的 rustlib 里数文件（`profiler_builtins` 的 rlib/rmeta）：
+
+```
+1.99.0-x86_64-pc-windows-gnu  →  0     ← CI 用的就是它
+1.99.0-x86_64-pc-windows-msvc →  2
+nightly-x86_64-pc-windows-gnu →  0
+stable-x86_64-pc-windows-gnu/lib/rustlib/aarch64-unknown-linux-gnu → 2   ← 只有非 gnu host 的 std 带
+```
+
+⇒ **`cargo llvm-cov` 在 windows-gnu 上结构性起不来**：`-C instrument-coverage` 要 link
+`profiler_builtins`，而 windows-gnu 分发的 std 不含它。两条独立证据同向（CI 日志 + 本机 lib 目录清点），
+不是"少装一个 component"——`llvm-tools` 那步 rustup 自己装上并成功了（日志 `downloading component llvm-tools`），
+缺的是运行时而不是工具。
+
+顺带把 `local_gate` 的 `coverage-gate` 步为什么常年"本机测不了"这句话钉实了：它不是懒，是同一条缺件。
+M3-1 的 CI 改造因此**只算到第 4 层收口**，第 5 层要换形状（跨平台跑覆盖率 / 撤步并登记设计债 / 只测 msvc 子集），
+是口径决定，等裁定后进 `spec/design-debt.json` 或本账。
+
+## M3-1 收尾（三）：依赖锁漂移的门归属空洞（本轮补上，`cargo-lock` 步）
+
+**兑现形状**：`5d0b459` 给 `crates/adv-cli/Cargo.toml` 加了一行 `adv-secrets` 依赖，却没带 `Cargo.lock`
+（实测 `git show 5d0b459:Cargo.lock` 里 `adv-cli` 的 dependencies 仍是 `adv-core/adv-parse/adv-rules/ignore/serde_json` 五项，
+少 `adv-secrets`）。这份漂移**跟着提交进了远端并穿过 CI**：run 37647787433 的 `clippy`、`nextest` 都在它之上判绿——
+因为 CI 的 cargo 步骤一律不带 `--locked`（实测 `grep -n "locked" .github/workflows/adv.yml` 零命中），
+cargo 会静默按 Cargo.toml 现算，锁过期与否对构建没有影响。炸点留给下一个手动跑 `--locked` 的人（就是我）。
+
+**为什么这是设计层而不是一次手滑**：仓里已经有两道名字像它的门，都不管根工作区的锁——
+① `deps-lock`（`scripts/deps_lock.py`）的 R1 管的是 `rust/Cargo.toml` 那个**零依赖**旧目录 + python CI 依赖登记/钉版；
+② `xtask` 的「版本锁步」（`lockstep.rs`，CI 步名 `gates`）管的是 workspace 版本 ↔ `adv-v*` tag。
+`spec/gate-lines.json` 里 `deps-lock` 在册，读起来像"依赖这块有门了"，于是**没人再问根 Cargo.lock 谁负责**。
+归属表按步骤名认领，名字撞车而覆盖面不同的两格正好把这条缝夹在中间。
+
+**改前基线（同一棵树两态各跑，先量后改）**：
+
+| 口径 | 漂移态 | 修复态 |
+|---|---|---|
+| `cargo metadata --locked` | rc=**101** 310ms | rc=0 425ms |
+| `cargo metadata --locked --no-deps` | rc=**0** 252ms ← **假绿陷阱**：`--no-deps` 跳过 resolve，根本不校验锁 | rc=0 243ms |
+| `cargo metadata --locked --offline` | rc=101 329ms | rc=0 469ms |
+
+钉死第一行。第二行是这次差一点踩进去的坑：如果按"少干活更快"的直觉写 `--no-deps`，门会在漂移态判绿，
+等于给一条不存在的保护盖红章。第三行不用，是因为 CI 冷缓存时它以 `failed to download` 报红——
+环境红常年化的门等于没有门。
+
+**补的门**：`scripts/cargo_lock.py`（三态退出码 0 绿 / 1 漂移红 / 2 判不了，判不了与真漂移分开点名）
++ `tests/test_cargo_lock.py` 金丝雀 **5 条，实测 5 passed in 2.41s**：
+漂移判红、同语料重生成锁后翻绿（证明尺钉的是漂移不是环境）、锁整份缺失判红不是判不了、根不对判 2、
+以及"本仓自己在门口径下必须绿"。合成语料只含路径依赖 ⇒ 不需要网络也不依赖 C 盘。
+接线四处：`local_gate` STEPS、`spec/gate-lines.json`（adv-m2 与 pre-commit 两条线都加，提交路径当场就能挡）、
+`spec/ci-wiring.json`（adv-rewrite 清单 + adv.yml 新增 `cargo-lock` 步；`ci_wiring_gate` 实测 OK，11 次门声明全部有归属）、
+`scripts/deps_lock.py` 那格的说明补上"不管根 Cargo.lock"。
+
+**门自身变胖的账**（棘轮只准减，重录基线会把增长洗掉，所以不重录）：
+`god_gate.py --write-baseline` 后逐键 diff = **added 6 / removed 0 / changed 0**，六个键全属两个新面
+（`scripts/cargo_lock.py` 67 行·最长函数 17；`tests/test_cargo_lock.py` 94 行·最长函数 15）。
+`scripts/local_gate.py` 从 293 行压到 **292**：新增一步要占一行，把 `fmt-workspace` 与 `deps-lock`/`cargo-lock`
+的条目折成单行换回来（文案一字未删，只换行位置）。这一步是本仓风格允许的——`ruff.toml` 明确不选 E501
+（"格式之争不进 bug 门"），同文件已有 163 字符的行。
+
+**claim-gate 当场抓到我把文档写旧了**：README 主张 40/33/37、HARDENING 主张 33/37，真值源给 41/34/38
+⇒ 按真值改（`门清单 41 步 / 快档 34 步 / 全档 38 步`）。补一步门就必须动这两个数，这是设计意图而不是负担。
