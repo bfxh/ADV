@@ -1490,6 +1490,40 @@ DD-0012 销（`retired_in 3ab41b7`）。**在册只剩 2 条**：DD-0005（云�
 DD-0008（提交路径钩子，等快档真能绿）；已销 11。python 分片 **52 passed**（含两条新金丝雀）；
 门线除 debt-gate 外全绿。
 
+# 片O（2026-10-07）：DD-0008 —— 装窄版钩子，并让它能自证
+
+用户拍板"装窄版钩子"。先量后装：`local_gate.py --fast` 实测 **31 步里 14 步红**
+（secrets / naming-gate / data-flow / secrets-history / audit-freshness / tool-evals /
+cli-golden / mcp-surface / selftest / dupe-gate / lint-gate / typos-gate / gitleaks-gate +
+debt-gate，全是伞仓 python 面的存量账）⇒ 直接装全档钩子 = 每次提交被 14 条红挡住，
+正是要防的"必然红=噪声"。
+
+三件事：
+
+1. **窄版线 `pre-commit`**（`spec/gate-lines.json` 新增）：15 步 = adv-m2 减 `debt-gate` 再加
+   `hook-status`。为什么减 debt-gate 写在 `why` 里：超期由 CI 判是既有分工
+   （`tests/test_debt_gate.py` 只断结构、CI 的 Debt gate 判超期），本地再判一次等于**在修这笔账
+   的时候被这笔账挡住提交**——死锁不是纪律。实测整线 12.7s 绿。
+2. **`scripts/hook_status.py`**：提交路径的自证三态——已装 / 未装 / **不一致**，只有"记号说有、
+   实际没装"判红（新克隆与 CI 天然没钩子，判红就是噪声；这与本仓"红-by-default 的门会失效"
+   同一条纪律）。`--install` 幂等落记号 `adv.hooksInstalledAt`，实测
+   `core.hooksPath=.githooks`、记号 `2026-10-07T10:54:59+08:00@6916db1`；`--require` 供显式收口。
+   金丝雀三条：未装不红 / `--require` 翻转 / 记号有装而无钩子必红。
+3. **真的在提交路径上跑**：`sh .githooks/pre-commit` 与**真实 `git commit`**（`7c6e6b7`）都完整
+   跑过 14 步（12.7s / 11.6s，全绿），输出头部就是 `HOOK-STATUS installed`——这条不是"我跑过
+   脚本"，是"提交真被拦了一下并放行"。`pre-push` 同改（窄版线 + `cargo run -p xtask -- gate`）。
+
+**claim-gate 当场抓到我把文档数字写旧了**：加一步之后真值变 32/36/39，而 README（38/31/35）与
+HARDENING（31/35）还是旧数 ⇒ `CLAIM-GATE FAIL mismatch=3`。按它给的真值源改完转绿。这条恰好
+演示了"文档里的数字必须机器可复算"的用处——我改的不只是数字，是别人读到的现状。
+
+**DD-0012 的新规则在片O 当场生效**：新增 `scripts/hook_status.py` 与 `tests/test_hook_status.py`
+两个文件后，python god 门立刻报 `✗ …: 未登记（新面：跑 --write-baseline 登记并披露）`；
+重录 `452 → 454`（新增 2、变大 2）。
+
+DD-0008 销（`retired_in 7c6e6b7`）。**在册只剩 1 条：DD-0005**（已销 12）。
+
+
 
 
 

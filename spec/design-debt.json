@@ -22,17 +22,6 @@
       "since": "1fc62d3",
       "due_after_tasks": 10,
       "guards": "无（靠本登记到期判红）"
-    },
-    {
-      "id": "DD-0008",
-      "surface": "提交路径（.githooks/pre-commit）与 README/docs 关于它的陈述",
-      "kind": "design",
-      "defect": "三处文档（README.md 双门段、docs/DESIGN-DEBT-GATE.md §5/§7、docs/STRESS-AND-PR-GATES.md §2 表）都写着 core.hooksPath 已设 / 钩子已启用 ⇒ 门真在提交路径上。2026-10-06 实测：git config --get core.hooksPath 无值、git config --list --show-origin 全域无 hook 项、.git/hooks/ 只剩 .sample ⇒ 提交路径上一道门都没装。\"版本化的钩子文件\"被当成\"装好的钩子\"，是本仓最贵的一类假绿：门看着在，其实不在。",
-      "why_from_design": "门链设计把本地生效面写成一次性的手工安装（git config core.hooksPath .githooks），却没给这一步配自证：既没有\"钩子是否真在跑\"的可判据，也没有安装动作的落盘凭证（hooksPath 是机器级 .git/config，不进 git）。于是文档陈述与生效面之间没有任何东西把它们钉在一起——文档漂移是必然，不是偶发。",
-      "origin": "13afeae",
-      "since": "25c51c9",
-      "due_after_tasks": 10,
-      "guards": "本次只把陈述改成实测口径并指向本条债；生效面本身仍无判据（缺的正是这条债要补的：一道能判\"提交路径当前装没装门\"的检查 + 快档不再恒红后才允许装）。"
     }
   ],
   "retired_fields": [
@@ -95,6 +84,11 @@
       "id": "DD-0012",
       "evidence": "2026-10-07 修掉并实测。修法：`scripts/god_gate.py::evaluate` 新增 `require_registration = bool(base)`，表外新面在**文件维度**报一条 `未登记（新面：跑 --write-baseline 登记并披露）` —— 只在文件维度点一次名，键维度各报一条会把同一件事刷成三行。\n两条边界（都写进代码注释并有金丝雀）：① **没有基线时不启用**这条（引导期口径保持原样，否则新仓第一步就红死、门会被直接关掉）；② `--write-baseline` 之后必须转绿——门要的是点名，不是堵死：`tests/test_s167_god_gate.py` 新增两条 `test_unregistered_new_file_reddens_once_a_baseline_exists`（新面 ⇒ 红且输出含 `newface.py: 未登记`；登记后 ⇒ 绿）与 `test_no_baseline_keeps_the_bootstrap_path`。\n实测：引入前全仓门 `GOD-GATE OK 超标/变胖=0`（因为今天上午刚把 72 个漂着的面登记过，见片L 的披露）；改完先证红再证绿——把新测试文件与 `god_gate.py` 自身的增长当输入，门报`✗ scripts/god_gate.py: file_lines 463 → 471`、`✗ scripts/god_gate.py: max_fn_lines 68 → 69`、`✗ tests/test_s167_god_gate.py: file_lines 151 → 179` 共 3 条，`--write-baseline` 后 `基线 452 → 452 键（新增 0、移除 0、行数变大 2）`、门转绿、`test_s167` 9 passed。\n这条修的是**盲区类型**而不是某条具体数值：门从「只约束表内键」变成「表外新面先登记」，与 Rust 侧 `xtask god::ratchet_violations` 的 `None => 未登记 …` 分支口径一致。",
       "retired_in": "3ab41b7"
+    },
+    {
+      "id": "DD-0008",
+      "evidence": "2026-10-07 按用户拍板「装窄版钩子」处置完并实测。\n① 装上了、且能自证：`scripts/hook_status.py` 三态——已装 / 未装 / **不一致**（记号说有、实际没装 ⇒ 红）。只有第三态红：新克隆与 CI 天然没钩子，把「未装」判红就是噪声（红-by-default 的门会失效）。`--install` 幂等落下 `adv.hooksInstalledAt` 记号，实测 `git config --get core.hooksPath` = `.githooks`、记号 = `2026-10-07T10:54:59+08:00@6916db1`。\n② 钩子跑的面是**窄版线** `pre-commit`（`spec/gate-lines.json` 新增，15 步 = adv-m2 减 debt-gate 再加 hook-status）。为什么减 debt-gate：超期由 CI 判是既有分工（`tests/test_debt_gate.py` 只断结构、CI 的 Debt gate 判超期）；本地再判一次，等于在修这笔账的时候被这笔账挡住提交——死锁不是纪律。\n③ 真在跑的证据：`sh .githooks/pre-commit` 与**真实 `git commit`**（7c6e6b7）都完整跑过 14 步（12.7s / 11.6s，全绿），输出头部就是 `HOOK-STATUS installed`。\n④ 文档与判据同步：README 的「门清单/快档/全档」步数 38/31/35 → 39/32/36（claim-gate 当场抓到我把数字写旧了，按它的真值源改）；README/HARDENING 里「提交路径没装上」的段落改成实测口径与安装命令。\n⑤ 金丝雀三条（`tests/test_hook_status.py`）：未装不红、`--require` 翻转、记号有装而无钩子必红。",
+      "retired_in": "7c6e6b7"
     }
   ]
 }
