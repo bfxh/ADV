@@ -1627,6 +1627,26 @@ DD-0005 继续挂账（未出结论）。**纪律重申**：`canceled` 态下的
 成因仍未查明、不猜。⇒ 继续在本机重试没有信息量；要推进只有两条：① 用户侧在控制台看该项目
 的任务为何被取消；② 换通道（例如换个 project/平台形态）——两条都需要人，不再自动重试。
 
+### 片P-6：查原因（只读本机证据）——结论是"本机查不出，需宿主侧一条信息"
+
+按用户要求查了一遍，**不使用任何上传**。可核事实：
+
+1. **同一通道的评审功能是好的**：本机日志里 `review.scan/diff/dedup`（L1/L3）当天几十次全部正常，
+   ⇒ 不是隧道/登录整体坏掉，**只有 scan 任务被取消**。
+2. **四次 scan 全是"受理(queued)后取消"**（日志里 `scan.submitted … status=queued` →
+   数十秒后 `scan.poll … status=canceled terminal=true`），且单文件那次也一样。
+3. **本机没有任何取消理由**：`~/.qodersec/logs/qodersec.log` 与 `state/` 下的会话 journal、
+   telemetry spool 里都没有 reason 字段；`scan.poll` 行只有 `status/timed_out`。
+4. `codesec-cli config` 给出的宿主设置是
+   `QODER_SECURITY_SCAN_SETTINGS_JSON={"l1StaticCheck":true,"l2LightweightScan":false,"l3DeepScan":true,"gitPushScanHook":false}`
+   —— **只有 L1/L2/L3 三个开关，没有 L4/云端扫描键**；而 `layers: l1,l2,l3,l4` 说明平台支持四级。
+   这是唯一指向"宿主侧某处没开/没配"的线索，但**本机无法证实**（不猜）。
+
+⇒ 结论与下一步（都要求人 / 要授权，不再自动重试）：① 在 Qoder 的 Security 设置页确认
+「L4/云端深度扫描（project/file scan）」是否开启，以及项目 12229 的报告页里那两个任务的状态说明；
+② 如要拿到传输层细节，需要一次 **开 `CODESEC_SCAN_DEBUG=1` 的重跑**（同样上云+耗 Credits，必须你点头）。
+本机侧的调查到此为止，DD-0005 保持挂账。
+
 # 片C 先量（2026-10-07）：旧引擎 Python 污点 vs 新快轨，同一批语料上的旧/新账
 
 M2 的最后一片。开工前先把两边真跑一遍（这是本线固定动作），命令与原话输出如下。
