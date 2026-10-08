@@ -104,3 +104,38 @@ jobs:
           # CARGO_BUILD_TARGET 定了 GNU 之后，产物在 target/<triple>/ 下 ⇒ 用 ** 覆盖两种布局。
           path: target/**/nextest/**/*.junit.xml
           if-no-files-found: ignore
+
+  # 覆盖率档（DD-0014 的修法）：**换 host**。
+  # 为什么不能在 windows 那个 job 里跑：`-C instrument-coverage` 要 link `profiler_builtins`，
+  # 而 windows-gnu 分发的 std 不带它（实测两路证据：CI 报 E0463、本机 rustlib 清点 gnu=0/msvc=2）；
+  # 而 host 口径又被 vectorscan 反向钉死（C++ 只吃 gcc/clang）。linux-gnu 的分发带着它 ⇒ 挪过来。
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] ref 即工具链名，无固定 SHA 语义
+        with:
+          # 与 rust-toolchain.toml 的 channel 同步（linux 的 default host 就是 gnu，不需要显式三元组）
+          toolchain: 1.99.0
+          components: rustfmt, clippy, rustc-dev
+      # vectorscan（vendored noseyparker 的 C++ 依赖）在 ubuntu runner 上要自己补这几件；
+      # windows 那边实测缺 boost/mingw32-make/pkgconf，这边对应的就是下面这行。
+      - name: vectorscan 构建前置（linux：cmake/ninja/boost/pkg-config/patch）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build libboost-all-dev pkg-config patch
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: cargo-llvm-cov
+      # 口径与本地同尺（local_gate 的 coverage-gate 步跑的就是这条命令）。
+      - name: coverage-gate（cargo llvm-cov 全工作区 → lcov）
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+      - name: 上传覆盖率
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lcov
+          path: lcov.info
+          if-no-files-found: error
