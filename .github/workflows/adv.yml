@@ -129,6 +129,18 @@ jobs:
       - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
         with:
           tool: cargo-llvm-cov
+      # 探针（不是门）：把 rustc-dev 在 linux 上的真实落盘文件名打出来。
+      # 起因：run 37754496350 的 build.rs 判"缺组件"panic，而 `driver_probe` 的认名清单
+      # 只锚过 windows 两种 host 的实测；linux 到底叫什么当时是推断。`if: always()` +
+      # 不判退出码 ⇒ coverage-gate 依旧是唯一的裁判，这里只保证"就算门红也拿得到证据"。
+      - name: 探针：rustc-dev 工件在 linux 的真实文件名
+        if: always()
+        shell: bash
+        run: |
+          host="$(rustc -vV | sed -n 's/^host: //p')"
+          dir="$(rustc --print sysroot)/lib/rustlib/$host/lib"
+          echo "目录=$dir"
+          ls -1 "$dir" | grep -i 'rustc_driver' || echo "（没有 rustc_driver* 文件 ⇒ 组件确实不在位）"
       # 口径与本地同尺（local_gate 的 coverage-gate 步跑的就是这条命令）。
       - name: coverage-gate（cargo llvm-cov 全工作区 → lcov）
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info

@@ -1,16 +1,16 @@
 //! rustc-dev 在位判据（单一事实源）：`crates/adv-ast-rust/build.rs` 与 `xtask/src/mir.rs`
 //! 共用这把尺，避免"构建期一套判据、门另一套判据"的分裂。
 //!
-//! 判据锚在实测落盘形态（2026-10-05，1.99.0）：gnu 侧导入库
-//! `lib/rustlib/<host>/lib/librustc_driver-<hash>.dll.a`，msvc 侧 `.../lib/bin/rustc_driver-<hash>.lib`，
-//! 两者旁另有 `rustc_driver-<hash>.dll`。
+//! 判据锚在实测落盘形态（2026-10-05 本机 gnu：`lib/rustlib/<host>/lib/librustc_driver-<hash>.dll.a`；msvc 导入库在 `.../lib/bin/rustc_driver-<hash>.lib`；两者旁另有 `.dll`）。
+//! **linux 的 `.so` 是待坐实推断**（run 37754496350 只证明"该目录被读到、这几个名字全不匹配"），真名由 adv.yml coverage job 的探针步打印。
 
 use std::path::{Path, PathBuf};
+const ARTIFACT_EXTS: [&str; 4] = [".dll.a", ".lib", ".dll", ".so"];
 
-/// 库工件名判定：前缀认 `rustc_driver-` / `librustc_driver-`，后缀认 `.dll.a` / `.lib` / `.dll`。
+/// 库工件名判定：前缀认 `rustc_driver-` / `librustc_driver-`，后缀认 `.dll.a` / `.lib` / `.dll` / `.so`。
 pub fn is_driver_artifact(name: &str) -> bool {
     let stem_ok = name.starts_with("rustc_driver-") || name.starts_with("librustc_driver-");
-    let ext_ok = name.ends_with(".dll.a") || name.ends_with(".lib") || name.ends_with(".dll");
+    let ext_ok = ARTIFACT_EXTS.iter().any(|ext| name.ends_with(ext));
     stem_ok && ext_ok
 }
 

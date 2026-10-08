@@ -5,7 +5,7 @@
 //! 落在 `lib/rustlib/<host>/lib/`，`rustc_driver-1a029222508e0d37.dll` 同时落 `bin/` 与该 lib 目录）。
 //! msvc 侧的 `.lib` 导入库形态在本机**未经直接观测**（没装 msvc 的 rustc-dev，C 盘 99% 满），
 //! 只有间接坐实：CI 的 msvc 档（run 37307126960）编译通过，而 build.rs 在判据不匹配时 panic，
-//! ⇒ 这把尺在 msvc 布局上也认得出工件。别把它读成"已验证 msvc 文件名"。
+//! ⇒ 这把尺在 msvc 布局上也认得出工件。别把它读成"已验证 msvc 文件名"。**linux 的 `.so` 同样是待坐实推断**（run 37754496350 只证明"该目录被读到、这几个名字全不匹配"），真实文件名由 adv.yml coverage job 的探针步打印。
 
 use adv_ast_rust::driver_probe::{
     artifact_dirs, find_driver_artifact, is_driver_artifact, missing_message,
@@ -24,11 +24,9 @@ fn accepts_real_gnu_artifact_names() {
     for name in [
         "librustc_driver-1a029222508e0d37.dll.a",
         "rustc_driver-1a029222508e0d37.dll",
+        "librustc_driver-1a029222508e0d37.so",
     ] {
-        assert!(
-            is_driver_artifact(name),
-            "实测存在的工件名被判不在位：{name}"
-        );
+        assert!(is_driver_artifact(name), "在册工件名被判不在位：{name}");
     }
 }
 

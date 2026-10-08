@@ -2462,3 +2462,26 @@ libpcre？）；workspace 测试里也可能有 Windows 假设。若第一轮红
 = 包目录**（cargo 给的 cwd 是包根，不是仓根）⇒ 在 `crates/adv-cli/` 下留了一个 24MB 的
 `no-such-dir-xyz`（里面是 rustsec 克隆 + OSV 的 all.zip/csv）。做法撤回：那条用例删掉，理由写进测试文件；
 **CLI 测试里不许给相对路径当参数**（要么绝对路径，要么别让它真跑）。
+
+## DD-0014 第二轮：linux 的 coverage job 红了，但红点不是 vectorscan
+
+run 37754496350（`e33da12f`）：**core job 只剩 Debt gate 那一处设计红**（DD-0005，按口径预期）；
+`coverage` job 在 4m51s 判红。逐字剥日志后定位：
+
+- apt 那几件（cmake/ninja/libboost/pkg-config/patch）与 `cargo-llvm-cov` 安装**全过**，
+  noseyparker 系列 crate 已进到 `Compiling` ⇒ 上一节写的那条"vectorscan 在 Linux 从未验过"的风险
+  **这一轮没有命中**（它还没轮到失败就先红在别处）。
+- 真红点：`adv-ast-rust/build.rs:46` panic ⇒ `driver_probe::find_driver_artifact` 在
+  `<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/lib` 下**一个名字都没认出**，而同一 job 的
+  toolchain 步（`components: rustfmt, clippy, rustc-dev`）是绿的 ⇒ 组件在位，是**认名判据只锚过
+  windows 两种 host**（`.dll.a` / `.lib` / `.dll`）。这是一把尺在第二个 host 上的**设计级**失效：
+  判据的"实测"来源写死在注释里（2026-10-05 本机 `ls`），换 host 就没人替你重新核对。
+- 处置（本轮）：① 判据的后缀集合加 `.so`（`ARTIFACT_EXTS`）；② coverage job 加一条 `if: always()` 的
+  **探针步**，把 linux 上真实的 `rustc_driver*` 文件名打进日志——它不判退出码，裁判仍是 coverage-gate，
+  作用是"门红也拿得到证据"。`.so` 这个名字本身**仍是推断**（CI 只证明了"目录被读到且不匹配"），
+  已在 `driver_probe.rs` 头注释与该测试文件的模块注释里标成"待探针坐实"，测试面是把这条名字加进
+  `accepts_real_gnu_artifact_names` 的在册清单（不是新写一个自证的 test fn）。下一轮读到真实名字后，
+  若与此处不同，**改判据**而不是改断言措辞。
+- **两把 god 尺都没有动基线**（Rust 尺 `xtask god` 绿、python 尺 god_gate 0 变胖）：src 侧靠把文档行
+  合并、test 侧靠复用既有清单，各 +1 行的新增都抵掉了。也就是说这次增长本来就不需要棘轮让步——
+  遇到棘轮先想"能不能不加"，别一上来就重录。
