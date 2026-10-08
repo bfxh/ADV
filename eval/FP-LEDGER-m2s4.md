@@ -2389,3 +2389,29 @@ noseyparker + RESEARCH jsonl 逐行）。
 成因**很可能是我在跑门期间反复跑 cargo**（两轮 `cargo test`、两轮 `clippy`、三条 gate line）
 与它抢 target 目录锁——playbook 只写了"别动 .rs"，实测**真正要守的是"别碰 cargo"**。
 结论：全档读数仍欠着（第三次尝试安排在 M4-1 提交推送之后，跑门期间只做 python/文档工作）。
+
+## M3-3 补观察面：给抓取面开一条缝（变异门的读数催出来的）
+
+变异门那轮虽然**判不了**（第三次仍死在盘上），残缺输出已经值回票价：`crates/adv-sca/src/snapshot.rs`
+的整条网络路径——listing / 条件 GET / MD5 核对 / 并发 / 落地 / 记账 / 上游撤下——**~35 条变异一条都没被杀**。
+根因不是"测试写少了"，是**没有可测的缝**：`sync` 原先把 host 写死（`DEFAULT_BASE`）、抓取直连 curl，
+测试没有任何位置能插进去，于是这段路径至今只有"我手工跑过一次真桶"。
+
+**改动**：`pub trait Fetcher { fn get(&self, url, etag, out) -> Result<(u16, Vec<u8>), String> }`
++ 生产实现 `CurlFetcher`；`sync(dir)` 仍是生产入口，新增 `sync_with(dir, base, prefix, fetcher)`
+供测试注入。`list_all`/`fetch_all`/`fetch_one` 全部透传 base 与 fetcher。
+
+**新测试**（`crates/adv-sca/tests/snapshot_sync.rs`，10 条）：假桶喂列表（含**分页 token**：第一页带
+`NextContinuationToken`、第二页不带）、304 走 unchanged、MD5 不符**保留旧件**、字节数不符判不了、
+单条抓取失败 ⇒ 整次 Err **且不写记账**、上游撤下的键被点名、urlencode 由"转义后的 URL 被假桶读回"间接钉住、
+记账 round-trip，最后一条用**真 curl + `file://`** 盖住 `CurlFetcher` 那层薄壳。
+
+**顺带抓到一个真缺陷**：Windows 的 curl 在 `-w` 输出前打的是 **CRLF**，按 `\n` 切之后正文会留一个尾随
+`\r`——带 `-o` 时正文本该为空、实测是 `"\r"`（新测试当场判红）。已修（切掉尾随 `\r`）。
+这条正是"薄壳也要有一条真路径测试"的价值：`file://` 没有 HTTP 状态码（`%{http_code}` = 000 ⇒ 解析成 0），
+测试就按实情断言，不假装测到了 200/304。
+
+**顺带量到的另一条机制**：正常 `cargo test -p xtask` **零泄漏**（TMP 残留 0），所以上一轮 20GB 的 TMP
+占用不是"测试必漏"，而是**变异轮里被杀的测试跳过了清理**（合上"跑门期间别碰 cargo"那条教训）。
+这一片的收尾重放：fmt 0 / clippy `-D warnings` 0 / `cargo test --workspace` **55 组全 ok** /
+god 两把尺重录（added-only + 2 处披露）/ 窄版线 16 步绿。

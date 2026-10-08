@@ -142,6 +142,48 @@ pub fn md5_hex(bytes: &[u8]) -> String {
     hex(&Md5::digest(bytes))
 }
 
+/// 抓取面的**缝**：生产的 [`CurlFetcher`] 起外部 curl；测试注入假实现。
+///
+/// 为什么要有这条缝（变异门实测）：`sync` 原先把 host 写死、抓取直连 curl，于是
+/// 「listing / 条件 GET / MD5 核对 / 并发 / 落地 / 记账」整条路径**一条断言都没有**——
+/// 收尾那一轮里这一片冒出 ~35 条存活变异，全落在这里。缝开出来之后，测试用假 fetcher
+/// 就能把这些分支逐条钉住；`CurlFetcher` 那一层薄壳另用真 curl + `file://` 测。
+pub trait Fetcher: Sync {
+    /// 抓一个 URL。`etag` 非空则带 `If-None-Match`；`out` 非空则把响应体落盘。
+    /// 返回 (状态码, 响应体)。
+    fn get(
+        &self,
+        url: &str,
+        etag: Option<&str>,
+        out: Option<&Path>,
+    ) -> Result<(u16, Vec<u8>), String>;
+}
+
+/// 生产实现：外部 curl。
+pub struct CurlFetcher;
+
+impl Fetcher for CurlFetcher {
+    fn get(
+        &self,
+        url: &str,
+        etag: Option<&str>,
+        out: Option<&Path>,
+    ) -> Result<(u16, Vec<u8>), String> {
+        let mut extra: Vec<String> = Vec::new();
+        if let Some(path) = out {
+            extra.push("-o".into());
+            extra.push(path.to_string_lossy().into_owned());
+            extra.push("--create-dirs".into());
+        }
+        if let Some(tag) = etag {
+            extra.push("-H".into());
+            extra.push(format!("If-None-Match: \"{tag}\""));
+        }
+        let refs: Vec<&str> = extra.iter().map(String::as_str).collect();
+        curl(url, &refs)
+    }
+}
+
 fn curl(url: &str, extra: &[&str]) -> Result<(u16, Vec<u8>), String> {
     let mut cmd = std::process::Command::new("curl");
     cmd.args(["-sS", "-L", "--max-time", "120", "-w", "\n%{http_code}"]);
@@ -160,24 +202,16 @@ fn curl(url: &str, extra: &[&str]) -> Result<(u16, Vec<u8>), String> {
         .trim()
         .parse()
         .map_err(|e| format!("curl 状态码读不出：{e}"))?;
-    Ok((code, stdout[..pos].to_vec()))
-}
-
-fn fetch_to(url: &str, etag: Option<&str>, out: &Path) -> Result<(u16, Vec<u8>), String> {
-    let mut extra: Vec<String> = vec![
-        "-o".into(),
-        out.to_string_lossy().into_owned(),
-        "--create-dirs".into(),
-    ];
-    if let Some(tag) = etag {
-        extra.push("-H".into());
-        extra.push(format!("If-None-Match: \"{tag}\""));
+    // Windows 的 curl 在 `-w` 输出前打的是 **CRLF**，按 `\n` 切之后正文会留一个尾随 `\r`
+    // （`file://` 的适配器测试抓到的：带 `-o` 时正文本该为空，实测是 `"\r"`）。切掉它。
+    let mut body = stdout[..pos].to_vec();
+    if body.last() == Some(&b'\r') {
+        body.pop();
     }
-    let refs: Vec<&str> = extra.iter().map(String::as_str).collect();
-    curl(url, &refs)
+    Ok((code, body))
 }
 
-fn list_all(base: &str, prefix: &str) -> Result<Vec<ListedObject>, String> {
+fn list_all(base: &str, prefix: &str, fetcher: &dyn Fetcher) -> Result<Vec<ListedObject>, String> {
     let mut all = Vec::new();
     let mut token: Option<String> = None;
     for _page in 0..200 {
@@ -185,7 +219,7 @@ fn list_all(base: &str, prefix: &str) -> Result<Vec<ListedObject>, String> {
         if let Some(t) = &token {
             url.push_str(&format!("&continuation-token={}", urlencode(t)));
         }
-        let (code, body) = curl(&url, &[])?;
+        let (code, body) = fetcher.get(&url, None, None)?;
         if code != 200 {
             return Err(format!("列目录返回 {code}"));
         }
@@ -245,10 +279,20 @@ const WORKERS: usize = 8;
 /// 失败语义：任何一条抓取/核对失败 ⇒ `Err` 且**不写记账**（下次会重来），
 /// 不把"抓了一半"记成"同步过了"。
 pub fn sync(dir: &Path) -> Result<SyncReport> {
-    let listed = list_all(DEFAULT_BASE, DEFAULT_PREFIX).map_err(|e| anyhow!("列目录失败：{e}"))?;
+    sync_with(dir, DEFAULT_BASE, DEFAULT_PREFIX, &CurlFetcher)
+}
+
+/// 同 [`sync`]，但 host / prefix / 抓取实现都可注入（测试用；生产走 `sync`）。
+pub fn sync_with(
+    dir: &Path,
+    base: &str,
+    prefix: &str,
+    fetcher: &dyn Fetcher,
+) -> Result<SyncReport> {
+    let listed = list_all(base, prefix, fetcher).map_err(|e| anyhow!("列目录失败：{e}"))?;
     let mut manifest = load_manifest(dir)?;
-    manifest.source = DEFAULT_BASE.to_string();
-    manifest.prefix = DEFAULT_PREFIX.to_string();
+    manifest.source = base.to_string();
+    manifest.prefix = prefix.to_string();
 
     let mut report = SyncReport {
         listed: listed.len(),
@@ -271,7 +315,7 @@ pub fn sync(dir: &Path) -> Result<SyncReport> {
             todo.push(obj);
         }
     }
-    let fetched = fetch_all(dir, &todo, &manifest)?;
+    let fetched = fetch_all(dir, &todo, &manifest, base, fetcher)?;
     for (key, meta) in fetched {
         manifest.objects.insert(key, meta);
         report.fetched += 1;
@@ -291,6 +335,8 @@ fn fetch_all(
     dir: &Path,
     todo: &[ListedObject],
     manifest: &Manifest,
+    base: &str,
+    fetcher: &dyn Fetcher,
 ) -> Result<Vec<(String, ObjectMeta)>> {
     let next = std::sync::atomic::AtomicUsize::new(0);
     let done: std::sync::Mutex<Vec<(String, ObjectMeta)>> = std::sync::Mutex::new(Vec::new());
@@ -305,6 +351,8 @@ fn fetch_all(
                         dir,
                         obj,
                         manifest.objects.get(&obj.key).map(|m| m.etag.as_str()),
+                        base,
+                        fetcher,
                     ) {
                         Ok(Some(meta)) => done.lock().unwrap().push((obj.key.clone(), meta)),
                         Ok(None) => {} // 304：上游说没变
@@ -332,11 +380,15 @@ fn fetch_one(
     dir: &Path,
     obj: &ListedObject,
     known_etag: Option<&str>,
+    base: &str,
+    fetcher: &dyn Fetcher,
 ) -> Result<Option<ObjectMeta>> {
-    let url = format!("{}{}", DEFAULT_BASE, obj.key);
+    let url = format!("{base}{}", obj.key);
     let target = dir.join(&obj.key);
     let tmp = target.with_extension("part");
-    let (code, _) = fetch_to(&url, known_etag, &tmp).map_err(|e| anyhow!("{e}"))?;
+    let (code, _) = fetcher
+        .get(&url, known_etag, Some(&tmp))
+        .map_err(|e| anyhow!("{e}"))?;
     if code == 304 {
         let _ = std::fs::remove_file(&tmp);
         return Ok(None);

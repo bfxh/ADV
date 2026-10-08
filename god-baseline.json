@@ -530,8 +530,8 @@
   "max_type_members": 6
  },
  "crates/adv-sca/src/snapshot.rs": {
-  "file_lines": 405,
-  "max_fn_lines": 41,
+  "file_lines": 457,
+  "max_fn_lines": 46,
   "max_type_members": 4
  },
  "crates/adv-sca/tests/advisories.rs": {
@@ -553,6 +553,11 @@
   "file_lines": 106,
   "max_fn_lines": 19,
   "max_type_members": 0
+ },
+ "crates/adv-sca/tests/snapshot_sync.rs": {
+  "file_lines": 325,
+  "max_fn_lines": 37,
+  "max_type_members": 4
  },
  "crates/adv-secrets/src/lib.rs": {
   "file_lines": 149,
