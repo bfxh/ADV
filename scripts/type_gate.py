@@ -39,10 +39,15 @@ def run_mypy(root: pathlib.Path, paths: list[str]) -> tuple[int, list[str]]:
             "mypy 不可用——本地 `python -m pip install mypy==2.3.1`，"
             "CI 由 .github/ci-requirements.txt 安装（缺工具不静默降级）")
     cache = os.path.join(os.environ.get("TEMP", "/tmp"), "urx-mypy-gate")
-    p = subprocess.run([sys.executable, "-m", "mypy", "--no-error-summary",
+    # `-X utf8` + PYTHONUTF8 双保险：`mypy.ini` 里有中文注释，而 Windows 上非 UTF-8 模式的
+    # configparser 会用 gbk 读它并当场 UnicodeDecodeError（mypy 以 rc=2 退出、诊断 0 条）。
+    # 实测：UTF-8 模式**不会**自动传给子进程（`sys.flags.utf8_mode` 只影响自己那个进程），
+    # 所以这道门以前"经 local_gate 跑就绿、单独跑就红"——门的颜色取决于谁调用它，这是缺陷不是特性。
+    env = dict(os.environ, PYTHONUTF8="1")
+    p = subprocess.run([sys.executable, "-X", "utf8", "-m", "mypy", "--no-error-summary",
                         "--no-incremental", "--cache-dir", cache, *paths],
                        capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", cwd=str(root))
+                       errors="replace", cwd=str(root), env=env)
     out = (p.stdout or "") + (p.stderr or "")
     if "No module named mypy" in out:
         raise RuntimeError("mypy 不可用（解释器里没有该模块）")

@@ -12,6 +12,7 @@
         "name-ledger",
         "deps-lock",
         "cargo-lock",
+        "retrieval-eval",
         "bench-anchor",
         "handoff-gate",
         "god-gate",

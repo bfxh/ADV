@@ -114,6 +114,26 @@
   "max_fn_lines": 29,
   "max_type_members": 0
  },
+ "bench/retrieval/check.py": {
+  "file_lines": 65,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "bench/retrieval/floor.py": {
+  "file_lines": 147,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "bench/retrieval/gen_queries.py": {
+  "file_lines": 337,
+  "max_fn_lines": 36,
+  "max_type_members": 0
+ },
+ "bench/retrieval/protocol.py": {
+  "file_lines": 124,
+  "max_fn_lines": 28,
+  "max_type_members": 0
+ },
  "bench/s108_resolve_compare.py": {
   "file_lines": 127,
   "max_fn_lines": 73,
@@ -1235,7 +1255,7 @@
   "max_type_members": 0
  },
  "scripts/type_gate.py": {
-  "file_lines": 85,
+  "file_lines": 90,
   "max_fn_lines": 29,
   "max_type_members": 0
  },
@@ -1437,6 +1457,11 @@
  "tests/test_reconcile_mutants.py": {
   "file_lines": 157,
   "max_fn_lines": 31,
+  "max_type_members": 0
+ },
+ "tests/test_retrieval_protocol.py": {
+  "file_lines": 87,
+  "max_fn_lines": 7,
   "max_type_members": 0
  },
  "tests/test_s10.py": {

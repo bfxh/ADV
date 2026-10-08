@@ -10,7 +10,8 @@
     "clippy": "clippy",
     "xtask-gate": "xtask -- gate",
     "coverage-gate": "cargo llvm-cov",
-    "ci-wiring-gate": "scripts/ci_wiring_gate.py"
+    "ci-wiring-gate": "scripts/ci_wiring_gate.py",
+    "retrieval-eval": "bench/retrieval/check.py"
   },
   "branches": {
     "adv-rewrite": {
@@ -19,6 +20,7 @@
       "gates": [
         "fmt-workspace",
         "cargo-lock",
+        "retrieval-eval",
         "xtask-gate",
         "ci-wiring-gate",
         "debt-gate",

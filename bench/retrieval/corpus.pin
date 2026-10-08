@@ -1,0 +1,5 @@
+# 评测语料钉版：语料 = 本提交时刻的指定路径集合（内容不可变）。
+# 为什么钉版而不跟工作树：工作树每改一行我们自己的代码（例如 scripts/local_gate.py 在语料里），
+# 冻结读数就会作废——评测集必须与开发节奏解耦，改动要**显式换 pin + 重录**（这就是 M4-1 的纪律）。
+# 换 pin 的步骤：改下面这行 → gen_queries.py --write → eval/floor.py --write-baseline → 账本记一句。
+pin 46249091351c67dca5bf7c1cacf8b5daa08f4c4d

@@ -68,6 +68,10 @@ jobs:
       # 把炸点留给下一个手动跑 --locked 的人。口径与本地完全同尺（同一脚本、同一判据）。
       - name: cargo-lock（Cargo.lock ↔ 声明漂移；三态退出码）
         run: python -X utf8 scripts/cargo_lock.py
+      # 检索评测集（M4-1）：生成器可重放 + 冻结查询重过防泄漏三判据 + 地板基线对账。
+      # 走 bench 入口而不是 scripts/：判据与语料都在 bench/retrieval/ 下，入口脚本就叫 check.py。
+      - name: retrieval-eval（M4-1：生成器可重放 + 防泄漏判据 + 地板基线）
+        run: python -X utf8 bench/retrieval/check.py
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test (nextest)

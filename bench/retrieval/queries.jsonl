@@ -1,0 +1,120 @@
+{"kind": "sentence", "qid": "q000", "relevant": ["RESEARCH/registry/00.jsonl#10"], "source": "RESEARCH/registry/00.jsonl#10", "text": "guard py scripts"}
+{"kind": "sentence", "qid": "q001", "relevant": ["RESEARCH/registry/00.jsonl#13"], "source": "RESEARCH/registry/00.jsonl#13", "text": "dupe 170 s"}
+{"kind": "sentence", "qid": "q002", "relevant": ["RESEARCH/registry/00.jsonl#16"], "source": "RESEARCH/registry/00.jsonl#16", "text": "history surface secrets secrets ci name ledger ledger mcp d"}
+{"kind": "sentence", "qid": "q003", "relevant": ["RESEARCH/registry/00.jsonl#26"], "source": "RESEARCH/registry/00.jsonl#26", "text": "rs sha src sha"}
+{"kind": "sentence", "qid": "q004", "relevant": ["RESEARCH/registry/00.jsonl#4"], "source": "RESEARCH/registry/00.jsonl#4", "text": "roundlog 218 p 5 s s md"}
+{"kind": "sentence", "qid": "q005", "relevant": ["RESEARCH/registry/00.jsonl#5"], "source": "RESEARCH/registry/00.jsonl#5", "text": "god god guard guard scripts"}
+{"kind": "sentence", "qid": "q006", "relevant": ["RESEARCH/registry/00.jsonl#6"], "source": "RESEARCH/registry/00.jsonl#6", "text": "py rules json arch guard"}
+{"kind": "sentence", "qid": "q007", "relevant": ["RESEARCH/registry/00.jsonl#9"], "source": "RESEARCH/registry/00.jsonl#9", "text": "claim eval speed construct frontier ci integrity ci upgrade"}
+{"kind": "sentence", "qid": "q008", "relevant": ["RESEARCH/registry/01.jsonl#18"], "source": "RESEARCH/registry/01.jsonl#18", "text": "rule ast trait kind ast"}
+{"kind": "sentence", "qid": "q009", "relevant": ["RESEARCH/registry/02.jsonl#1"], "source": "RESEARCH/registry/02.jsonl#1", "text": "x pattern metavariable json confidence sast"}
+{"kind": "sentence", "qid": "q010", "relevant": ["RESEARCH/registry/02.jsonl#14"], "source": "RESEARCH/registry/02.jsonl#14", "text": "one trivy"}
+{"kind": "sentence", "qid": "q011", "relevant": ["RESEARCH/registry/02.jsonl#5"], "source": "RESEARCH/registry/02.jsonl#5", "text": "auto triage"}
+{"kind": "sentence", "qid": "q012", "relevant": ["RESEARCH/registry/04.jsonl#1"], "source": "RESEARCH/registry/04.jsonl#1", "text": "idempotent open output load world structured schema mcp content spec"}
+{"kind": "sentence", "qid": "q013", "relevant": ["RESEARCH/registry/04.jsonl#11"], "source": "RESEARCH/registry/04.jsonl#11", "text": "description invariant shadowing pull sweep flows poisoning tool tool toxic"}
+{"kind": "sentence", "qid": "q014", "relevant": ["RESEARCH/registry/04.jsonl#2"], "source": "RESEARCH/registry/04.jsonl#2", "text": "ttl mcp spec session discover cache meta scope mcp ms"}
+{"kind": "sentence", "qid": "q015", "relevant": ["RESEARCH/registry/04.jsonl#7"], "source": "RESEARCH/registry/04.jsonl#7", "text": "advanced defer tool token use loading examp"}
+{"kind": "sentence", "qid": "q016", "relevant": ["RESEARCH/registry/05.jsonl#11"], "source": "RESEARCH/registry/05.jsonl#11", "text": "try fail drop rust rust forge merge bors success"}
+{"kind": "sentence", "qid": "q017", "relevant": ["RESEARCH/registry/05.jsonl#7"], "source": "RESEARCH/registry/05.jsonl#7", "text": "pipeline dagger cargo pipeline"}
+{"kind": "combo", "qid": "q018", "relevant": ["crates/adv-ast-rust/build.rs"], "source": "crates/adv-ast-rust/build.rs", "text": "main x"}
+{"kind": "sentence", "qid": "q019", "relevant": ["crates/adv-ast-rust/build.rs"], "source": "crates/adv-ast-rust/build.rs", "text": "md deep rustc plan dev"}
+{"kind": "combo", "qid": "q020", "relevant": ["crates/adv-ast-rust/src/driver_probe.rs"], "source": "crates/adv-ast-rust/src/driver_probe.rs", "text": "dirs artifact x"}
+{"kind": "ident", "qid": "q021", "relevant": ["crates/adv-ast-rust/src/driver_probe.rs"], "source": "crates/adv-ast-rust/src/driver_probe.rs", "text": "is artifact driver"}
+{"kind": "sentence", "qid": "q022", "relevant": ["crates/adv-ast-rust/src/driver_probe.rs"], "source": "crates/adv-ast-rust/src/driver_probe.rs", "text": "construct dev crates rustc src rust rs mir adv"}
+{"kind": "sentence", "qid": "q023", "relevant": ["crates/adv-ast-rust/src/lib.rs"], "source": "crates/adv-ast-rust/src/lib.rs", "text": "driver rustc probe dev crate"}
+{"kind": "combo", "qid": "q024", "relevant": ["crates/adv-ast-rust/src/main.rs"], "source": "crates/adv-ast-rust/src/main.rs", "text": "probe x mir"}
+{"kind": "ident", "qid": "q025", "relevant": ["crates/adv-ast-rust/src/main.rs"], "source": "crates/adv-ast-rust/src/main.rs", "text": "site call"}
+{"kind": "sentence", "qid": "q026", "relevant": ["crates/adv-ast-rust/src/main.rs"], "source": "crates/adv-ast-rust/src/main.rs", "text": "a rustc 1 a"}
+{"kind": "combo", "qid": "q027", "relevant": ["crates/adv-ast-rust/src/spec.rs"], "source": "crates/adv-ast-rust/src/spec.rs", "text": "x specs rules from"}
+{"kind": "combo", "qid": "q028", "relevant": ["crates/adv-ast-rust/src/taint_reach.rs"], "source": "crates/adv-ast-rust/src/taint_reach.rs", "text": "arg x kind"}
+{"kind": "ident", "qid": "q029", "relevant": ["crates/adv-ast-rust/src/taint_reach.rs"], "source": "crates/adv-ast-rust/src/taint_reach.rs", "text": "span pos"}
+{"kind": "sentence", "qid": "q030", "relevant": ["crates/adv-ast-rust/src/taint_reach.rs"], "source": "crates/adv-ast-rust/src/taint_reach.rs", "text": "framework mir 2 dataflow analysis mir a"}
+{"kind": "combo", "qid": "q031", "relevant": ["crates/adv-ast-rust/src/wrapper.rs"], "source": "crates/adv-ast-rust/src/wrapper.rs", "text": "forwarded args x"}
+{"kind": "ident", "qid": "q032", "relevant": ["crates/adv-ast-rust/src/wrapper.rs"], "source": "crates/adv-ast-rust/src/wrapper.rs", "text": "wrapper is"}
+{"kind": "combo", "qid": "q033", "relevant": ["crates/adv-ast-rust/tests/driver_probe.rs"], "source": "crates/adv-ast-rust/tests/driver_probe.rs", "text": "real x gnu artifact names accepts"}
+{"kind": "sentence", "qid": "q034", "relevant": ["crates/adv-ast-rust/tests/driver_probe.rs"], "source": "crates/adv-ast-rust/tests/driver_probe.rs", "text": "driver rustc probe dev"}
+{"kind": "sentence", "qid": "q035", "relevant": ["crates/adv-ast-rust/tests/dual/taint_dual_role.rs"], "source": "crates/adv-ast-rust/tests/dual/taint_dual_role.rs", "text": "dual taint rules yaml dual to"}
+{"kind": "combo", "qid": "q036", "relevant": ["crates/adv-ast-rust/tests/fixtures/m1_probe.rs"], "source": "crates/adv-ast-rust/tests/fixtures/m1_probe.rs", "text": "x flow"}
+{"kind": "sentence", "qid": "q037", "relevant": ["crates/adv-ast-rust/tests/fixtures/m1_probe.rs"], "source": "crates/adv-ast-rust/tests/fixtures/m1_probe.rs", "text": "1 mir"}
+{"kind": "sentence", "qid": "q038", "relevant": ["crates/adv-ast-rust/tests/fixtures/taint_branch.rs"], "source": "crates/adv-ast-rust/tests/fixtures/taint_branch.rs", "text": "a 2 if"}
+{"kind": "sentence", "qid": "q039", "relevant": ["crates/adv-ast-rust/tests/fixtures/taint_direct.rs"], "source": "crates/adv-ast-rust/tests/fixtures/taint_direct.rs", "text": "var std propagator env"}
+{"kind": "combo", "qid": "q040", "relevant": ["crates/adv-ast-rust/tests/fixtures/taint_operators.rs"], "source": "crates/adv-ast-rust/tests/fixtures/taint_operators.rs", "text": "operators x"}
+{"kind": "sentence", "qid": "q041", "relevant": ["crates/adv-ast-rust/tests/fixtures/taint_operators.rs"], "source": "crates/adv-ast-rust/tests/fixtures/taint_operators.rs", "text": "2 rvalue arm"}
+{"kind": "combo", "qid": "q042", "relevant": ["crates/adv-ast-rust/tests/fixtures/taint_sanitized.rs"], "source": "crates/adv-ast-rust/tests/fixtures/taint_sanitized.rs", "text": "unsanitized x"}
+{"kind": "combo", "qid": "q043", "relevant": ["crates/adv-ast-rust/tests/mir_probe.rs"], "source": "crates/adv-ast-rust/tests/mir_probe.rs", "text": "x path fixture"}
+{"kind": "sentence", "qid": "q044", "relevant": ["crates/adv-ast-rust/tests/mir_probe.rs"], "source": "crates/adv-ast-rust/tests/mir_probe.rs", "text": "mir a 1 crate rs"}
+{"kind": "combo", "qid": "q045", "relevant": ["crates/adv-ast-rust/tests/taint_reach.rs"], "source": "crates/adv-ast-rust/tests/taint_reach.rs", "text": "root x repo"}
+{"kind": "combo", "qid": "q046", "relevant": ["crates/adv-ast-rust/tests/wrapper_mode.rs"], "source": "crates/adv-ast-rust/tests/wrapper_mode.rs", "text": "dir x rules"}
+{"kind": "sentence", "qid": "q047", "relevant": ["crates/adv-ast-rust/tests/wrapper_mode.rs"], "source": "crates/adv-ast-rust/tests/wrapper_mode.rs", "text": "cargo 1 b crate jsonl"}
+{"kind": "combo", "qid": "q048", "relevant": ["crates/adv-bin/src/lib.rs"], "source": "crates/adv-bin/src/lib.rs", "text": "version matches core x"}
+{"kind": "sentence", "qid": "q049", "relevant": ["crates/adv-bin/src/lib.rs"], "source": "crates/adv-bin/src/lib.rs", "text": "m adv 3 adv 0 v"}
+{"kind": "combo", "qid": "q050", "relevant": ["crates/adv-cli/src/main.rs"], "source": "crates/adv-cli/src/main.rs", "text": "x tally"}
+{"kind": "sentence", "qid": "q051", "relevant": ["crates/adv-cli/src/main.rs"], "source": "crates/adv-cli/src/main.rs", "text": "sweep 1 cli m serve adv"}
+{"kind": "combo", "qid": "q052", "relevant": ["crates/adv-cli/src/mir.rs"], "source": "crates/adv-cli/src/mir.rs", "text": "bin x toolchain"}
+{"kind": "sentence", "qid": "q053", "relevant": ["crates/adv-cli/src/mir.rs"], "source": "crates/adv-cli/src/mir.rs", "text": "3 adv rustc private a"}
+{"kind": "combo", "qid": "q054", "relevant": ["crates/adv-cli/src/sca.rs"], "source": "crates/adv-cli/src/sca.rs", "text": "parse x"}
+{"kind": "sentence", "qid": "q055", "relevant": ["crates/adv-cli/src/sca.rs"], "source": "crates/adv-cli/src/sca.rs", "text": "sca jsonl adv osv"}
+{"kind": "combo", "qid": "q056", "relevant": ["crates/adv-cli/src/snapshot.rs"], "source": "crates/adv-cli/src/snapshot.rs", "text": "findings x advisory"}
+{"kind": "ident", "qid": "q057", "relevant": ["crates/adv-cli/tests/deep_cargo.rs"], "source": "crates/adv-cli/tests/deep_cargo.rs", "text": "repo root"}
+{"kind": "sentence", "qid": "q058", "relevant": ["crates/adv-cli/tests/deep_cargo.rs"], "source": "crates/adv-cli/tests/deep_cargo.rs", "text": "cargo 2 deep crate"}
+{"kind": "ident", "qid": "q059", "relevant": ["crates/adv-cli/tests/old_new_ledger.rs"], "source": "crates/adv-cli/tests/old_new_ledger.rs", "text": "dir manifest"}
+{"kind": "ident", "qid": "q060", "relevant": ["crates/adv-cli/tests/three_way_ledger.rs"], "source": "crates/adv-cli/tests/three_way_ledger.rs", "text": "dir manifest"}
+{"kind": "ident", "qid": "q061", "relevant": ["crates/adv-parse/src/generic.rs"], "source": "crates/adv-parse/src/generic.rs", "text": "ast id"}
+{"kind": "ident", "qid": "q062", "relevant": ["crates/adv-parse/tests/ast_snap.rs"], "source": "crates/adv-parse/tests/ast_snap.rs", "text": "snapshot ast"}
+{"kind": "ident", "qid": "q063", "relevant": ["crates/adv-rules/tests/ruleid.rs"], "source": "crates/adv-rules/tests/ruleid.rs", "text": "rules dir"}
+{"kind": "ident", "qid": "q064", "relevant": ["crates/adv-sca/src/lockcheck.rs"], "source": "crates/adv-sca/src/lockcheck.rs", "text": "issue lock"}
+{"kind": "ident", "qid": "q065", "relevant": ["crates/adv-sca/src/rustsec.rs"], "source": "crates/adv-sca/src/rustsec.rs", "text": "advisory sec"}
+{"kind": "ident", "qid": "q066", "relevant": ["scripts/god_gate.py"], "source": "scripts/god_gate.py", "text": "cfg load"}
+{"kind": "ident", "qid": "q067", "relevant": ["scripts/handoff_gate.py"], "source": "scripts/handoff_gate.py", "text": "load card"}
+{"kind": "ident", "qid": "q068", "relevant": ["scripts/name_ledger_gate.py"], "source": "scripts/name_ledger_gate.py", "text": "names live"}
+{"kind": "ident", "qid": "q069", "relevant": ["scripts/plugin_cost.py"], "source": "scripts/plugin_cost.py", "text": "usage counts"}
+{"kind": "ident", "qid": "q070", "relevant": ["scripts/secrets_history.py"], "source": "scripts/secrets_history.py", "text": "diff history"}
+{"kind": "ident", "qid": "q071", "relevant": ["scripts/stat_boot.py"], "source": "scripts/stat_boot.py", "text": "seed of"}
+{"kind": "combo", "qid": "q072", "relevant": ["third_party/noseyparker/crates/bstring-serde/src/lib.rs"], "source": "third_party/noseyparker/crates/bstring-serde/src/lib.rs", "text": "bstring vec x as"}
+{"kind": "ident", "qid": "q073", "relevant": ["third_party/noseyparker/crates/bstring-serde/src/lib.rs"], "source": "third_party/noseyparker/crates/bstring-serde/src/lib.rs", "text": "utf 8 string lossy b"}
+{"kind": "sentence", "qid": "q074", "relevant": ["third_party/noseyparker/crates/bstring-serde/src/lib.rs"], "source": "third_party/noseyparker/crates/bstring-serde/src/lib.rs", "text": "uses that b codec serde utf bstr"}
+{"kind": "sentence", "qid": "q075", "relevant": ["third_party/noseyparker/crates/content-guesser/src/error.rs"], "source": "third_party/noseyparker/crates/content-guesser/src/error.rs", "text": "derive error thiserror"}
+{"kind": "combo", "qid": "q076", "relevant": ["third_party/noseyparker/crates/content-guesser/src/guesser.rs"], "source": "third_party/noseyparker/crates/content-guesser/src/guesser.rs", "text": "guesser x"}
+{"kind": "combo", "qid": "q077", "relevant": ["third_party/noseyparker/crates/content-guesser/src/input.rs"], "source": "third_party/noseyparker/crates/content-guesser/src/input.rs", "text": "x prefix content"}
+{"kind": "sentence", "qid": "q078", "relevant": ["third_party/noseyparker/crates/content-guesser/src/input.rs"], "source": "third_party/noseyparker/crates/content-guesser/src/input.rs", "text": "the of contents incomplete an file"}
+{"kind": "combo", "qid": "q079", "relevant": ["third_party/noseyparker/crates/content-guesser/src/output.rs"], "source": "third_party/noseyparker/crates/content-guesser/src/output.rs", "text": "output x"}
+{"kind": "combo", "qid": "q080", "relevant": ["third_party/noseyparker/crates/noseyparker-digest/src/lib.rs"], "source": "third_party/noseyparker/crates/noseyparker-digest/src/lib.rs", "text": "sha 1 x"}
+{"kind": "sentence", "qid": "q081", "relevant": ["third_party/noseyparker/crates/noseyparker-digest/src/lib.rs"], "source": "third_party/noseyparker/crates/noseyparker-digest/src/lib.rs", "text": "avoid for a to instance sha store xxx attempt in implement"}
+{"kind": "combo", "qid": "q082", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/lib.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/lib.rs", "text": "failure x"}
+{"kind": "ident", "qid": "q083", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/lib.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/lib.rs", "text": "regex gen noop"}
+{"kind": "combo", "qid": "q084", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/rule.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/rule.rs", "text": "syntax rule x"}
+{"kind": "sentence", "qid": "q085", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/rule.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/rule.rs", "text": "pattern rule represented as a based"}
+{"kind": "combo", "qid": "q086", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/rules.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/rules.rs", "text": "rules x"}
+{"kind": "sentence", "qid": "q087", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/rules.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/rules.rs", "text": "and of a rulesets rules collection"}
+{"kind": "combo", "qid": "q088", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/ruleset.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/ruleset.rs", "text": "x ruleset syntax"}
+{"kind": "sentence", "qid": "q089", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/ruleset.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/ruleset.rs", "text": "describing parker nosey representation rules a syntactic"}
+{"kind": "combo", "qid": "q090", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/rulesets.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/rulesets.rs", "text": "x rulesets"}
+{"kind": "sentence", "qid": "q091", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/rulesets.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/rulesets.rs", "text": "of collection a rulesets"}
+{"kind": "ident", "qid": "q092", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/util.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/util.rs", "text": "load yaml file"}
+{"kind": "sentence", "qid": "q093", "relevant": ["third_party/noseyparker/crates/noseyparker-rules/src/util.rs"], "source": "third_party/noseyparker/crates/noseyparker-rules/src/util.rs", "text": "from load value yaml a file a"}
+{"kind": "combo", "qid": "q094", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob.rs", "text": "x blob"}
+{"kind": "combo", "qid": "q095", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob_id.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob_id.rs", "text": "x deserialize"}
+{"kind": "ident", "qid": "q096", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob_id.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob_id.rs", "text": "id blob"}
+{"kind": "combo", "qid": "q097", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob_id_map.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob_id_map.rs", "text": "is x"}
+{"kind": "sentence", "qid": "q098", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob_id_map.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob_id_map.rs", "text": "id blob finite modification keys designed concurrent a with for values"}
+{"kind": "combo", "qid": "q099", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob_id_set.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob_id_set.rs", "text": "is x"}
+{"kind": "sentence", "qid": "q100", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob_id_set.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob_id_set.rs", "text": "for id designed set blob modification values a concurrent"}
+{"kind": "combo", "qid": "q101", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob_metadata.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob_metadata.rs", "text": "blob metadata x"}
+{"kind": "sentence", "qid": "q102", "relevant": ["third_party/noseyparker/crates/noseyparker/src/blob_metadata.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/blob_metadata.rs", "text": "blob about a metadata"}
+{"kind": "combo", "qid": "q103", "relevant": ["third_party/noseyparker/crates/noseyparker/src/bstring_escape.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/bstring_escape.rs", "text": "escaped x"}
+{"kind": "sentence", "qid": "q104", "relevant": ["third_party/noseyparker/crates/noseyparker/src/bstring_escape.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/bstring_escape.rs", "text": "8 a u around newtype"}
+{"kind": "combo", "qid": "q105", "relevant": ["third_party/noseyparker/crates/noseyparker/src/datastore/annotation.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/datastore/annotation.rs", "text": "annotation match x"}
+{"kind": "sentence", "qid": "q106", "relevant": ["third_party/noseyparker/crates/noseyparker/src/datastore/annotation.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/datastore/annotation.rs", "text": "source in location include todo annotations"}
+{"kind": "combo", "qid": "q107", "relevant": ["third_party/noseyparker/crates/noseyparker/src/datastore/finding_data.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/datastore/finding_data.rs", "text": "data finding x"}
+{"kind": "combo", "qid": "q108", "relevant": ["third_party/noseyparker/crates/noseyparker/src/datastore/finding_summary.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/datastore/finding_summary.rs", "text": "x summary finding entry"}
+{"kind": "ident", "qid": "q109", "relevant": ["third_party/noseyparker/crates/noseyparker/src/defaults.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/defaults.rs", "text": "load yaml"}
+{"kind": "sentence", "qid": "q110", "relevant": ["third_party/noseyparker/crates/noseyparker/src/defaults.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/defaults.rs", "text": "nicely incremental with does play dir seem not note builds include"}
+{"kind": "sentence", "qid": "q111", "relevant": ["third_party/noseyparker/crates/noseyparker/src/git_binary.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/git_binary.rs", "text": "error thiserror derive"}
+{"kind": "sentence", "qid": "q112", "relevant": ["third_party/noseyparker/crates/noseyparker/src/git_url.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/git_url.rs", "text": "partial ord ord partial clone eq"}
+{"kind": "ident", "qid": "q113", "relevant": ["third_party/noseyparker/crates/noseyparker/src/github/client_builder.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/github/client_builder.rs", "text": "builder client"}
+{"kind": "ident", "qid": "q114", "relevant": ["third_party/noseyparker/crates/noseyparker/src/github/mod.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/github/mod.rs", "text": "urls enumerate"}
+{"kind": "sentence", "qid": "q115", "relevant": ["third_party/noseyparker/crates/noseyparker/src/github/mod.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/github/mod.rs", "text": "given specifiers repository ls enumerate"}
+{"kind": "ident", "qid": "q116", "relevant": ["third_party/noseyparker/crates/noseyparker/src/github/repo_enumerator.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/github/repo_enumerator.rs", "text": "enumerator repo"}
+{"kind": "sentence", "qid": "q117", "relevant": ["third_party/noseyparker/crates/noseyparker/src/github/repo_enumerator.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/github/repo_enumerator.rs", "text": "to provides enumerate git repo the api higher level on rest functionality enumerator a"}
+{"kind": "ident", "qid": "q118", "relevant": ["third_party/noseyparker/crates/noseyparker/src/object_id.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/object_id.rs", "text": "object id"}
+{"kind": "ident", "qid": "q119", "relevant": ["third_party/noseyparker/crates/noseyparker/src/rule_profiling.rs"], "source": "third_party/noseyparker/crates/noseyparker/src/rule_profiling.rs", "text": "profile rule"}

@@ -72,7 +72,7 @@
   push protection 兜底；改史治理走第 4 条泄漏响应顺序）。
 - **本地优先（S145，用户指令「把审核搞强点，不需要用 GitHub 和 Linux」；S147 再上强度）**：
   以上全部门禁已收敛为**一条本地命令** `python -X utf8 scripts/local_gate.py`
-  （快档 34 步秒级 / 全档 38 步含双测与 clippy），与 CI **同一套脚本**——CI 降格为
+  （快档 35 步秒级 / 全档 39 步含双测与 clippy），与 CI **同一套脚本**——CI 降格为
   镜像/备份通道，审核在本机（Windows + ZCode）即可完整跑完。`.githooks/`
   版本化钩子（pre-commit 跑本线窄版、pre-push 再叠 `xtask gate`）经
   `python -X utf8 scripts/hook_status.py --install` 一次安装，并可用同脚本随时复核
