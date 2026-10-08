@@ -22,10 +22,8 @@ bstr = { version = "1", features = ["serde"] }
 bstring-serde = { path = "../bstring-serde" }
 chrono = { version = "0.4", default-features = false, features = ["std"], optional = true }
 console = "0.16"
-gix = { version = "0.73", features = ["max-performance", "serde"] }
 hex = "0.4"
 include_dir = { version = "0.7", features = ["glob"] }
-input-enumerator = { path = "../input-enumerator" }
 indoc = "2.0"
 lazy_static = "1.5"
 noseyparker-digest = { path = "../noseyparker-digest" }
@@ -36,7 +34,9 @@ reqwest = { version = "0.12", features = ["json", "native-tls-vendored"], option
 rusqlite = { version = "0.37", features = ["bundled", "backup", "serde_json"] }
 schemars = { version = "0.8", features = ["smallvec"] }
 secrecy = { version = "0.10.0", optional = true }
-smallvec = { version = "1", features = ["const_generics", "const_new", "union"] }
+# M3-3c 剪 git 面：`serde` 这个 feature 原来是**借 gix 的依赖图**打开的（gix 依赖 smallvec+serde），
+# gix 一走就断供 —— 显式写上，别让"特性靠邻居打开"。
+smallvec = { version = "1", features = ["const_generics", "const_new", "union", "serde"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0" }
 thiserror = "2"

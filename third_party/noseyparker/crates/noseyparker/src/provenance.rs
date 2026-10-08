@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use bstr::BString;
 use bstring_serde::BStringLossyUtf8;
-use input_enumerator::git_commit_metadata::CommitMetadata;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -43,11 +42,13 @@ impl Provenance {
     /// See also `from_git_repo`.
     pub fn from_git_repo_with_first_commit(
         repo_path: Arc<PathBuf>,
-        commit_metadata: Arc<CommitMetadata>,
+        commit_id: BString,
         blob_path: BString,
     ) -> Self {
+        // M3-3c 剪 git 面：上游这里收 `Arc<CommitMetadata>`（input-enumerator 的类型），
+        // Display 只用到其中的 `commit_id`，所以本地只保留这一项——形状与行为不变，依赖消失。
         let first_commit = Some(CommitProvenance {
-            commit_metadata,
+            commit_id,
             blob_path,
         });
         Provenance::GitRepo(GitRepoProvenance {
@@ -84,7 +85,7 @@ impl std::fmt::Display for Provenance {
                     f,
                     "git repo {}: first seen in commit {} as {}",
                     e.repo_path.display(),
-                    md.commit_metadata.commit_id,
+                    md.commit_id,
                     md.blob_path,
                 ),
                 None => write!(f, "git repo {}", e.repo_path.display()),
@@ -121,7 +122,8 @@ pub struct GitRepoProvenance {
 /// How was a particular Git commit encountered?
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CommitProvenance {
-    pub commit_metadata: Arc<CommitMetadata>,
+    #[serde(with = "BStringLossyUtf8")]
+    pub commit_id: BString,
 
     #[serde(with = "BStringLossyUtf8")]
     pub blob_path: BString,

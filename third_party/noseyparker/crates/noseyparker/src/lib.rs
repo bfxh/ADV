@@ -13,6 +13,7 @@ pub mod github;
 pub mod location;
 pub mod match_type;
 pub mod matcher;
+pub mod object_id;
 pub mod matcher_stats;
 pub mod provenance;
 pub mod provenance_set;

@@ -103,42 +103,6 @@ impl std::fmt::Display for BlobId {
     }
 }
 
-impl<'a> From<&'a gix::ObjectId> for BlobId {
-    #[inline]
-    fn from(id: &'a gix::ObjectId) -> Self {
-        BlobId(
-            id.as_bytes()
-                .try_into()
-                .expect("oid should be a 20-byte value"),
-        )
-    }
-}
-
-impl From<gix::ObjectId> for BlobId {
-    #[inline]
-    fn from(id: gix::ObjectId) -> Self {
-        BlobId(
-            id.as_bytes()
-                .try_into()
-                .expect("oid should be a 20-byte value"),
-        )
-    }
-}
-
-impl<'a> From<&'a BlobId> for gix::ObjectId {
-    #[inline]
-    fn from(blob_id: &'a BlobId) -> Self {
-        gix::hash::ObjectId::try_from(blob_id.as_bytes()).unwrap()
-    }
-}
-
-impl From<BlobId> for gix::ObjectId {
-    #[inline]
-    fn from(blob_id: BlobId) -> Self {
-        gix::hash::ObjectId::try_from(blob_id.as_bytes()).unwrap()
-    }
-}
-
 // -------------------------------------------------------------------------------------------------
 // sql
 // -------------------------------------------------------------------------------------------------

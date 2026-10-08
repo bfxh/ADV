@@ -16,18 +16,9 @@ confidence-threshold = 0.93
 
 [advisories]
 version = 2
-# 窄豁免：只豁免这一条 id、只到 DD-0015 到期为止（2026-10-08 用户拍板「窄豁免 + 登记设计债」）。
-# 实测事实链：全树只有这 1 条 advisory；`gix-date 0.10.x` 版本线**止于 0.10.7**（crates.io API 实测
-# 0.10.0–0.10.7 全部存在，修复只在 >=0.12.0），而 vendored 的 `input-enumerator` 钉 `gix-date = "0.10"`
-# ⇒ semver 区间内取不到修复版；上游 Nosey Parker 已于 2026-02-21 退役（最后一次提交
-# "Update README to reflect Nosey Parker retirement"，SHA 2e6e7f3 正是本仓 VENDOR.md 的出处锚）
-# ⇒ 等不到上游修。不可达证据：出事的 `gix_date::parse::TimeBuf` 只被
-# `third_party/noseyparker/crates/input-enumerator/src/git_commit_metadata.rs` 用（git 提交元数据枚举），
-# 而 `adv-secrets` 的入口面只用 blob / blob_id_map / matcher / provenance / rules_database / defaults。
-# ⚠ 这条豁免**不是**说"无害"：它说的是"当前入口路径够不到"。谁把 git 枚举接进来，谁就得先撤这行。
-ignore = [
-    { id = "RUSTSEC-2025-0140", reason = "gix-date 0.10.x 线无修复版 + 上游退役 ⇒ 不可升级；本仓入口面不触 git 解析（见 DD-0015，到期判红）" },
-]
+# 2026-10-08：这里曾有一条 RUSTSEC-2025-0140（gix-date 0.10.7）的窄豁免。M3-3c 把 vendored 树里的
+# git 面剪掉之后，`gix`/`gix-date` 从依赖树整体消失（依赖包数 305 → 209），豁免随之撤销——
+# 树回到"零例外"。谁要是哪天把 git 面接回来，`deny` 会立刻判红（那时请先读 DD-0015 的出圈条件）。
 
 [bans]
 multiple-versions = "warn"

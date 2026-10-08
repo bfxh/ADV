@@ -1,7 +1,8 @@
 use std::sync::Mutex;
 
-use gix::ObjectId;
-use gix::hashtable::HashSet;
+use std::collections::HashSet;
+
+use crate::object_id::ObjectId;
 
 use crate::blob_id::BlobId;
 
