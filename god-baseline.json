@@ -309,6 +309,11 @@
   "max_fn_lines": 48,
   "max_type_members": 0
  },
+ "crates/adv-cli/tests/common/mod.rs": {
+  "file_lines": 91,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
  "crates/adv-cli/tests/data/py-corpus/a_evals.py": {
   "file_lines": 6,
   "max_fn_lines": 3,
@@ -355,12 +360,12 @@
   "max_type_members": 0
  },
  "crates/adv-cli/tests/deep_cargo.rs": {
-  "file_lines": 188,
+  "file_lines": 184,
   "max_fn_lines": 58,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/engine_mir.rs": {
-  "file_lines": 210,
+  "file_lines": 221,
   "max_fn_lines": 56,
   "max_type_members": 0
  },
@@ -394,8 +399,13 @@
   "max_fn_lines": 33,
   "max_type_members": 0
  },
+ "crates/adv-cli/tests/snapshot_cmd.rs": {
+  "file_lines": 41,
+  "max_fn_lines": 11,
+  "max_type_members": 0
+ },
  "crates/adv-cli/tests/three_way_ledger.rs": {
-  "file_lines": 208,
+  "file_lines": 212,
   "max_fn_lines": 64,
   "max_type_members": 0
  },
@@ -495,7 +505,7 @@
   "max_type_members": 0
  },
  "crates/adv-sca/src/advisory.rs": {
-  "file_lines": 337,
+  "file_lines": 372,
   "max_fn_lines": 34,
   "max_type_members": 7
  },
@@ -530,12 +540,12 @@
   "max_type_members": 6
  },
  "crates/adv-sca/src/snapshot.rs": {
-  "file_lines": 457,
+  "file_lines": 459,
   "max_fn_lines": 46,
   "max_type_members": 4
  },
  "crates/adv-sca/tests/advisories.rs": {
-  "file_lines": 164,
+  "file_lines": 173,
   "max_fn_lines": 31,
   "max_type_members": 0
  },

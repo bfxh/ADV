@@ -161,3 +161,12 @@ fn informational_advisories_are_signals_not_red() {
     assert!(!hit[0].red, "informational 类不许参与退出码");
     assert_eq!(hit[0].severity, "informational(unsound)");
 }
+#[test]
+fn scan_with_advisories_refuses_when_no_lock_was_judged() {
+    // 匹配面自己的"零锁"出口（变异门抓到过 `ensure_any_lock_judged -> Ok(())`：那样"一把锁都没判"
+    // 会被读成"没有命中"，正是漏报的形状）。
+    let empty = data("osv_empty"); // 有 crates.io/ 但没有 Cargo.lock
+    let idx = load_snapshot(&data("osv")).unwrap();
+    let err = scan_with_advisories(&[empty], &idx).unwrap_err();
+    assert!(err.to_string().contains("不等于没有漏洞"), "{err}");
+}

@@ -334,3 +334,38 @@ mod tests {
         assert!(!aff.covers(&v("2.0.0")).unwrap(), "显式表非空时不看 ranges");
     }
 }
+#[test]
+fn exclusive_lower_bound_is_pinned_even_though_no_range_produces_it() {
+    // 现行程表只用 `Inclusive`（introduced）/`Unbounded`（哨兵）做下界，`Exclusive` 那条臂
+    // 是"给未来留的"——变异门实测它上面的三个比较变异全都杀不掉（没有输入走到它）。
+    // 判据直接钉在类型上：下界 `Exclusive(b)` 的含义是 `v > b`（开）。
+    let v = |s: &str| Version::parse(s).unwrap();
+    let b = Bound::Exclusive(v("1.0.0"));
+    assert!(!b.admits_lower(&v("0.9.9")), "小于 ⇒ 不在内");
+    assert!(!b.admits_lower(&v("1.0.0")), "等于 ⇒ 不在内（开区间）");
+    assert!(b.admits_lower(&v("1.0.1")), "大于 ⇒ 在内");
+    let incl = Bound::Inclusive(v("1.0.0"));
+    assert!(incl.admits_lower(&v("1.0.0")), "闭区间含端点");
+    assert!(Bound::Unbounded.admits_lower(&v("0.0.1")), "无界下界恒真");
+}
+
+#[test]
+fn covers_filters_by_ecosystem_as_well_as_name() {
+    // 变异门抓到过 `||`→`&&`：那样"名字对但生态不对"的条目会被误当成命中。这条钉住两侧过滤。
+    let rec: OsvRecord = serde_json::from_str(
+        r#"{"id":"RUSTSEC-2099-0009","affected":[
+                 {"package":{"name":"time","ecosystem":"crates.io"},
+                  "ranges":[{"type":"SEMVER","events":[{"introduced":"0"}]}]}]}"#,
+    )
+    .unwrap();
+    let v = Version::parse("0.1.44").unwrap();
+    assert!(rec.covers("crates.io", "time", &v).unwrap());
+    assert!(
+        !rec.covers("PyPI", "time", &v).unwrap(),
+        "生态不对 ⇒ 不许命中"
+    );
+    assert!(
+        !rec.covers("crates.io", "other", &v).unwrap(),
+        "名字不对 ⇒ 不许命中"
+    );
+}

@@ -9,16 +9,11 @@
 //! 期望值锚到夹具里的 `// adv-expect: hit|miss` 标记，不是把跑出来的数字抄一遍。
 //! 金样冻结：`ADV_UPDATE_GOLDEN=1 cargo test -p adv-cli`（行序不是契约 ⇒ 排序后比）。
 
+mod common;
+
+use common::{driver_args, repo_root};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-
-fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|p| p.parent())
-        .expect("adv-cli 在 crates/ 下")
-        .to_path_buf()
-}
 
 fn fixture_crate() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -36,6 +31,7 @@ fn scan(target: &Path, extra: &[&str]) -> std::process::Output {
         .arg("--engine")
         .arg("both")
         .arg("--deep-via-cargo")
+        .args(driver_args())
         .args(extra)
         .output()
         .expect("启动 adv 失败")

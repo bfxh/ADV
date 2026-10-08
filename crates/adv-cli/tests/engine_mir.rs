@@ -1,6 +1,9 @@
 //! 片A3 验收：`adv scan --engine mir|both` 的行契约对齐与三方账。
 //! 判据走真路径——起 `adv.exe`，由它再起边车驱动子进程；测试不重实现映射逻辑。
 
+mod common;
+
+use common::driver_args;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -39,6 +42,14 @@ fn repo_root() -> PathBuf {
 }
 
 fn scan(engine: &str, extra: &[&str]) -> std::process::Output {
+    // 调用方自带 `--driver` 时（`bad_driver_path_fails_loud` 故意给坏路径）不叠加默认那份：
+    // 参数是"最后一份生效"还是"第一份生效"由 CLI 定，测试不该依赖那个细节去**构造**失败场景。
+    let mut driver = if extra.contains(&"--driver") {
+        Vec::new()
+    } else {
+        driver_args().to_vec()
+    };
+    driver.extend(extra.iter().map(|s| (*s).to_string()));
     Command::new(env!("CARGO_BIN_EXE_adv"))
         .arg("scan")
         .arg(fixtures_dir())
@@ -46,7 +57,7 @@ fn scan(engine: &str, extra: &[&str]) -> std::process::Output {
         .arg(repo_root().join("rules"))
         .arg("--engine")
         .arg(engine)
-        .args(extra)
+        .args(&driver)
         .output()
         .expect("启动 adv 失败")
 }

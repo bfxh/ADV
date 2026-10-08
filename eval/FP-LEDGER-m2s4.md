@@ -2415,3 +2415,50 @@ noseyparker + RESEARCH jsonl 逐行）。
 占用不是"测试必漏"，而是**变异轮里被杀的测试跳过了清理**（合上"跑门期间别碰 cargo"那条教训）。
 这一片的收尾重放：fmt 0 / clippy `-D warnings` 0 / `cargo test --workspace` **55 组全 ok** /
 god 两把尺重录（added-only + 2 处披露）/ 窄版线 16 步绿。
+
+## M3-3 收尾（一）：DD-0016 —— 深轨测试的驱动前置改成自足（验收见下节）
+
+**根因回到实证**：三处集成测试要深轨驱动，而驱动是**兄弟包 `adv-ast-rust` 的 bin**——
+变异门的增量档只为受变异影响的包建测试、不建它，于是**未变异基线当场红**（实测两次：
+`deep_cargo.rs:86/165/183`，修完之后又暴露 `engine_mir.rs:84`；同一根因，第二次才修全）。
+
+**修法**：新增 `crates/adv-cli/tests/common/mod.rs` 共享帮手——
+`driver_path()` 自足解析/构建驱动，缓存键 = `crates/adv-ast-rust/**/*.rs` 的**内容哈希**（变异轮里
+只有真改了驱动源码的变异才 miss），构建用**独立 `CARGO_TARGET_DIR`**（外层 `cargo test` 握着主
+target 的锁，在它里面再起 cargo 会死等）；三处测试把 `--driver <路径>` 交给 CLI。
+一处细节：调用方自带 `--driver` 时**不叠加**默认那份——`bad_driver_path_fails_loud` 要故意构造
+失败场景，测试不该依赖"参数取第一份还是最后一份"这种实现细节。
+
+## M3-3 收尾（二）：DD-0014 —— 覆盖率档**换 host**（windows-gnu → linux-gnu）
+
+DD-0014 的结论是"windows-gnu 分发不带 `profiler_builtins`，`cargo llvm-cov` 在此 host 上结构性起不来"，
+而 host 口径又被 vectorscan 反向钉死。修法就一条：**挪到 linux-gnu**（那边分发带着它）。
+
+- `adv.yml` 新增 `coverage` job（ubuntu-latest，6 步）：checkout（`fetch-depth: 0`）→ 工具链
+  `1.99.0` + `rustfmt,clippy,rustc-dev`（与 `rust-toolchain.toml` 同版本；linux 的 default host 就是 gnu）
+  → **vectorscan 的 linux 前置**（`cmake ninja-build libboost-all-dev pkg-config patch`）→
+  `cargo-llvm-cov` → `cargo llvm-cov --workspace --lcov`（与本地 `coverage-gate` 步同尺）
+  → 上传 lcov（`if-no-files-found: error`：**空工件不许再报 success**，这正是撤步前抓到的假绿形状）。
+- `spec/ci-wiring.json` 把 `coverage-gate` 加回 adv-rewrite 清单（`ci_wiring_gate` 实测 OK，12 次门声明）。
+
+**已知风险**（先说清，不装）：vectorscan 在 Linux 上**从未验过**，apt 那几件可能不够（还要 ragel？
+libpcre？）；workspace 测试里也可能有 Windows 假设。若第一轮红，按日志剥层，别猜。
+
+## 全档变异门的盘账（四轮实测，结论写死）
+
+- **速率**：`-j 4` 下 ≈6.7 个/分钟（过了 `adv-ast-rust` 那段重活之后），696 个变异 ≈1.7 小时。
+- **磁盘三个来源**：① 基线重建一次性 ~20GB（`cargo clean` 之后）；② `cargo-mutants-ADV-*.tmp`
+  四个 worker 的 scratch **按 ~116MB/变异线性增长**（实测 181 个变异时 TMP 已 21GB）⇒ 696 个约 **80GB**；
+  ③ 被杀的测试会漏临时目录（正常跑零泄漏，26.2 万条目/20GB 那次就是它）。
+- **本机结论**：D 盘（33GB 可用）**跑不完**（要 ~80GB scratch）。备选落点逐个否掉：**F: 用户明确否掉**
+  （"别在 F 盘搞"）；E: 只剩 81GB 且背着 pagefile（写满会连带系统不稳）；C: 37GB（系统盘）。
+  ⇒ **本机没有合适的全档落点**，出路是①按 `--file` 分片跑（每片 TMP 放 D:，各片单独一轮 + 合并读数）
+  ②挪 CI。两条都记进 DD，别再用"换盘"这个假解法。
+- **两条纪律**：跑门期间**别碰 cargo**（抢 target 锁会把 worker 卡死/打死）；`rm -rf` 面对
+  26 万条目会静默不干活，用 `cmd //c "rmdir /s /q"`。
+
+**顺带踩到并修掉的一个测试卫生问题**：`adv snapshot` 的 CLI 用例里我一度写了 `--with-rustsec no-such-dir-xyz`
+去"验证旗标被识别"——它会**真去 clone 上游库**（345 秒），而且**落点相对路径解析到测试进程的 cwd
+= 包目录**（cargo 给的 cwd 是包根，不是仓根）⇒ 在 `crates/adv-cli/` 下留了一个 24MB 的
+`no-such-dir-xyz`（里面是 rustsec 克隆 + OSV 的 all.zip/csv）。做法撤回：那条用例删掉，理由写进测试文件；
+**CLI 测试里不许给相对路径当参数**（要么绝对路径，要么别让它真跑）。

@@ -9,6 +9,9 @@
 //! 一直在（`adv-rules/src/taint.rs`），缺的是**链式调用的源点匹配**；片M 补掉它之后
 //! `taint_direct.rs` 那一类流程两轨在同一行各报一条 ⇒ 本文件第二条测试把它钉成非空。
 
+mod common;
+
+use common::driver_args;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -61,6 +64,7 @@ fn scan_both(path: &Path) -> (String, String) {
         .arg(repo_root().join("rules"))
         .arg("--engine")
         .arg("both")
+        .args(driver_args())
         .output()
         .expect("启动 adv 失败");
     assert!(

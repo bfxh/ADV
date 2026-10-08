@@ -198,7 +198,9 @@ fn curl(url: &str, extra: &[&str]) -> Result<(u16, Vec<u8>), String> {
         .iter()
         .rposition(|b| *b == b'\n')
         .ok_or("curl 输出里没有状态码行")?;
-    let code: u16 = String::from_utf8_lossy(&stdout[pos + 1..])
+    // 这里刻意不做 `pos + 1`：状态码前那个换行由下面的 `trim()` 吃掉，写成 `pos + 1` 只是
+    // 多一个**等价变异**（变异门实测它永远杀不掉——两种写法对同一输入同值）。
+    let code: u16 = String::from_utf8_lossy(&stdout[pos..])
         .trim()
         .parse()
         .map_err(|e| format!("curl 状态码读不出：{e}"))?;
@@ -240,7 +242,7 @@ fn urlencode(s: &str) -> String {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
                 (b as char).to_string()
             }
-            b' ' => "%20".to_string(),
+            // 空格不需要单独一条臂：`%{b:02X}` 对 0x20 正好打出 `%20`（同值分支=等价变异）。
             _ => format!("%{b:02X}"),
         })
         .collect()
