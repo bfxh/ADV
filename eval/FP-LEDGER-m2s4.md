@@ -2294,3 +2294,41 @@ changed 6**。9 处变胖逐条可解释：`cli/sca.rs` 94→138（`--reconcile`
 CVSS **分数打分**不做（要引 CVSS 解析，且分数不改变"有没有漏洞"这个事实；本层只带出向量与
 informational 分档）；`patched` 表**不参与**本片比对（只比 package / informational，
 patched 的语义差异留给以后真有需求时单独切片）；non-Cargo 生态（npm/pip…）仍等真语料。
+
+# M3-3c：剪掉 vendored 树的 git 面（DD-0015 销账）
+
+用户拍板「剪掉 git 面」（先量后选的 A 案）。关键论据是量出来的：**上游已退役 ⇒ 分叉成本≈0**，
+而"等上游修"（上游 2026-02-21 退役）与"升 gix"（只是把 advisory 换成另一条，链仍在树里）都不成立。
+
+## 改变的四处（全在 `third_party/noseyparker/`，VENDOR.md 记为「第二处差异」）
+
+| 文件 | 改动 |
+|---|---|
+| 新增 `src/object_id.rs` | 本地 20 字节 newtype，替代 `gix::ObjectId` |
+| `blob_id_map.rs` / `blob_id_set.rs` | 容器 `gix::hashtable::{HashMap,HashSet}` → `std::collections` 对应物（**语义逐字等价**；哈希器换成 std 的 SipHash，20 字节键上的常数差，未做基准） |
+| `blob_id.rs` | 删掉 4 个 `gix::ObjectId` 转换 impl（36 行） |
+| `provenance.rs` | `Arc<CommitMetadata>` 窄化成它唯一被用到的 `commit_id`（`Display` 只用它） |
+| `noseyparker/Cargo.toml` | 去掉 `gix` 与 `input-enumerator`；删掉后者整个 crate |
+| `smallvec` | 显式补 `serde` feature —— 那个 feature 原是**借 gix 的依赖图**打开的，gix 一走就断供（"特性靠邻居打开"的坑，实测踩到） |
+| 上游独立 `Cargo.lock` | 重新生成：它记着已删的 `input-enumerator`，**被我们自己的 LC-2 判据当场判红**（判据没错，是锁过期了）；从此它是我们的产物，根锁才是审计依据 |
+
+## 实测读数（改前 → 改后）
+
+- `cargo tree -i gix` / `-i gix-date`：有 → **查无此包**；
+- 依赖包数：**305 → 209（−96）**；
+- 本仓锁 × 2896 份真 OSV 快照的 advisory 命中：**14 → 0**（真实 rc：1 → 0）；
+- `deny.toml` 单 id 窄豁免：**已撤回**，`cargo deny check` 四项全 ok（树回到**零例外**）；
+- `cargo test --workspace`：**54 组全 ok**（去重表换了实现，adv-secrets 行为不变）；
+- 收尾重放：fmt 0 / clippy `-D warnings` 0 / 窄版线 16 步绿。
+
+## 一处值得记的自证
+
+这次裁剪**被我们自己的工具抓到过**：`adv sca` 的 LC-2（"锁里有、清单没声明"）在裁完后立刻把
+`third_party/noseyparker/Cargo.lock` 判红，红因是 `gix, input-enumerator` 已不在清单里——
+M3-2 建的那条判据，第一次真正拦住的是我们自己的改动。取舍口径写进了 VENDOR.md：**判据没错，是锁过期**。
+
+## DD-0015 销账
+
+`retired_in = 02b9b807`，走的是 guards 第①条出圈路径；证据、改动清单与"要把 git 面接回来怎么办"
+一并写进 `spec/design-debt.json` 的 retired 条目。在册剩 **DD-0005（用户去控制台查）/ DD-0014（覆盖率）/
+DD-0016（深轨测试的驱动前置）**；已退役累计 13 条。
