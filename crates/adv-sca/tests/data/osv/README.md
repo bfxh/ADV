@@ -21,3 +21,18 @@ ETag 逐字相等（`d5b43c07c6a025c2be387b782f3f23e0` / `f680efa7a65d5dfb346031
 `manifest.json` 就是按这条事实造的（etag == md5 才允许落账）。
 
 `osv_lock/` 是配套的锁语料：`time 0.1.44`（命中）与 `rustc-serialize 0.3.25`（不许命中）。
+
+## 同源的 RustSec 切片（M3-3b）
+
+`../rustsec_db/crates/<pkg>/RUSTSEC-*.md` 与 `../reconcile_real/` 里的 `.md` 都来自同一份上游
+（`https://github.com/RustSec/advisory-db`，浅克隆，抓取日 2026-10-08，HEAD `b8a1a33e246a0a9a3b5f377248c41a503defec74`）：
+
+| 文件 | 为什么挑它 | sha256（前 16） |
+|---|---|---|
+| `abomonation/RUSTSEC-2021-0120.md` | `informational = "unsound"`（对账要盯的字段） | e61c320f49795a10 |
+| `time/RUSTSEC-2020-0071.md` | 带 `[versions].patched` 表 | fbe244fcfa10764b |
+| `rustc-serialize/RUSTSEC-2022-0004.md` | 别名里有 GHSA（互认边） | c81c22a306568337 |
+
+`../reconcile/` 是**合成**树（刻意不为它编真数据）：一份语料同时钉住三条对账码——
+A 两边都有但包名/informational 不一致（`FIELD_MISMATCH` 信号）、B 仅 OSV 有（`OSV_ONLY` 信号）、
+C 仅 RustSec 有（`RS_ONLY` **判红**：这是"漏"的形状）。

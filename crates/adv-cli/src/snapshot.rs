@@ -11,14 +11,26 @@ use adv_sca::snapshot::sync;
 
 /// `adv snapshot <目录>`：列目录 + 逐对象条件 GET + ETag/MD5 记账。
 pub(crate) fn run(args: &[String]) {
+    let with_rustsec = args.iter().any(|a| a == "--with-rustsec");
+    let unknown: Vec<&String> = args
+        .iter()
+        .filter(|a| a.starts_with("--") && a.as_str() != "--with-rustsec")
+        .collect();
+    if !unknown.is_empty() {
+        eprintln!("snapshot 不认得参数 {}", unknown[0]);
+        std::process::exit(2);
+    }
     let paths: Vec<PathBuf> = args
         .iter()
         .filter(|a| !a.starts_with("--"))
         .map(PathBuf::from)
         .collect();
     if paths.len() != 1 {
-        eprintln!("用法：adv snapshot <快照目录>（只收一个目录参数）");
+        eprintln!("用法：adv snapshot <快照目录> [--with-rustsec]（只收一个目录参数）");
         std::process::exit(2);
+    }
+    if with_rustsec {
+        sync_rustsec(&paths[0]);
     }
     match sync(&paths[0]) {
         Ok(r) => {
@@ -90,4 +102,37 @@ pub(crate) fn advisory_findings(
     let hits = findings.iter().filter(|f| f.red).count();
     *note = format!("、advisory 命中 {hits} 条（快照 {} 份）", idx.records);
     hits
+}
+
+/// RustSec 路的同步（`--with-rustsec`）：克隆/更新 + 钉 SHA + 写进同一份记账。
+/// 失败 ⇒ 退出码 3（判不了），不把"两路只跑成一路"记成同步成功。
+fn sync_rustsec(root: &std::path::Path) {
+    let dir = root.join("rustsec");
+    match adv_sca::rustsec::sync(&dir) {
+        Ok(r) => {
+            let meta = adv_sca::snapshot::RustSecMeta {
+                sha: r.sha.clone(),
+                advisories: r.advisories,
+                fresh_clone: r.fresh_clone,
+            };
+            if let Err(e) = adv_sca::snapshot::record_rustsec(root, meta) {
+                eprintln!("adv snapshot：RustSec 记账写不进去（不折算为成功）：{e:#}");
+                std::process::exit(3);
+            }
+            eprintln!(
+                "adv snapshot：RustSec {} 条，HEAD {}（{}）",
+                r.advisories,
+                &r.sha[..12.min(r.sha.len())],
+                if r.fresh_clone {
+                    "首次克隆"
+                } else {
+                    "原地更新"
+                }
+            );
+        }
+        Err(e) => {
+            eprintln!("adv snapshot：RustSec 同步失败（不折算为成功）：{e:#}");
+            std::process::exit(3);
+        }
+    }
 }

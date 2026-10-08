@@ -280,12 +280,12 @@
   "max_type_members": 0
  },
  "crates/adv-cli/src/sca.rs": {
-  "file_lines": 95,
-  "max_fn_lines": 55,
-  "max_type_members": 2
+  "file_lines": 139,
+  "max_fn_lines": 61,
+  "max_type_members": 3
  },
  "crates/adv-cli/src/snapshot.rs": {
-  "file_lines": 94,
+  "file_lines": 139,
   "max_fn_lines": 48,
   "max_type_members": 0
  },
@@ -362,6 +362,11 @@
  "crates/adv-cli/tests/sca_cmd.rs": {
   "file_lines": 83,
   "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/tests/sca_reconcile.rs": {
+  "file_lines": 53,
+  "max_fn_lines": 18,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/secrets_cmd.rs": {
@@ -480,7 +485,7 @@
   "max_type_members": 5
  },
  "crates/adv-sca/src/lib.rs": {
-  "file_lines": 32,
+  "file_lines": 34,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
@@ -494,8 +499,18 @@
   "max_fn_lines": 40,
   "max_type_members": 8
  },
+ "crates/adv-sca/src/reconcile.rs": {
+  "file_lines": 172,
+  "max_fn_lines": 56,
+  "max_type_members": 4
+ },
+ "crates/adv-sca/src/rustsec.rs": {
+  "file_lines": 260,
+  "max_fn_lines": 32,
+  "max_type_members": 6
+ },
  "crates/adv-sca/src/snapshot.rs": {
-  "file_lines": 383,
+  "file_lines": 405,
   "max_fn_lines": 41,
   "max_type_members": 4
  },
@@ -512,6 +527,11 @@
  "crates/adv-sca/tests/lockcheck.rs": {
   "file_lines": 136,
   "max_fn_lines": 31,
+  "max_type_members": 0
+ },
+ "crates/adv-sca/tests/reconcile.rs": {
+  "file_lines": 106,
+  "max_fn_lines": 19,
   "max_type_members": 0
  },
  "crates/adv-secrets/src/lib.rs": {

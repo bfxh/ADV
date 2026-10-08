@@ -11,10 +11,12 @@ use adv_sca::lockcheck::scan_paths;
 struct Args {
     paths: Vec<PathBuf>,
     snapshot: Option<PathBuf>,
+    reconcile: bool,
 }
 
 fn parse(args: &[String]) -> Result<Args, String> {
     let mut out = Args {
+        reconcile: false,
         paths: Vec::new(),
         snapshot: None,
     };
@@ -25,6 +27,7 @@ fn parse(args: &[String]) -> Result<Args, String> {
                 let v = it.next().ok_or("--snapshot 后面要给一个快照目录")?;
                 out.snapshot = Some(PathBuf::from(v));
             }
+            "--reconcile" => out.reconcile = true,
             other if other.starts_with("--") => return Err(format!("sca 不认得参数 {other}")),
             _ => out.paths.push(PathBuf::from(a)),
         }
@@ -78,6 +81,12 @@ pub(crate) fn run(args: &[String]) {
             &report.checked_locks,
             &mut advisories_note,
         );
+        if parsed.reconcile {
+            red += reconcile_report(dir);
+        }
+    } else if parsed.reconcile {
+        eprintln!("--reconcile 要配 --snapshot <目录> 一起用");
+        std::process::exit(2);
     }
     for skip in &report.skipped {
         eprintln!("adv sca：跳过 {skip}");
@@ -90,5 +99,40 @@ pub(crate) fn run(args: &[String]) {
     );
     if red > 0 {
         std::process::exit(1);
+    }
+}
+
+/// 对账面（`--reconcile`）：OSV 快照 ↔ RustSec DB 的 ID 级覆盖与字段一致性。
+/// 返回它贡献的判红数（仅 RustSec 有 ⇒ 红；判不了直接 exit 3）。
+pub(crate) fn reconcile_report(snapshot_dir: &std::path::Path) -> usize {
+    match adv_sca::reconcile::reconcile(snapshot_dir) {
+        Ok(rep) => {
+            for d in &rep.divergences {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "engine": "reconcile",
+                        "code": d.code,
+                        "id": d.id,
+                        "red": d.red,
+                        "detail": d.detail,
+                    })
+                );
+            }
+            let red = rep.red().count();
+            eprintln!(
+                "adv sca：对账 OSV {} / RustSec {} / 两边都有 {}，差异 {} 条（判红 {}）",
+                rep.osv_total,
+                rep.rustsec_total,
+                rep.both,
+                rep.divergences.len(),
+                red
+            );
+            red
+        }
+        Err(e) => {
+            eprintln!("adv sca：对账失败（不折算为无差异）：{e:#}");
+            std::process::exit(3);
+        }
     }
 }

@@ -1,0 +1,23 @@
+{
+ "id": "RUSTSEC-2099-0001",
+ "schema_version": "1.6.0",
+ "affected": [
+  {
+   "package": {
+    "name": "aaa",
+    "ecosystem": "crates.io"
+   },
+   "ranges": [
+    {
+     "type": "SEMVER",
+     "events": [
+      {
+       "introduced": "0"
+      }
+     ]
+    }
+   ],
+   "database_specific": {}
+  }
+ ]
+}

@@ -51,6 +51,18 @@ pub struct ObjectMeta {
     pub last_modified: String,
 }
 
+/// 第二路的同步记账（RustSec advisory-db）：钉的是 **commit SHA**——那一侧没有每文件 ETag，
+/// 完整性凭据就是 git 历史本身。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RustSecMeta {
+    /// 同步时的 HEAD commit。
+    pub sha: String,
+    /// 读到的公告条数。
+    pub advisories: usize,
+    /// 首次克隆还是原地更新。
+    pub fresh_clone: bool,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 /// 快照目录的记账（`manifest.json`）：这是我们唯一的"变更留痕"载体。
 pub struct Manifest {
@@ -63,6 +75,9 @@ pub struct Manifest {
     #[serde(default)]
     /// 键 → 对象记账（BTreeMap ⇒ 落盘顺序稳定，diff 可读）。
     pub objects: BTreeMap<String, ObjectMeta>,
+    #[serde(default)]
+    /// RustSec 路的记账（没同步过就是 `None`）。
+    pub rustsec: Option<RustSecMeta>,
 }
 
 #[derive(Debug, Default)]
@@ -205,6 +220,13 @@ pub fn load_manifest(dir: &Path) -> Result<Manifest> {
     }
     let raw = std::fs::read(&path).with_context(|| format!("读 {}", path.display()))?;
     serde_json::from_slice(&raw).with_context(|| format!("解析 {}", path.display()))
+}
+
+/// 把 RustSec 路的同步结果写进同一份记账（`manifest.json` 的 `rustsec` 段）。
+pub fn record_rustsec(dir: &Path, meta: RustSecMeta) -> Result<()> {
+    let mut m = load_manifest(dir)?;
+    m.rustsec = Some(meta);
+    save_manifest(dir, &m)
 }
 
 /// 写记账（整份覆盖；内容是确定性序列化的）。

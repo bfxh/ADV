@@ -2225,3 +2225,72 @@ ETag 与内容 MD5 逐字相等——第三个验证对象）+ 测试 `informati
 所以口径修正不改变本仓读数（14 条仍判红、rc=1）。棘轮随之重录并披露：Rust 尺 added 3 / removed 1
 （改名的那条测试）/ changed 10、python 尺 changed 7——全部落在这次修正触及的 5 个面上，
 没有静默吸收；`severity_label` 反而从 20 行降到 16 行。
+
+## CI 收口（M3-3a + informational 修正）：run 37705046337 @ `dd7b50c8`
+
+```
+fmt ✓  cargo-lock ✓  clippy ✓  test(nextest) ✓  gates ✓  CI wiring ✓  deny ✓
+Debt gate ✗（DD-0005 超期——设计要它红）
+```
+新依赖（semver / md-5）过 deny 的 licenses 检查；14 组新测试在 runner 上真跑过。
+（`37369398` 那轮被 GitHub cancelled —— 我推修正把它顶掉了，不算读数。）
+
+---
+
+# M3-3b：RustSec 路（覆盖核对）+ 对账器
+
+## 定位：覆盖核对，不做第二把匹配尺（量的结论，不是排期偷懒）
+
+RustSec 的 front matter **没有受影响区间**（只有 `[versions] patched = [...]`），当 matcher 要重实现
+cargo-audit 的语义；而两库在 RUSTSEC ID 空间上实测**完全同步**（OSV 1275 / RustSec 1274 / 交集 1274 /
+仅 OSV 1 / 仅 RustSec 0）⇒ 增量价值在 OSV 独有的 1621 条 GHSA（那归 M3-3a 的 matcher）。
+所以这一路的产出是 **ID 级覆盖 + 字段一致性**。
+
+## 落地
+
+- `crates/adv-sca/src/rustsec.rs`：```toml 前置块 → `RustSecAdvisory{id,package,date,informational,patched,aliases}`；
+  `sync()` 走外部 `git`（已有 `.git` ⇒ `fetch --depth 1` + `reset --hard FETCH_HEAD`，否则浅克隆），
+  把 HEAD SHA 与条数写进同一份 `manifest.json` 的 `rustsec` 段（那一侧没有每文件 ETag，
+  **完整性凭据就是 git 历史本身**）。
+- `crates/adv-sca/src/reconcile.rs`：判据本体是**纯函数** `diff(&RustSecDb, &[OsvView])`；
+  IO 壳 `reconcile(dir)` 读 `<dir>/crates.io` 与 `<dir>/rustsec`。三档口径（用户 2026-10-08 拍板）：
+  **仅 RustSec 有 ⇒ 判红**（漏的形状）、仅 OSV 有 ⇒ 信号（上游合并延迟是常态）、同 id 字段不一致 ⇒ 信号 + 逐字段。
+- CLI：`adv snapshot <dir> --with-rustsec`；`adv sca … --snapshot <dir> --reconcile`
+  （缺 `--snapshot` ⇒ 用法错 2；对账读不出 ⇒ 3）。
+
+## 真端到端读数（真克隆 + 真快照）
+
+```
+adv snapshot：RustSec 1274 条，HEAD b8a1a33e246a（首次克隆）
+adv sca：对账 OSV 1275 / RustSec 1274 / 两边都有 1274，差异 1 条（判红 0）
+          唯一差异 = RUSTSEC-2025-0000（仅 OSV 有，信号）—— 与先量探针的预测逐字一致
+本仓锁那 14 条 advisory 命中不变，真实 rc=1（红来自命中，不来自对账）
+```
+
+另外**真配对测试**（同一份上游的两路真切片，2 份 OSV × 2 份 md）：两库在 package 与 informational 上
+**逐字一致、0 差异**——这是"对账器不是自说自话"的一条独立证据。
+
+## 语料与测试
+
+- 真切片：3 份 `RUSTSEC-*.md`（`informational=unsound` 一份 / 带 `patched` 一份 / 别名带 GHSA 一份）
+  + 2 份 OSV 与它们的真配对树；出处、抓取日与 sha256 补进 `tests/data/osv/README.md` 的同源一节。
+- 合成树 `reconcile/`：一份语料同时钉三条码（A 字段不一致 / B 仅 OSV / C 仅 RustSec）。
+- 测试 6 + 2：前置块解析三态、真切片标记、合成树三条码、**红的只有 RS_ONLY 方向**、真配对 0 差异、
+  缺 RustSec 侧判不了、纯函数 diff 单喂；CLI 两条（判红经退出码、缺 --snapshot 判 2）。
+
+## 棘轮与重放
+
+两把尺重录后逐键 diff：Rust 尺 **added 41 / removed 0 / changed 9**、python 尺 **added 12 / removed 0 /
+changed 6**。9 处变胖逐条可解释：`cli/sca.rs` 94→138（`--reconcile` 解析 + 对账面打印）、
+`cli/snapshot.rs` 93→138（`--with-rustsec` 与其同步面）、`adv-sca/snapshot.rs` 382→404（`rustsec` 记账段）、
+`adv-sca/lib.rs` 31→33（两个 `pub mod`），以及 3 处函数级（`parse` 18→20、`run` 55→61、`run` 31→43）
+与 2 处字段数（`Args` 2→3、`Manifest` 3→4）——全是接线与结构下限。
+
+重放：fmt（13 成员）0 / `cargo test -p adv-sca -p adv-cli` **16 组全 ok** /
+`clippy --workspace --all-targets -D warnings` 0 / 两把 god 尺 0。
+
+## M3-3b 没做（写清免得下一个人按整段蓝图估工）
+
+CVSS **分数打分**不做（要引 CVSS 解析，且分数不改变"有没有漏洞"这个事实；本层只带出向量与
+informational 分档）；`patched` 表**不参与**本片比对（只比 package / informational，
+patched 的语义差异留给以后真有需求时单独切片）；non-Cargo 生态（npm/pip…）仍等真语料。

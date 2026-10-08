@@ -13,6 +13,8 @@ pub mod advisory;
 pub mod inventory;
 pub mod lockcheck;
 pub mod matcher;
+pub mod reconcile;
+pub mod rustsec;
 pub mod snapshot;
 
 pub use lockcheck::{LockIssue, Report, check_lock, find_locks, scan_paths};
