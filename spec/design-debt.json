@@ -22,28 +22,6 @@
       "since": "1fc62d3",
       "due_after_tasks": 10,
       "guards": "无自动判据（靠本登记到期判红）。2026-10-07 补三条：① 口径已裁到「承重面」，重跑命令在账本片P；② **判定读数只认 status**：`No security issues found.` 在 canceled 时也会出现（两次实测），不得当作销账依据——与 mutants 的 exit 3、深轨失败面同一条纪律；③ 单文件诊断已证明取消与体量无关，别再花 Credits 重试同一条路。"
-    },
-    {
-      "id": "DD-0014",
-      "surface": "Rust 工作区覆盖率档（cargo llvm-cov）",
-      "kind": "capability",
-      "defect": "2026-10-08 现状：CI 的 coverage 步已从 adv.yml **撤下**（连同 install-action 工具清单里的 cargo-llvm-cov 与那条只会上传空 glob 也报 success 的『上传覆盖率』步），撤的原因是它在 windows-gnu host 上**结构性起不来**，不是配置没到位：`-C instrument-coverage` 要 link `profiler_builtins`，而 windows-gnu 分发的 std 不含它。两路独立实测——① CI run 37647787433 的 coverage 步报 `error[E0463]: can't find crate for `profiler_builtins` + note `the compiler may have been built without the profiler runtime`（rustup 自己 下载 llvm-tools 那步是成功的，缺的是运行时不是工具）；② 本机同族工具链 rustlib 目录数 profiler_builtins 的 rlib/rmeta：1.99.0-windows-gnu=0、1.99.0-windows-msvc=2、nightly-windows-gnu=0、stable-windows-gnu 的 aarch64-unknown-linux-gnu=2。**欠的是什么**：`scripts/coverage_gate.py` 的覆盖率棘轮自此没有执行环境（本地一直是 SKIP：本机也是 gnu host，同一条缺件；CI 撤步后连试都试不了），M2 收尾时说的『阈值待基线后接』因此仍然接不上——覆盖率不许算进『CI 绿』。",
-      "why_from_design": "覆盖率档当初是跟着「CI 步骤列表」一起定的（origin 6201ea4 把 coverage 步写进工作区 CI），没有先问一条前置约束：**instrumented 构建需要工具链分发带 profiler runtime**。而本仓的 host 口径是被 vectorscan 反向钉死的（C++ 侧只吃 gcc/clang ⇒ CI 必须用 windows-gnu host，见 L2/L3/L4 那三层），两条约束在同一个 host 上互斥这件事，接线时没人核过。也就是说缺陷不在『少装一个组件』，而在『覆盖率档的执行环境与深轨工具链口径之间没有过一次可核对的前置检查』。",
-      "origin": "6201ea4",
-      "since": "9b9d5f26",
-      "due_after_tasks": 10,
-      "guards": "无自动判据（靠本登记到期判红）。推进口径已定（用户 2026-10-08 拍板「撤步 + 登记设计债」）：① 撤步不等于销账——ci-wiring.json 的 adv-rewrite 清单里 coverage-gate 已摘，W3 会盯着「清单有而步骤无」，反向的「步骤有而清单无」由 W4 盯；② 到期前重开覆盖率**必须换 host**（linux-gnu 分发带 profiler_builtins，即另开 ubuntu job 跑 cargo llvm-cov），前提是 vectorscan 在 Linux 上先验通——这条路本仓至今没验过，别按『apt 装个 boost 就行』估工；③ 不许用「msvc host + --exclude adv-secrets」的半覆盖充数：那样绿的是不含 secrets 面的子集，而 secrets 面正是 M3-1 内化的那块；④ 覆盖率数字在能真测之前一律按『没有』记账，不得写进 README/HARDENING（claim-gate 会要真值源）。"
-    },
-    {
-      "id": "DD-0016",
-      "surface": "深轨 cargo 档测试的驱动前置（crates/adv-cli/tests/deep_cargo.rs）",
-      "kind": "test-harness",
-      "defect": "2026-10-08 实测。`crates/adv-cli/tests/deep_cargo.rs` 的三条测试（cargo_mode_reports_cross_module_flows_and_respects_sanitizer / cargo_mode_golden_freezes_the_lines / cargo_mode_on_non_crate_dir_is_red）要求 `target/debug/adv-ast-rust-driver.exe` 已经存在——这个前置**既不在测试里构建，也不在任何包依赖里声明**，CLI 只在找不到时报「用 --driver 指定，或先 cargo build -p adv-ast-rust」。本机 dev 循环碰巧构建过驱动，所以本地一直绿。兑现的后果：变异门**增量档**（`mutants --base 6201ea4 --since b7d5ab8f^`）里 cargo-mutants 只为受变异影响的包建测试（本轮命令实测是 `--package=adv-cli@0.1.0 --package=adv-sca@0.1.0`，不含 adv-ast-rust）⇒ **未变异基线当场红**（deep_cargo.rs:86/165/183 三处 panic，文本就是那句「深轨驱动不在预期位置」）⇒ cargo-mutants exit 4 ⇒ 门如实报「判不了」（exit 3），M3-2 因此拿不到变异读数。对照组：全档（`--base 6201ea4`，包集合天然含 adv-ast-rust）的基线是 ok 的（实测「ok Unmutated baseline 200s build + 41s test」）。",
-      "why_from_design": "深轨驱动是 **bin**（`crates/adv-ast-rust/Cargo.toml` 的 [[bin]] name = adv-ast-rust-driver），测试通过「target 目录里应该有这个 exe」的路径约定拿它，等于把一条构建顺序写在人脑里；cargo 的包作用域（谁负责构建哪个 bin）与这个约定之间没有任何门核对过。同一形状会在一切「只跑本包测试」的机制上复现——变异门只是第一个把它逼出来的：本地绿不等于别人按自己的包集合跑也绿（这条与本仓「本机过≠CI 过」是同一类缺陷的两个面）。",
-      "origin": "1fc62d3",
-      "since": "0b74891a",
-      "due_after_tasks": 10,
-      "guards": "无自动判据（靠本登记到期判红；变异门增量档每跑一次就会当场报一次「判不了」，那才是真信号源）。三条出路，任选一条并带实测证据即可销账：① 测试自己确保前置：在需要驱动的测试里先构建 adv-ast-rust（并把产物路径交给 --driver，别依赖 target 目录的巧合）；② 把驱动改造成能被包依赖自然拉起的形态（lib + 薄 bin，测试走 API 而不是找 exe）；③ 变异门侧把 adv-ast-rust 纳入增量档的包集合——这条只是绕开门，不修耦合，若选它要在账里写清。硬约束：不许为了让增量档变绿而给这三条测试加静默跳过（skip 的门等于没有门）。"
     }
   ],
   "retired_fields": [
@@ -116,6 +94,16 @@
       "id": "DD-0015",
       "evidence": "2026-10-08 按用户拍板「剪掉 git 面」处置完并实测（出圈路径是 guards 里的第①条：把 git 枚举从依赖图里摘掉）。\n**改动**（全在 `third_party/noseyparker/`，VENDOR.md 记为「第二处差异」）：新增本地 `object_id.rs`（20 字节 newtype 替代 `gix::ObjectId`）；`blob_id_map.rs`/`blob_id_set.rs` 的容器换成 `std::collections` 对应物（语义逐字等价，哈希器换成 std 的 SipHash，未做基准）；`blob_id.rs` 删 4 个 gix 转换 impl；`provenance.rs` 把 `Arc<CommitMetadata>` 窄化成它唯一被用到的 `commit_id`；`noseyparker/Cargo.toml` 去掉 `gix` 与 `input-enumerator` 并删掉后者整个 crate；`smallvec` 显式补 `serde`（那个 feature 原是借 gix 的依赖图打开的，实测踩到）；上游那把独立 `Cargo.lock` 重新生成（它记着已删的 input-enumerator，被我们自己的 LC-2 判据当场判红）。\n**实测**：`cargo tree -i gix` / `-i gix-date` 都查无此包；依赖包数 **305 → 209（−96）**；本仓锁 × 2896 份真 OSV 快照的 advisory 命中 **14 → 0**（rc=1 → rc=0）；`deny.toml` 的那条单 id 窄豁免**已撤回**，`cargo deny check` 四项全 ok（树回到零例外）；`cargo test --workspace` 54 组全 ok（去重表换了实现、adv-secrets 行为不变）；收尾重放 fmt/clippy/窄版线 16 步全绿。\n**口径留痕**：guards 里那条硬约束换成——谁要把 git 面接回来（按上游原样接回 `input-enumerator` + `gix`），先读本条的改动清单并按 VENDOR.md 撤销「第二处差异」；接回来后 `deny` 会立刻判红。",
       "retired_in": "02b9b807"
+    },
+    {
+      "id": "DD-0014",
+      "evidence": "2026-10-08 按 guards ②「必须换 host（linux-gnu）」处置完并实测。\n**改动**：`.github/workflows/adv.yml` 新增 `coverage` job（ubuntu-latest：checkout fetch-depth 0 → 1.99.0 工具链 + rustfmt/clippy/rustc-dev → vectorscan 的 linux 前置 cmake/ninja/boost/pkg-config/patch → cargo-llvm-cov → `cargo llvm-cov --workspace --lcov` → 上传 lcov `if-no-files-found: error`）；`spec/ci-wiring.json` 把 coverage-gate 加回 adv-rewrite 清单。\n**两轮实测**：第一轮（e33da12f，run 37754496350）coverage job 在 4m51s 判红，但红点不是 vectorscan——apt 前置与 cargo-llvm-cov 安装全过、noseyparker 系列已进 Compiling，真红点是 `adv-ast-rust/build.rs:46` panic：`driver_probe::find_driver_artifact` 只锚过 windows 两种 host 的工件名（.dll.a/.lib/.dll），linux 上一个名字都没认出。第二轮（ab1f120b，run 37821487882）补 `.so` 后缀 + `if: always()` 探针步，coverage job **全步绿**（cargo llvm-cov 全工作区 + 上传都 success）。\n**口径留痕**：coverage-gate 回到 CI 接线清单，覆盖率数字自此可真测；windows-gnu host 的结构性缺件（profiler_builtins）不再挡路。",
+      "retired_in": "ab1f120b"
+    },
+    {
+      "id": "DD-0016",
+      "evidence": "2026-10-08 按 guards ①「测试自己确保前置」处置完并实测。\n**改动**：新增 `crates/adv-cli/tests/common/mod.rs` 共享帮手——`driver_path()` 按驱动源码内容哈希缓存、用独立 CARGO_TARGET_DIR 构建 `adv-ast-rust-driver`（避开外层 cargo 的 target 锁），把 `--driver <路径>` 交给三处集成测试（deep_cargo / engine_mir / three_way_ledger）；调用方自带 --driver 时不叠加。\n**实测**：增量档（`mutants --base 6201ea4 --since b7d5ab8f^`）在 2142ba19 首次跑完 rc=1 判红（不再 exit 3 判不了）：总=224 / caught=165 / missed=22 / timeout=3 / unviable=34；变异轮里 deep_cargo 三条在未变异基线全过（独立 target 构建驱动 21.9s + 测试 24.45s）。第二轮复跑（e33da12f）暴露 engine_mir.rs:84/142 同根因——同轮修全（同一 common帮手），第三次跑（ab1f120b 后的 A/B 轮）未变异基线仍红在 vectorscan 的 cc1plus OOM（盘量预检抓到的另一个面，另案）。\n**口径留痕**：驱动前置从「target 目录里碰巧有」变成「测试自己解析/构建」；增量变异档不再被这条前置卡成「判不了」。",
+      "retired_in": "2142ba19"
     }
   ]
 }

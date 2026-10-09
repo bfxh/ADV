@@ -2485,3 +2485,35 @@ run 37754496350（`e33da12f`）：**core job 只剩 Debt gate 那一处设计红
 - **两把 god 尺都没有动基线**（Rust 尺 `xtask god` 绿、python 尺 god_gate 0 变胖）：src 侧靠把文档行
   合并、test 侧靠复用既有清单，各 +1 行的新增都抵掉了。也就是说这次增长本来就不需要棘轮让步——
   遇到棘轮先想"能不能不加"，别一上来就重录。
+
+
+# DD-0014 / DD-0016 销账（2026-10-08 收尾）
+
+两条修法都已在推送后的 CI/本机跑完并拿到读数，退役登记（证据 + retired_in）已写进
+`spec/design-debt.json`；在册只剩 **DD-0005**（云端扫描取消原因，等控制台侧——设计要它红，
+不放宽限期）。
+
+## DD-0014：coverage job 在 linux 上全步绿
+
+第一轮（`e33da12f`，run 37754496350）coverage job 红在**认名判据**而不是 vectorscan：
+`driver_probe::find_driver_artifact` 只锚过 windows 两种 host 的工件名，linux 的 rustc_driver
+一个名字都没认出 ⇒ build.rs panic。第二轮（`ab1f120b`，run 37821487882）补 `.so` + 探针步后
+**全步绿**（cargo llvm-cov 全工作区 → 上传 lcov，`if-no-files-found: error` 不再吞空工件）。
+core job 只剩 Debt gate 那一处 DD-0005 设计红——这是门在等账，不是链坏了。
+
+## DD-0016：增量变异档不再被"驱动不在预期位置"卡死
+
+修法是 guards ①：`crates/adv-cli/tests/common/mod.rs` 共享帮手按驱动源码哈希缓存构建、
+独立 `CARGO_TARGET_DIR` 避开主 target 锁、`--driver` 显式交接。增量档（`--since b7d5ab8f^`）
+在 `2142ba19` **首次跑完**：总=224 / caught=165 / missed=22 / timeout=3 / unviable=34，
+未变异基线里 deep_cargo 三条全过（驱动独立构建 21.9s + 测试 24.45s）。
+后续同根因暴露的 `engine_mir.rs` 两处也同轮修全。
+
+## 顺带坐实的一个新面（另案，不混进这两条的账）
+
+增量档第二次 A/B 复跑（`mut_ab.log`，跑在 `ab1f120b` 之后的干净树）未变异基线红在
+**vectorscan 的 cc1plus OOM**（`out of memory allocating 16781311 bytes`）——cargo-mutants
+四个 worker 并行编译 + 16GB 物理内存的挤压，与盘量预检（磁盘）是两条不同的资源线。
+这条形状与"测试真挂在驱动前置"不同：基线失败点在 C++ 编译阶段，驱动帮手根本没轮到跑。
+处置走盘量预检同族思路：门侧判"判不了"（exit 3，已如实报），复跑或降并发是操作面选择，
+不销进 DD-0016 的证据里。
