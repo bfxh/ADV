@@ -2517,3 +2517,26 @@ core job 只剩 Debt gate 那一处 DD-0005 设计红——这是门在等账，
 这条形状与"测试真挂在驱动前置"不同：基线失败点在 C++ 编译阶段，驱动帮手根本没轮到跑。
 处置走盘量预检同族思路：门侧判"判不了"（exit 3，已如实报），复跑或降并发是操作面选择，
 不销进 DD-0016 的证据里。
+
+
+# 环境事实：L3 评审在 Codex 会话里的可复现路径（2026-10-09）
+
+`qodersec review --layer=l3` 在 Qoder 会话里一直能跑、换 Codex 会话就报
+`dependency_not_ready`——根因不是二进制缺失（`~/.qodersec/bin/qodercli.exe` v1.1.41 由插件
+按 pin 经 SHA256 校验装好，一直在），而是 SDK 起内层 qodercli 前要求环境里有 **Qoder 来源标记**
+（`QODER_CLI=1` / `QODER_IDE=1` / `QODERCN_CLI=1` / `QODER_CN_IDE=1` / `QODER_SITE+QODER_HOOK_SOURCE`
+任一）。Qoder 会话天然带标记，Codex 会话一个都没有。报错文案里那句
+`set QODERCLI_PATH or install qodercli` 有误导：`QODERCLI_PATH` 只钉二进制位置，不提供来源标记，
+只设它报错不变（实测两轮）。
+
+**可复现修法**（两条都实测通过，`findings_count=0`）：
+
+```powershell
+$env:QODERCLI_PATH = "$env:USERPROFILE\.qodersec\bin\qodercli.exe"
+$env:QODER_CLI = "1"
+qodersec review --layer=l3
+```
+
+标记不属伪造：该二进制本就是 Qoder 生态产物，只是会话外壳不认。另有配置钉法
+`transport.qoder_sdk.cli_path`（写进 `~/.qodersec/config.yaml`）可替代 `QODERCLI_PATH`，
+但来源标记没有配置项，只能走环境。

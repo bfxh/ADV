@@ -1,11 +1,12 @@
-//! 金丝雀（变异门 `xtask mutants`）：键抽取、可验证标签、退出码、盘满签名、盘量预检逐个证明会红。
+//! 金丝雀（变异门 `xtask mutants`）：键抽取、可验证标签、退出码、资源签名（盘满/内存）、
+//! 盘量预检、并发覆盖逐个证明会红。
 
 use xtask::mutants::{
-    Baseline, VERIFIABLE_SUMMARIES, completed_status, df_args, diff_spec, disk_failure_signature,
-    drive_letter, free_bytes_probe, free_bytes_via_df, human_bytes, keys_by_summary, min_free_gib,
+    Baseline, Resource, VERIFIABLE_SUMMARIES, completed_status, df_args, diff_spec, drive_letter,
+    free_bytes_probe, free_bytes_via_df, human_bytes, keys_by_summary, min_free_gib, mutants_jobs,
     new_missed, parse_df_avail, parse_u64_lines, powershell_args, precheck_scratch,
-    refuse_incremental_update, scratch_is_short, short_message, tally, tier_verdicts, timeout_note,
-    unverifiable_keys, unviable_disk_failures, verdict_name,
+    refuse_incremental_update, resource_signature, scratch_is_short, short_message, tally,
+    tier_verdicts, timeout_note, unverifiable_keys, unviable_resource_failures, verdict_name,
 };
 
 #[test]
@@ -226,17 +227,17 @@ fn canary_disk_full_in_unviable_log_is_named_while_compile_error_stays_clear() {
     // 退化守卫：日志里真有/真没有签名，否则判据"读不到就跳过"会让本测试空转。
     let enospc_text = std::fs::read_to_string(&enospc).expect("读盘满日志");
     let compile_text = std::fs::read_to_string(&compile).expect("读对照日志");
-    assert!(
-        disk_failure_signature(&enospc_text).is_some(),
-        "语料退化：盘满日志里已找不到签名"
-    );
+    let (disk_sig, disk_line) =
+        resource_signature(&enospc_text).expect("语料退化：盘满日志里已找不到签名");
+    assert_eq!(disk_line, Resource::Disk, "盘满语料必须归在磁盘线");
+    assert_eq!(disk_sig, "No space left on device", "签名应取实测原话");
     assert_eq!(
-        disk_failure_signature(&compile_text),
+        resource_signature(&compile_text),
         None,
-        "对照退化：真编译错误日志里混进了盘满签名"
+        "对照退化：真编译错误日志里混进了资源签名"
     );
 
-    let hits = unviable_disk_failures(&parsed, &out_dir);
+    let hits = unviable_resource_failures(&parsed, &out_dir);
     let _ = std::fs::remove_dir_all(&out_dir);
     assert_eq!(
         hits.len(),
@@ -299,6 +300,58 @@ fn canary_scratch_precheck_only_reds_on_measured_shortfall() {
     );
     assert_eq!(human_bytes(Some(GIB + GIB / 2)), "1.5GB");
     assert_eq!(human_bytes(None), "未知");
+}
+
+#[test]
+fn canary_oom_in_baseline_log_is_memory_line_not_disk() {
+    // 语料 oom.txt = 2026-10-09 真实一轮未变异基线日志逐字拷贝（vectorscan C++ 编译
+    // 阶段 cc1plus OOM），见同目录 README。判据要求：签名命中、归内存线、与盘满
+    // 互不污染（盘满签名一条都不该在纯 OOM 日志上误报）。
+    let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/disk-corpus");
+    let oom = std::fs::read_to_string(corpus.join("oom.txt")).expect("读 OOM 语料");
+
+    let (sig, line) = resource_signature(&oom).expect("语料退化：OOM 日志里已找不到签名");
+    assert_eq!(line, Resource::Memory, "cc1plus OOM 必须归内存线");
+    assert_eq!(sig, "out of memory", "签名应取实测原话");
+
+    // 反向：盘满签名集在纯 OOM 日志上零误报（两条资源线互斥的活证据）。
+    let disk_only = [
+        "No space left on device",
+        "final link failed",
+        "ENOSPC",
+        "os error 112",
+    ];
+    assert!(
+        disk_only.iter().all(|s| !oom.contains(s)),
+        "OOM 语料里混进了盘满签名，两条线会互相污染"
+    );
+
+    // 重建条目走 outcomes 扫描分支（同一循环只换签名集）：键名如实标注重建来源。
+    let rebuilt = serde_json::json!({
+        "outcomes": [{
+            "scenario": {"Mutant": {"file": "crates/adv-core/src/lib.rs", "function": {"function_name": "rebuilt_oom_entry"}}},
+            "summary": "Unviable",
+            "log_path": "log/rebuilt-2026-10-09-oom.log"
+        }]
+    });
+    let out_dir = std::env::temp_dir().join(format!(
+        "adv-oom-corpus-{}-{}",
+        std::process::id(),
+        file!().replace(['/', '.', '\\'], "_")
+    ));
+    let log_dir = out_dir.join("mutants.out").join("log");
+    std::fs::create_dir_all(&log_dir).expect("建临时产物面");
+    let log = log_dir.join("rebuilt-2026-10-09-oom.log");
+    std::fs::write(&log, &oom).expect("摆 OOM 语料日志");
+    let hits = unviable_resource_failures(&rebuilt, &out_dir);
+    let _ = std::fs::remove_dir_all(&out_dir);
+    assert_eq!(hits.len(), 1, "重建的 OOM 条目必须被点名：{hits:?}");
+    assert!(hits[0].contains("内存"), "文案要点名资源线：{}", hits[0]);
+    assert!(
+        hits[0].contains("rebuilt_oom_entry"),
+        "没点名到键：{}",
+        hits[0]
+    );
 }
 
 #[test]
@@ -603,4 +656,18 @@ fn canary_incremental_tier_skips_only_the_full_tier_check() {
         vec!["新增未捕获变异：xtask/src/new.rs::bug".to_string()],
         "增量档放走了新债"
     );
+}
+
+#[test]
+fn canary_mutants_jobs_cover_is_fail_closed() {
+    // 默认 4（16GB 物理内存 + vectorscan 全量编译的实测 OOM 边界）、合法覆盖生效、
+    // 0/负/非数字一律退默认并播报——不静默放大并发。
+    assert_eq!(mutants_jobs(None), ("4".to_string(), None));
+    assert_eq!(mutants_jobs(Some(" 2 ")), ("2".to_string(), None));
+    assert_eq!(mutants_jobs(Some("1")).0, "1");
+    for bad in ["0", "-2", "x"] {
+        let (jobs, note) = mutants_jobs(Some(bad));
+        assert_eq!(jobs, "4", "非法值 {bad:?} 必须退回默认 4");
+        assert!(note.is_some(), "非法值 {bad:?} 必须播报，不许静默");
+    }
 }

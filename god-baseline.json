@@ -235,7 +235,7 @@
   "max_type_members": 0
  },
  "crates/adv-ast-rust/tests/driver_probe.rs": {
-  "file_lines": 104,
+  "file_lines": 102,
   "max_fn_lines": 25,
   "max_type_members": 0
  },
@@ -2410,8 +2410,8 @@
   "max_type_members": 0
  },
  "xtask/src/mutants.rs": {
-  "file_lines": 537,
-  "max_fn_lines": 109,
+  "file_lines": 582,
+  "max_fn_lines": 113,
   "max_type_members": 1
  },
  "xtask/src/suppress.rs": {
@@ -2435,7 +2435,7 @@
   "max_type_members": 0
  },
  "xtask/tests/canary_mutants.rs": {
-  "file_lines": 607,
+  "file_lines": 674,
   "max_fn_lines": 60,
   "max_type_members": 0
  },

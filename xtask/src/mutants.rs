@@ -50,6 +50,10 @@ const DISK_FAILURE_SIGNATURES: &[&str] = &[
     "磁盘空间不足",
 ];
 
+/// 内存耗尽在构建日志里的签名（另案内存线：vectorscan 的 C++ 侧 OOM 形状）。
+/// 与盘满是两条不同的资源线：磁盘预检再准也拦不住它，所以单独认名。
+const MEMORY_FAILURE_SIGNATURES: &[&str] = &["out of memory", "std::bad_alloc", "os error 1455"];
+
 /// 变异基线（`tools/baselines/mutants-baseline.json`）：本轮不判红的 missed 键白名单。
 ///
 /// 公开是为了让 `tier_verdicts` 能被单测直接喂数据——不公开就只能靠一次 17 分钟真跑验判据。
@@ -72,13 +76,30 @@ pub fn outcome_key(outcome: &serde_json::Value) -> Option<String> {
     Some(format!("{file}::{function}"))
 }
 
-/// 这一轮要不要做"基线键可验证性"核对：只有全档要。
+/// 逐资源线挑出 unviable 条目里带对应签名的键。
 ///
-/// 增量档的面天然小于基线（`maturity.rs::seg_eq` 这轮可能压根没被改到），拿全档的尺量半张面
-/// 会把"没跑到"报成"不可验证"——一片里每轮都红，红就又成了噪声（DD-0007 的形状）。所以增量档
-/// 只判**新出现**的存活变异；可验证性由收尾那轮全档关账。
+/// 两套签名不会互相含（盘满是 ENOSPC 系、内存是 bad_alloc 系），同一日志行
+/// 撞上两条签名时按行级第一条命中的线归档——实测语料里没有这种行。
 pub fn checks_verifiability(since: Option<&str>) -> bool {
     since.is_none()
+}
+
+/// 变异门并发数：默认 4（16GB 物理内存 + vectorscan 全量编译的实测上限就是它——
+/// 2026-10-09 增量档未变异基线在 4 worker 下 cc1plus OOM），可用
+/// `ADV_MUTANTS_JOBS` 覆盖。非法值 fail-closed 用默认并如实播报，不静默放大。
+pub fn mutants_jobs(raw: Option<&str>) -> (String, Option<String>) {
+    match raw.map(str::trim).filter(|s| !s.is_empty()) {
+        None => ("4".to_string(), None),
+        Some(s) => match s.parse::<u32>() {
+            Ok(0) | Err(_) => (
+                "4".to_string(),
+                Some(format!(
+                    "ADV_MUTANTS_JOBS={s} 不是正整数，退回默认 4（不静默放大并发）"
+                )),
+            ),
+            Ok(n) => (n.to_string(), None),
+        },
+    }
 }
 
 /// 棘轮比较：current 里有而 baseline 没有的 missed = 新债 = 红。
@@ -232,19 +253,35 @@ pub fn precheck_scratch(min_gib: u64) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// 日志文本里的盘满签名（命中即返回该签名，便于报错时带上原话）。
-pub fn disk_failure_signature(log: &str) -> Option<&'static str> {
-    DISK_FAILURE_SIGNATURES
-        .iter()
-        .find(|sig| log.contains(**sig))
-        .copied()
+/// 日志文本里的资源耗尽签名（盘满/内存两条线共用同一个循环，签名集不同）。
+pub fn resource_signature(log: &str) -> Option<(&'static str, Resource)> {
+    for sig in DISK_FAILURE_SIGNATURES {
+        if log.contains(*sig) {
+            return Some((sig, Resource::Disk));
+        }
+    }
+    for sig in MEMORY_FAILURE_SIGNATURES {
+        if log.contains(*sig) {
+            return Some((sig, Resource::Memory));
+        }
+    }
+    None
 }
 
-/// 从 unviable 条目的日志里认盘满：命中的键连同签名与日志路径报出来。
+/// 资源线（报错文案里要点名是哪条线）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Resource {
+    /// 磁盘耗尽：`ld.exe: final link failed: No space left on device` 一族。
+    Disk,
+    /// 内存耗尽：cc1plus 的 `out of memory allocating` / `std::bad_alloc` 一族。
+    Memory,
+}
+
+/// 从 unviable 条目的日志里认资源耗尽：命中的键按资源线归档。
 ///
 /// 这是"环境性假 unviable"的正判据——盘量预检只是提前拦住，真正的结论来自产物日志本身。
 /// 日志文件读不到就跳过该条（不猜），但这类情况会被可验证性判据兜住。
-pub fn unviable_disk_failures(parsed: &serde_json::Value, out_dir: &Path) -> Vec<String> {
+pub fn unviable_resource_failures(parsed: &serde_json::Value, out_dir: &Path) -> Vec<String> {
     let Some(outcomes) = parsed["outcomes"].as_array() else {
         return vec![];
     };
@@ -263,9 +300,13 @@ pub fn unviable_disk_failures(parsed: &serde_json::Value, out_dir: &Path) -> Vec
         let Ok(text) = std::fs::read_to_string(&log) else {
             continue;
         };
-        if let Some(sig) = disk_failure_signature(&text) {
+        if let Some((sig, line)) = resource_signature(&text) {
+            let line_name = match line {
+                Resource::Disk => "盘满",
+                Resource::Memory => "内存",
+            };
             hits.push(format!(
-                "unviable 是盘满造成的缺测（日志含 \"{sig}\"）：{key} · 日志 {}",
+                "unviable 是{line_name}造成的缺测（日志含 \"{sig}\"）：{key} · 日志 {}",
                 log.display()
             ));
         }
@@ -403,6 +444,10 @@ pub fn run(
     }
     let out_dir = root.join("target/mutants-out");
     let _ = std::fs::remove_dir_all(&out_dir);
+    let (jobs, jobs_note) = mutants_jobs(std::env::var("ADV_MUTANTS_JOBS").ok().as_deref());
+    if let Some(note) = &jobs_note {
+        eprintln!("{note}");
+    }
     let out = std::process::Command::new("cargo")
         .args([
             "mutants",
@@ -412,7 +457,7 @@ pub fn run(
             out_dir.to_str().context("out 路径")?,
             "--no-shuffle",
             "-j",
-            "4",
+            &jobs,
             "--timeout",
             &timeout_secs.to_string(),
         ])
@@ -449,16 +494,16 @@ pub fn run(
             out_dir.display()
         );
     }
-    let disk = unviable_disk_failures(&parsed, &out_dir);
+    let resource = unviable_resource_failures(&parsed, &out_dir);
     let timeouts = keys_by_summary(&parsed, |s| s == "Timeout")?;
     if let Some(note) = timeout_note(&timeouts) {
         println!("{note}");
     }
     let baseline_path = root.join(BASELINE_PATH);
     if update {
-        if !disk.is_empty() {
-            println!("基线未改动：本轮有盘满缺测，重录会把债当成已清带下去");
-            return Ok(disk);
+        if !resource.is_empty() {
+            println!("基线未改动：本轮有资源缺测（盘满/内存），重录会把缺测当成已清带下去");
+            return Ok(resource);
         }
         let old = read_baseline(&baseline_path).unwrap_or_else(|_| Baseline { missed: vec![] });
         std::fs::create_dir_all(baseline_path.parent().expect("parent"))?;
@@ -481,7 +526,7 @@ pub fn run(
         return Ok(vec![]);
     }
     let baseline = read_baseline(&baseline_path)?;
-    let (violations, note) = tier_verdicts(since, &baseline, &missed, &verifiable, disk);
+    let (violations, note) = tier_verdicts(since, &baseline, &missed, &verifiable, resource);
     if let Some(line) = note {
         println!("{line}");
     }
