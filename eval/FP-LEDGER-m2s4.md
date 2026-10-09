@@ -2540,3 +2540,14 @@ qodersec review --layer=l3
 标记不属伪造：该二进制本就是 Qoder 生态产物，只是会话外壳不认。另有配置钉法
 `transport.qoder_sdk.cli_path`（写进 `~/.qodersec/config.yaml`）可替代 `QODERCLI_PATH`，
 但来源标记没有配置项，只能走环境。
+
+# Windows wrapper 入口崩溃根因收口（2026-10-09）
+
+`adv scan --deep-via-cargo` 此前的 `-1073741511`（STATUS_ENTRYPOINT_NOT_FOUND）不是
+cargo/test 差异玄学：`RUSTC_WORKSPACE_WRAPPER` 指向的驱动 exe 需要**同目录**的
+`rustc_driver*.dll`，Windows 加载器按 exe 位置找依赖，PATH 帮不上忙。修法是 cargo 档先把
+驱动和 toolchain `bin/` 里的 DLL 复制进 scratch wrapper 目录；找不到 DLL 时 fail-closed，
+不再让 wrapper 带病上岗。逻辑拆到 `crates/adv-cli/src/wrapper.rs`，测试直接判 exe 与 DLL
+副本形状（先红：空 bin 曾静默返回原路径；后绿）。
+两把 god 尺同步精准登记新面：Rust 基线新增 5 键、Python 基线新增 1 键
+（启发式计量 `file_lines=196 / max_fn_lines=55`），没有既有键变大。

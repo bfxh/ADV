@@ -2443,5 +2443,12 @@
   "file_lines": 203,
   "max_fn_lines": 69,
   "max_type_members": 0
+ },
+ "crates/adv-cli/src/wrapper.rs": {
+  "file_lines": 196,
+  "max_fn_lines": 55,
+  "max_type_members": 0,
+  "hot": "scan_crate_via_cargo",
+  "heuristic": true
  }
 }

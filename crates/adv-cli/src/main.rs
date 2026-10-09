@@ -6,10 +6,10 @@
 //! 片A3 加 `--engine`：`ast`（默认，快轨 tree-sitter）/ `mir`（深轨边车子进程）/
 //! `both`（两轨都跑，stdout 出并集、stderr 出三方账）。行契约两轨共用
 //! `adv_rules::Finding`，不做第二套 schema。
-
 mod mir;
 mod sca;
 mod snapshot;
+mod wrapper;
 
 use adv_rules::Finding;
 use std::path::{Path, PathBuf};
@@ -180,7 +180,7 @@ fn scan(args: &[String]) {
         }
     }
     if via_cargo && let Some(driver) = driver.as_ref() {
-        match mir::scan_crate_via_cargo(Path::new(target), &rules_dir, driver, &rules) {
+        match wrapper::scan_crate_via_cargo(Path::new(target), &rules_dir, driver, &rules) {
             Ok(found) => tally.deep.extend(found),
             // cargo 档跑不动 = 执行失败，不是"这个 crate 干净"（与片A2 边界口径一致）。
             Err(e) => {
