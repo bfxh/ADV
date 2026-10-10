@@ -26,3 +26,6 @@ RESEARCH/.tmp-*/
 
 # 会话账本（多会话并发协议）
 .task-owner
+
+# 检索块表（bench/retrieval/chunk.py 的派生物；语料钉版 ⇒ 逐字节可复现，不入库）
+bench/retrieval/blocks.jsonl
