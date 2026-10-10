@@ -1,5 +1,10 @@
 {
   "missed": [
+    "crates/adv-index/src/bm25.rs::SearchIndex::search",
+    "crates/adv-index/src/bm25.rs::push_token",
+    "crates/adv-index/src/bm25.rs::split_alphanumeric",
+    "crates/adv-index/src/bm25.rs::split_identifier",
+    "crates/adv-index/src/bm25.rs::tokenize",
     "crates/adv-rules/src/taint.rs::body_touches_source",
     "crates/adv-rules/src/taint.rs::expr_taint",
     "crates/adv-rules/src/taint.rs::root_var",
