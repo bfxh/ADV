@@ -430,7 +430,7 @@
   "max_type_members": 0
  },
  "crates/adv-index/src/bm25.rs": {
-  "file_lines": 243,
+  "file_lines": 282,
   "max_fn_lines": 35,
   "max_type_members": 4
  },

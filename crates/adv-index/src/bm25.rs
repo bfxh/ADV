@@ -94,6 +94,16 @@ fn push_token(source: &str, start: usize, end: usize, out: &mut Vec<String>) {
     }
 }
 
+/// 参与评分的查询项：切词后长度 ≥ 2 的项。
+///
+/// 单字项在代码语料里几乎没有主题信号——切词后它要么是单字母变量名（`i`/`n`/`x`），要么是
+/// 评测生成器注入的扰动字。实测冻结集：`a` 的 df/N=0.109、`x` df/N=0.068，是同一条查询里
+/// 真词（`guard` 0.012、`mir` 0.010）的 5–10 倍；它不在金标文档里，却把别的文档抬到金标之上。
+/// 只筛**查询侧**，文档侧照常全量索引，切词口径与 `protocol.py` 的逐字对齐不受影响。
+fn scoring_terms(query: &str) -> impl Iterator<Item = String> {
+    tokenize(query).into_iter().filter(|term| term.len() > 1)
+}
+
 struct Posting {
     doc: usize,
     tf: u32,
@@ -142,13 +152,15 @@ impl SearchIndex {
     }
 
     /// 返回分数大于 0 的文档，按分数降序；并列时按插入顺序。
+    ///
+    /// 查询项先过 `scoring_terms`，所以纯单字查询得到空表（判不到，不乱猜）。
     pub fn search(&self, query: &str, limit: usize) -> Vec<(String, f64)> {
         if limit == 0 || self.doc_ids.is_empty() {
             return Vec::new();
         }
         let doc_count = self.doc_ids.len() as f64;
         let mut scores = vec![0.0; self.doc_ids.len()];
-        for term in tokenize(query) {
+        for term in scoring_terms(query) {
             if let Some(postings) = self.postings.get(&term) {
                 let df = postings.len() as f64;
                 let idf = (1.0 + (doc_count - df + 0.5) / (df + 0.5)).ln();
@@ -238,5 +250,32 @@ mod tests {
             ("b".to_string(), "alpha gamma".to_string()),
         ]);
         assert_eq!(filled.search("alpha", 1).len(), 1);
+    }
+
+    #[test]
+    fn single_letter_query_terms_do_not_score() {
+        let index = SearchIndex::build([
+            ("noise.rs".to_string(), "x".to_string()),
+            ("gold.rs".to_string(), "workspace x".to_string()),
+        ]);
+        let got: Vec<String> = index
+            .search("workspace x", 10)
+            .into_iter()
+            .map(|(id, _score)| id)
+            .collect();
+        assert_eq!(got, ["gold.rs"]);
+        // 纯单字查询：判不到就是空表，不拿噪声凑答案
+        assert!(index.search("x", 10).is_empty());
+    }
+
+    #[test]
+    fn filter_is_by_term_length_not_document_frequency() {
+        // 判据刻意不是"df 超阈值就丢"：冻结集上那条会连坐 `adv`/`rust`/`json` 这些本仓真词，
+        // 还会把 2 条查询清空。高频真词照常参与评分。
+        let docs: Vec<(String, String)> = (0..10)
+            .map(|i| (format!("d{i}.rs"), "common rare".to_string()))
+            .collect();
+        let index = SearchIndex::build(docs);
+        assert_eq!(index.search("common", 10).len(), 10);
     }
 }
