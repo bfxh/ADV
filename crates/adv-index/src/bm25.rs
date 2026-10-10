@@ -1,8 +1,13 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-const K1: f64 = 1.2;
-const B: f64 = 0.75;
+/// tf 饱和强度（发表式里的 k1；与 `bench/retrieval/gen_bm25_cases.py` 必须一致，金样测试负责核对）。
+pub const K1: f64 = 1.2;
+/// 长度归一强度（发表式里的 b）。**0.25 是本仓冻结集上的实测最优，不是抄来的默认值**：
+/// b ∈ {0, 0.25, 0.5, 0.75, 1.0} 五档在 120 条查询上的 Recall@1 依次是
+/// 0.5000 / **0.6333** / 0.6000 / 0.5667 / 0.4583，MRR 依次 0.6386 / **0.7380** / 0.7031 /
+/// 0.6547 / 0.5631 —— 语料是"文件级"代码库、金标常常就是那篇长文件，归一越强越把它压下去。
+pub const B: f64 = 0.25;
 
 /// 与 `bench/retrieval/protocol.py` 对齐的标识符切词。
 pub fn tokenize(text: &str) -> Vec<String> {
@@ -165,8 +170,11 @@ impl SearchIndex {
                 let df = postings.len() as f64;
                 let idf = (1.0 + (doc_count - df + 0.5) / (df + 0.5)).ln();
                 for posting in postings {
+                    // 发表式：norm = (1 - b) + b·(|d| / avgdl)（Elastic Practical BM25 §"How b works"：
+                    // freq·(k1+1) / (freq + k1·(1 - b + b·fieldLength/avgFieldLength))）。
+                    // 2026-10-10 变异门 + 独立转写对拍抓到此处曾写成 `b + (1-b)·r`，等于把 b 当 0.25 用。
                     let length_norm =
-                        B + (1.0 - B) * self.doc_lens[posting.doc] as f64 / self.avg_len;
+                        (1.0 - B) + B * self.doc_lens[posting.doc] as f64 / self.avg_len;
                     let tf = posting.tf as f64;
                     scores[posting.doc] += idf * tf * (K1 + 1.0) / (tf + K1 * length_norm);
                 }

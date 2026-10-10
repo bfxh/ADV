@@ -1,0 +1,33 @@
+# params k1=1.2 b=0.25 top_k=10
+# 期望=独立转写的发表式，切词=protocol.py；改 Rust 侧常数必须同步这里并重录
+D	length_vs_tf	short.rs	guard py
+D	length_vs_tf	long.rs	guard py guard py guard py guard py guard py guard py guard py guard py guard py filler words here now more
+Q	length_vs_tf	guard py	10
+W	length_vs_tf	long.rs:0.690770536648,short.rs:0.411814604668
+D	df_weight	rare.rs	zephyr guard
+D	df_weight	common.rs	guard py
+D	df_weight	noise.rs	guard guard guard
+Q	df_weight	zephyr guard	10
+W	df_weight	rare.rs:1.136500261112,noise.rs:0.205638344642,common.rs:0.136184334200
+D	exact_tie	a.rs	workspace index notes
+D	exact_tie	c.rs	workspace index notes
+D	exact_tie	b.rs	index only
+Q	exact_tie	workspace	10
+W	exact_tie	a.rs:0.462126473448,c.rs:0.462126473448
+D	single_letter_dropped	a.rs	workspace index
+D	single_letter_dropped	b.rs	x index
+Q	single_letter_dropped	workspace x	10
+W	single_letter_dropped	a.rs:0.693147180560
+D	no_match	a.rs	alpha beta
+Q	no_match	gamma	10
+W	no_match	
+D	multi_term_sum	a.rs	alpha beta gamma
+D	multi_term_sum	b.rs	alpha alpha
+D	multi_term_sum	c.rs	beta gamma
+Q	multi_term_sum	alpha beta gamma	10
+W	multi_term_sum	a.rs:1.357135479447,c.rs:0.958682899389,b.rs:0.655027682388
+D	avg_len_across_three	one.rs	sink
+D	avg_len_across_three	two.rs	sink source sink
+D	avg_len_across_three	three.rs	sink source sink source sink source
+Q	avg_len_across_three	sink source	10
+W	avg_len_across_three	three.rs:0.897146654131,two.rs:0.661844633174,one.rs:0.147622645113

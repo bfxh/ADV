@@ -129,9 +129,19 @@
   "max_fn_lines": 29,
   "max_type_members": 0
  },
+ "bench/retrieval/gen_bm25_cases.py": {
+  "file_lines": 100,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
  "bench/retrieval/gen_queries.py": {
   "file_lines": 337,
   "max_fn_lines": 36,
+  "max_type_members": 0
+ },
+ "bench/retrieval/gen_tokenizer_cases.py": {
+  "file_lines": 55,
+  "max_fn_lines": 22,
   "max_type_members": 0
  },
  "bench/retrieval/protocol.py": {
@@ -430,13 +440,28 @@
   "max_type_members": 0
  },
  "crates/adv-index/src/bm25.rs": {
-  "file_lines": 282,
-  "max_fn_lines": 35,
+  "file_lines": 290,
+  "max_fn_lines": 37,
   "max_type_members": 4
  },
  "crates/adv-index/src/lib.rs": {
   "file_lines": 24,
   "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/adv-index/tests/bm25_bin.rs": {
+  "file_lines": 116,
+  "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "crates/adv-index/tests/bm25_scores_golden.rs": {
+  "file_lines": 168,
+  "max_fn_lines": 40,
+  "max_type_members": 4
+ },
+ "crates/adv-index/tests/tokenizer_protocol.rs": {
+  "file_lines": 67,
+  "max_fn_lines": 20,
   "max_type_members": 0
  },
  "crates/adv-parse/src/generic.rs": {
