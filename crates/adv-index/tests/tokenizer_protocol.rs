@@ -1,12 +1,12 @@
 //! 切词口径对拍：Rust `tokenize` 必须逐字复现冻结的 `bench/retrieval/protocol.py`。
 //!
-//! 为什么存在（变异门 2026-10-10 催出来的）：`tokenize`/`split_identifier`/
-//! `split_alphanumeric`/`push_token` 一轮跑出 15 条存活变异，根因是原有测试只钉了
-//! 3 个手挑字符串。语料里的期望**全部由 Python 侧算出**（规则作者之外的观测），
-//! 不是拿 Rust 实现自己生成——否则等于把可能的实现错误一起钉成"正确"。
+//! 为什么存在（变异门 2026-10-10 两轮催出来的）：第一轮点出 15 条切词族存活，补了 1,331 条
+//! **标识符**对拍之后第二轮仍剩 6 条——因为 `tokenize` 的入口是任意文本，而纯标识符里
+//! 没有"数字/标点后紧跟词"这种形状，`== b'_'` 与 `!= b'_'` 在只喂标识符时不可区分。
+//! 所以语料现在两档全收：标识符**不抽样**（11k+ 条）+ 原始文本跨度（文首 160 字 + 全部冻结查询）。
+//! 期望一律由 Python 侧算出，不由被测 Rust 生成——否则等于把实现错误一起钉成"正确"。
 //!
 //! 语料重录：`python -X utf8 bench/retrieval/gen_tokenizer_cases.py`
-//! （源料 = `corpus.pin` 那批文档里的 11,839 个标识符，抽样 1,331 条 + 边界样本全保）
 
 use adv_index::bm25::tokenize;
 use std::path::Path;
@@ -18,15 +18,18 @@ fn cases() -> Vec<(String, Vec<String>)> {
     body.lines()
         .filter(|line| !line.trim().is_empty())
         .map(|line| {
-            let (input, expected) = line
-                .split_once('\t')
-                .unwrap_or_else(|| panic!("语料行缺 TAB 分隔：{line:?}"));
-            let want = expected
+            let mut parts = line.split('\t');
+            let kind = parts.next().unwrap_or("");
+            assert_eq!(kind, "K", "语料行形状应是 K\\t文本\\ttoken：{line:?}");
+            let input = parts.next().unwrap_or("").to_string();
+            let want = parts
+                .next()
+                .unwrap_or("")
                 .split(',')
                 .filter(|token| !token.is_empty())
                 .map(str::to_string)
                 .collect();
-            (input.to_string(), want)
+            (input, want)
         })
         .collect()
 }
@@ -35,8 +38,8 @@ fn cases() -> Vec<(String, Vec<String>)> {
 fn tokenizer_matches_frozen_python_protocol() {
     let cases = cases();
     assert!(
-        cases.len() > 1000,
-        "对拍语料缩水到 {} 条，先查生成器",
+        cases.len() > 8000,
+        "对拍语料只剩 {} 条，先查生成器是不是又改成抽样了",
         cases.len()
     );
 
@@ -54,9 +57,20 @@ fn tokenizer_matches_frozen_python_protocol() {
 }
 
 #[test]
-fn boundary_shapes_are_pinned() {
-    // 变异门点名过的形状：尾大写、数字段、下划线混合、单字母。任一处退化即红。
+fn corpus_covers_both_shapes_the_mutants_hid_in() {
+    // 两轮门各暴露一个缺口：标识符要全收（边界变异藏在少数形状里），
+    // 而且必须有带分隔符的原始文本（下划线判据的变异在纯标识符上不可区分）。
     let cases = cases();
+    let raw = cases
+        .iter()
+        .filter(|(input, _)| {
+            input.contains(' ') || !input.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
+        .count();
+    assert!(
+        raw > 200,
+        "带分隔符的原始文本只有 {raw} 条，跨度那一档没进来（查生成器 SPAN_EVERY）"
+    );
     for shape in ["HTTP", "ABCd", "ID3Tag", "__x__y__", "A1_", "n"] {
         assert!(
             cases.iter().any(|(input, _)| input == shape),

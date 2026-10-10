@@ -258,6 +258,9 @@ mod tests {
             ("b".to_string(), "alpha gamma".to_string()),
         ]);
         assert_eq!(filled.search("alpha", 1).len(), 1);
+        // limit=0 而索引非空：两条前置条件是"或"，少了任一条都会在这里露出来
+        // （变异门点名的 `|| with &&` 就是靠这一句杀的）。
+        assert!(filled.search("alpha", 0).is_empty());
     }
 
     #[test]
