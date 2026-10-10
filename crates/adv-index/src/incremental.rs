@@ -107,11 +107,6 @@ impl IndexStore {
         }))
     }
 
-    /// 在当前缓存集合上查询（与 [`IndexStore::index`] 同一条打分路径）。
-    pub fn search(&self, query: &str, limit: usize) -> Vec<(String, f64)> {
-        self.index().search(query, limit)
-    }
-
     /// 累计喂进 `tokenize` 的 token 数：复用生效时这个数**不涨**。
     pub fn tokens_tokenized(&self) -> u64 {
         self.tokens_tokenized

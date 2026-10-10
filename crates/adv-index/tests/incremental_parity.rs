@@ -168,6 +168,13 @@ fn changed_bytes_retokenize_that_doc_only() {
         before + tokenize(&edited[1].1).len() as u64,
         "变更后只重切那一篇"
     );
+    // 变更分支的**篇数**账也要钉住（只钉 token 数的话，`retokenized += 1` 退化成不减也测不出）：
+    // 首轮 2 篇 + 这轮改 1 篇 = 3。
+    assert_eq!(
+        store.retokenized(),
+        3,
+        "变更那一篇必须计入 retokenized 篇数"
+    );
     assert_parity(&store, &edited);
 }
 

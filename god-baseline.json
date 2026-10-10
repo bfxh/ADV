@@ -450,9 +450,9 @@
   "max_type_members": 4
  },
  "crates/adv-index/src/incremental.rs": {
-  "file_lines": 140,
+  "file_lines": 135,
   "max_fn_lines": 35,
-  "max_type_members": 7
+  "max_type_members": 6
  },
  "crates/adv-index/src/lib.rs": {
   "file_lines": 27,
@@ -470,7 +470,7 @@
   "max_type_members": 4
  },
  "crates/adv-index/tests/incremental_parity.rs": {
-  "file_lines": 246,
+  "file_lines": 253,
   "max_fn_lines": 62,
   "max_type_members": 0
  },

@@ -3042,3 +3042,33 @@ M4-3 把"分块提召回"判成负的之后，账本写的是分块真正买的�
 - 顺带记一句操作面教训：`/tmp` 在 Git Bash 里存在，但**Windows 版 Python 看不见它**
   （`FileNotFoundError: /tmp/god-py.bak`）；跨工具传路径要用盘符路径（`D:/tmp/...`）。
 
+## M4-4a 首轮增量变异门：9 条存活分诊成"2 处真问题"，一处删、一处补断言
+
+`cargo run -p xtask -- mutants --base 7976b468`（本片进仓前）：
+**caught=29 / missed=9 / timeout=0 / unviable=3**；门红 17 条 = **2 个新键**（真问题）
++ **15 条基线键"不可验证"**（它们不在本片 diff 里，M4-2 那节已论证：增量档下这是选择、不是回归）。
+
+存活按键分两类，**处置不一样**：
+
+1. `IndexStore::apply:83` 的 `retokenized += 1` 两条（`-=` / `*=`）⇒ **断言弱**。
+   我在 `reuse_actually_skips_tokenization` 里 assert 过首轮的 3，但那条用例走的是
+   added 分支；**变更分支的篇数账没有任何测试钉**，所以 `+=` 退化成不减也测不出。
+   修法：`changed_bytes_retokenize_that_doc_only` 补
+   `assert_eq!(store.retokenized(), 3, "变更那一篇必须计入 retokenized 篇数")`，
+   并**手动打同一条变异**（`+= 1` → `* 1`）验证新断言当场判红——不是推理出来的。
+2. `IndexStore::search` 7 条（换成 `vec![]` / `vec![(String::new(), ±1.0)]` / `"xyzzy"` 诸形态）
+   ⇒ **零调用者的薄壳**。所有测试都走 `store.index().search()`，这方法是我"顺手留给产品面"的。
+   **按 YAGNI 删掉**，不登记成薄壳债：它今天没有调用者，接线那片会把调用者+测试一起带回来。
+
+`unviable=3` 三条都是 `replace … -> Self/… with Default::default()`，因 `SearchIndex`
+**没有** `Default` impl ⇒ 编不过。这是结构上不可判定，不是"藏起来的存活"（与 M4-2 那节
+超时 14 条同理，分开记）。
+
+双神尺重录（逐键披露）：**消失 1 键**是我自己刚删的 `fn:…IndexStore::search`（面没了才消失，
+不是把别人的账洗成 0）；**收紧** `incremental.rs` 139→134（python 尺 140→135、
+`max_type_members` 7→6，删掉薄壳顺带把类型面也缩了）；**变大 2 处**都在测试文件
+（`file_lines` 245→252、`changed_bytes_…` 26→33），来源就是补的那条断言。
+
+**方法论留一句**：门报"新增未捕获"先分**断言弱 vs 薄壳**再动手——第 2 类直接删比登记更对，
+第 1 类要补的是断言、不是把键记进基线让它以后一直红。
+
