@@ -2982,7 +2982,63 @@ Rust 回包是 `long.rs 1.5474584712582347 / gold.rs 0.40110742494670015` ⇒ �
   最小可判 base ≈ **6,600 条**，单机 j=2 要 **8–16 小时**——不是先前我说的"1.5 小时"（已撤回）。
   ⇒ 日常维持增量档 + 本节的"不可验证"披露；要开长窗另约时段。
 
+## M4-4a：增量索引 + 增量正确性判据（立项理由用的是 M4-3 剩下的那两条）
 
+M4-3 把"分块提召回"判成负的之后，账本写的是分块真正买的是**增量索引成本**与**片段级定位**。
+本片做前者的一半（增量），判据取蓝图 M4 验收行里的"**增量正确性判据**"（§12 E2 那条"保守上界 + 便宜复验"
+这一片**没有**照抄，理由见下）。
 
+- **实现**（零新依赖）：`SearchIndex::build` 拆成 `build` + `build_from_stats(HashMap<term,tf>)`，
+  新增 `crates/adv-index/src/incremental.rs::IndexStore`。每篇缓存**原文 + tf 表**，
+  复用的判据是**逐字节相等**；`apply` 返回 `Delta{added, changed, reused, dropped}`。
+- **为什么不用内容哈希**（这是对 §12 E2 的一处显式偏离，不是遗漏）：M4-4 的验收要求
+  "增量产物与全量重建**相等**"，指纹是概率性的——"指纹没变"要配复验才叫相等，
+  "字节没变"本身就是相等。磁盘化缓存（只存 tf 表不存原文，才需要哈希 + 便宜复验）留后续片，
+  那片照 §12 E2 做。
+- **收益的落点要说准**：倒排每轮都从缓存的 tf 表重建，代价随**不同词数**走。
+  所以这层省的是**切词**，不是"少建索引"。基数（可复算）：钉版语料 **2404 篇 / 111,777 token**
+  （`python -X utf8 -c` 用 `floor.load_corpus()` + `protocol.tokenize` 数出来）；
+  同一批第二轮 `apply` 复用 2404/2404 ⇒ 这 111,777 次切词不重做。
+  **墙钟收益没量**（要等 `adv search` 接线才有真入口），别把上面这个基数读成加速比。
 
+### 判据与"新代码真被杀"的复核
+
+判据三条，期望全部取自被测实现之外（参照物是**另一条路径**：全量重建；token 数由测试自己调
+`tokenize` 数出来）：
+
+1. `tests/incremental_parity.rs::add_then_noop_then_change_add_drop_keeps_parity` ——
+   四形态脚本（新增→no-op→变更+新增+删除→只换顺序）每一步都断言
+   **结构相等**（`SearchIndex` 加了 `#[derive(Debug, PartialEq)]`）+ 4 条探针**结果相等**。
+2. `reuse_actually_skips_tokenization` / `changed_bytes_retokenize_that_doc_only` ——
+   钉"未变更不得重切词"：no-op 轮 `tokens_tokenized` **不涨**；改一篇只涨那一篇的 token 数。
+3. `duplicate_id_is_rejected_without_touching_the_store` —— 输入有重复 id ⇒ `Err` 且
+   索引与计量**一字不动**（与 `adv-sca/snapshot.rs` 同一条纪律：不把"改了一半"记成"同步过了"）。
+   这条一开始是写错的：`apply` 原本在循环里边验边改，`Err` 会留下半成品缓存；前置校验才成立。
+
+**手动打变异复核**（门还没跑到这片，先自己确认断言不是装饰）：
+
+| 变异 | 结果 | 被谁杀 |
+|---|---|---|
+| 复用屏退化成只比长度 | 杀 | `same_length_different_content_is_not_reused` |
+| `delta.dropped` 恒 0 | 杀 | `add_then_noop_...` 的账面断言 |
+| 计量 `*tokens += 0` | 杀 | `reuse_actually_skips_tokenization` + `changed_bytes_...` |
+| 去掉重复 id 前置校验 | 杀 | `duplicate_id_...` |
+| 两条把参数/变量改没的形态 | **不算杀**（编译失败 = Unviable，不是 Caught） | — |
+
+补一条用例是被前提断言**逼**出来的：我第一版把等长夹具写成 `"sink alpha"` / `"sink omegas"`
+（11 字节，根本不等长），`assert_eq!(after[0].1.len(), "sink alpha".len())` 这条**前提自检**
+当场判红——不然那条用例会静默地什么都没测。改成 `"sink gamma"` 后才是真判据。
+
+### 双 god 尺重录（逐键披露，消失键 0）
+
+本片是新增能力，两把尺都动了；**没有键被删**（不存在把别人的账洗成 0）：
+
+- **收紧 2 处**：Rust 尺 `fn:...SearchIndex::build` **31 → 9**（改成委托）、
+  python 尺 `bench/retrieval/chunk.py.max_fn_lines` **41 → 35**（M4-3 清理留下的）。
+- **变大 3 键**：`bm25.rs` 297→315（Rust 尺）/ 298→316（python 尺）、`lib.rs` 23→26 / 24→27、
+  `type:SearchIndex(impl)` 2→3。
+- **新面登记**：`src/incremental.rs`（139/140 行）、`tests/incremental_parity.rs`（245/246 行）
+  及其 12 个 fn 键 + 4 个 type 键。
+- 顺带记一句操作面教训：`/tmp` 在 Git Bash 里存在，但**Windows 版 Python 看不见它**
+  （`FileNotFoundError: /tmp/god-py.bak`）；跨工具传路径要用盘符路径（`D:/tmp/...`）。
 

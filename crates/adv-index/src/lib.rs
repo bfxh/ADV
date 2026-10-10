@@ -9,6 +9,9 @@
 /// 零依赖 BM25 首片：先与检索评测地板基线对拍。
 pub mod bm25;
 
+/// 增量索引层（M4-4a）：只重算内容真的变了的那几篇，判据是与全量重建相等。
+pub mod incremental;
+
 /// 域版本（与工作区同源）。
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")

@@ -114,12 +114,17 @@ fn scoring_terms(query: &str) -> impl Iterator<Item = String> {
     tokenize(query).into_iter().filter(|term| term.len() > 1)
 }
 
+#[derive(Debug, PartialEq)]
 struct Posting {
     doc: usize,
     tf: u32,
 }
 
 /// 零依赖 BM25 索引，顺序即文档插入顺序。
+///
+/// `PartialEq` 是给增量档用的**结构相等**判据：同一批文档经"增量复用"与"全量重建"
+/// 两条路走出来的索引必须逐字段相等（f64 在这里只做逐位比对，不做近似）。
+#[derive(Debug, PartialEq)]
 pub struct SearchIndex {
     doc_ids: Vec<String>,
     doc_lens: Vec<u32>,
@@ -130,17 +135,30 @@ pub struct SearchIndex {
 impl SearchIndex {
     /// 按输入顺序构建索引；后续并列排序也沿用该顺序。
     pub fn build(docs: impl IntoIterator<Item = (String, String)>) -> Self {
+        Self::build_from_stats(docs.into_iter().map(|(doc_id, text)| {
+            let mut term_counts: HashMap<String, u32> = HashMap::new();
+            for token in tokenize(&text) {
+                *term_counts.entry(token).or_default() += 1;
+            }
+            (doc_id, term_counts)
+        }))
+    }
+
+    /// 从**已算好的 tf 表**建索引（增量档的复用入口）。
+    ///
+    /// 切词是这条链上最贵的一段，而每篇文档真正需要留存的只有 `term → tf` 与长度，
+    /// 所以 `incremental::IndexStore` 缓存的就是这两样（比再存一份原文更小）。
+    /// 与 `build` 同一条打分路径：同一批文档走两条路必须产出相等的索引，
+    /// 这条判据钉在 `tests/incremental_parity.rs`。
+    pub fn build_from_stats(
+        docs: impl IntoIterator<Item = (String, HashMap<String, u32>)>,
+    ) -> Self {
         let mut doc_ids = Vec::new();
         let mut doc_lens = Vec::new();
         let mut postings: HashMap<String, Vec<Posting>> = HashMap::new();
-        for (doc_id, text) in docs {
+        for (doc_id, term_counts) in docs {
             let doc = doc_ids.len();
-            let mut term_counts: HashMap<String, u32> = HashMap::new();
-            let mut doc_len = 0;
-            for token in tokenize(&text) {
-                doc_len += 1;
-                *term_counts.entry(token).or_default() += 1;
-            }
+            let doc_len: u32 = term_counts.values().sum();
             for (term, tf) in term_counts {
                 postings.entry(term).or_default().push(Posting { doc, tf });
             }
