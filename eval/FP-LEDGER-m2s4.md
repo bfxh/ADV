@@ -3328,3 +3328,51 @@ B（base 随键回退）成本更高；C（维持现状）= DD-0017 红到人工
 
 `cargo test -p xtask` 50 条全过（含本轮新增 6 条金丝雀）· clippy `--all-targets -D warnings` 干净 ·
 fmt 0 · Rust 尺 god 门绿（重录后）· python 尺 god 门绿（重录后）。
+
+---
+
+# DD-0017 首轮轮转圈关账（2026-10-11 凌晨）
+
+> 关账行原文：**「本圈关账：13 窗覆盖全档面 1448 条变异 / 50 文件，基线 15 键全部判过 ⇒ 这一圈顶一轮全档」**
+> 复现：`ADV_MUTANTS_TIMEOUT=300 ADV_MUTANTS_TMP=D:	mpdv-mut ADV_MUTANTS_JOBS=2 cargo run -p xtask -- mutants --rotate --base origin/main`（逐窗续跑，游标续圈）。
+
+## 全程账（13 窗，判定口径 总/捕获/未捕获）
+
+| 窗 | 文件面 | 判定 | 红绿 | 备注 |
+|----|--------|------|------|------|
+| 1 | 6 文件/83 | 84/67/0 | 绿 | unviable 16 全在 adv-ast-rust（变异自身编译不可行，非缺测） |
+| 2 | 5/127 | 128/108/8 | 红 | 新 missed 键 8（adv-cli 系） |
+| 3 | 5/91 | 91/59/30 | 红 | 新 missed 30（incremental_cost bin + adv-core） |
+| 4 | 5/142 | 142/118/8 | 绿 | 8 条 missed 全是已记键 |
+| 5 | 8/141 | 141/93/32 | 红 | adv-parse 系 |
+| 6 | 3/98 | 98/84/5 | 红 | |
+| 7 | 6/141 | 142/113/12 | 红 | ⚠ resource_rounds 在此 +1 |
+| 8 | 5/134 | 135/107/7 | 红 | |
+| 9 | 7/137 | 138/105/28 | 红 | |
+| 10 | 2/46 | 47/37/7 | 绿 | 超时 1 条（seg_eq 死循环类，timeout_note 点名） |
+| 11 | 1/154 | 155/134/15 | 红 | 单文件 xtask/src/mutants.rs 154 条超预算，点名后照样开窗 |
+| 12 | 2/147 | 148/93/47 | 红 | |
+| 13 | 1/11 | 12/11/0 | 绿 | **关账轮**：completed_laps=1，游标清零重开 |
+
+合计：基线 15 键 15/15 判过；missed 累计 78 键（存量 15 + 新 63）；unviable 全程无盘满/内存签名的
+**假** unviable 混入——唯一一笔真缺测是窗 7 的 2 条（`resource_signature`，日志含
+`No space left on device`），门把它从 unviable 里点名成缺测、resource_rounds=1、关账轮拒绝
+`--update`——缺测不当已清的判据当场兑现。
+
+## 本轮否证（否证标签是时间戳）
+
+- 上一会话的「15 键里 4 个在 diff 面上产不出变异（body_touches_source 等）」**被本圈否证**：
+  真跑时 `body_touches_source` 在 diff 面上有 2 条变异并被窗 7–9 判到（分支改过它附近代码）。
+  当时的判断来自旧树状态的 listing 探针。**后果**：`key_gap_rounds=0`——A 案的键缺口专用窗
+  本圈没获得真键触发，作为「未来键失去 diff 可见性」的安全网在位（金丝雀已证明会红）。
+- 「j=4 能用」被重包窗实测否证（见 DD-0017 退役 evidence 里的 -j 账）。
+
+## 分诊清单去向
+
+63 个新 missed 键登记为 **DD-0018**（在册，due ≤10，since=4d4853d0）；DD-0017 转 retired
+（evidence 含全程账与销账口径）。分诊改动会改面 ⇒ 圈作废重开；关账轮以干净圈
+（resource_rounds=0）+ `--update` 重录基线才销 DD-0018。
+
+## 游标提交链
+
+`6f6df5e8`（6 窗）→ `4d4853d0`（12 窗 + 78 键定格）→ 本提交（关账态 completed_laps=1 + 账本 + 账册）。
