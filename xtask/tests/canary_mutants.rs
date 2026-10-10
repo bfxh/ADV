@@ -641,7 +641,7 @@ fn canary_incremental_tier_skips_only_the_full_tier_check() {
     );
     let note = note_inc.expect("增量档要把跳过的东西说出来");
     assert!(note.contains("1 个不在本轮面内"), "{note}");
-    assert!(note.contains("全档关账"), "要指回关账的那一轮：{note}");
+    assert!(note.contains("轮转窗口关账"), "要指回关账那一轮：{note}");
 
     // 新增存活变异在增量档里照样判红（整个档位的底线）。
     let (v_new, _) = tier_verdicts(

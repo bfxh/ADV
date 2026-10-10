@@ -3166,3 +3166,97 @@ god 尺当场报该文件 `59 → 139` 变胖——那个 bin 是被金样测试
 游标落 `tools/baselines/mutants-rotation.json` 让"一圈覆盖全部基线键"变成**门能核对**的有穷目标；
 收尾口径同步改写为"整条线必跑 + 轮转窗口必须覆盖全部基线键一圈"。
 不准用放宽 `due_after_tasks` 或删基线键来变绿。
+
+
+## DD-0017 修法落地：变异门「轮转窗口」档（先点名撤回登记时的两个数）
+
+**撤回（2026-10-10，同一把尺复算）**：DD-0017 登记时写的是「scratch ~116MB/变异线性增长 ⇒
+全档 ≈8,000 条 ≈900GB ⇒ 单机 8–16 小时」。两个数都错，而且错的不是一个量级而是**机制**：
+
+| 项 | 登记时（外推） | 实测尺 | 实测值 |
+| --- | --- | --- | --- |
+| 全档变异面 | ~8,000 条（按 0.42 变异/行 × +19,094 行） | `cargo mutants --list --in-diff <patch>`（sub-second，不编译） | **1297 条 / 49 个文件**（真实率 0.068 变异/行，虚高约 6×） |
+| scratch 随变异数 | ~116MB/条**线性**（拿 2026-10-06「181 条时 TMP 已 21GB」当线性项） | 每 10 秒采 D 盘余量 + scratch 目录体积 + 已完成条数 | **平台段约 3MB/条**：41 条的窗口峰值只比跑前多 **1.38GB**，且第 10→40 条只涨约 0.09GB |
+| 主导开销 | 「变异数 × 每条盘」 | 同上 + 工作区 `target/` 体积 | **每 worker 一份包构建**：`target/` = **11.3GB**，j=4 ⇒ 重包窗口固定开销可达数十 GB；跑完自动回收（采样末行回到跑前 4.17GB） |
+| 结论 | 全档无可行落点 | 不变 | **仍成立，但理由换了**：堵的是「固定构建开销 × 并发 + 墙钟」，不是每条变异的盘 |
+
+⇒ 修法里的窗口预算因此按**时间**定（默认 150 条/窗，实测 41 条/2 分钟 ⇒ 一窗约 8 分钟测试 +
+每包一次冷构建），盘量交给 8GB 体验线 + 资源签名判红兜，另加一条按实测 3MB/条留出 ≥5× 头寸的
+**16MB/条投影**专门拦"预算被配成几千条"的病态窗口。
+
+### 首窗实测（手动跑，走的是门将来喂的同一个 patch 形状）
+
+窗口 = `crates/adv-index/src/incremental.rs`(37) + `bin/bm25_retrieval.rs`(2) + `lib.rs`(2) = **41 条**，
+`-j 4 --timeout 60`，TMP 指 `D:/tmp/adv-mut`：
+
+```text
+Found 41 mutants to test
+ok       Unmutated baseline in 7s build + 7s test
+41 mutants tested in 2m: 40 caught, 1 unviable
+```
+
+那 1 条 unviable 是 `IndexStore::index -> SearchIndex` 换成 `Default::default()`——`SearchIndex`
+没实现 `Default`，编译不过，属**变异自身不可行**（日志里没有盘满/内存签名，门的资源判据正确地没把它算成缺测）。
+开销采样（`target/w1.csv`，D 盘余量/scratch 体积/已完成条数）：
+
+| 阶段 | D 余量 | scratch | 已完成 |
+| --- | --- | --- | --- |
+| 跑前 | 23.71GB | 4.17GB | 0 |
+| 建阶段 | 23.35GB | 4.81GB | 7 |
+| 峰值 | 22.45GB | 5.55GB | 40 |
+| 跑完回收 | 23.57GB | 4.17GB | 41 |
+
+**收窄精确性**也当场量了（"一圈并集 = 全档面"这句话的机械前提）：pathspec 取 `bm25.rs + taint.rs`
+两个文件 ⇒ listing = **209 条 = 141 + 68**，与全档面里这两个文件的条数逐一对上。
+
+### 落地：`cargo run -p xtask -- mutants --rotate [--base ref]`
+
+模块 `xtask/src/rotation.rs`（判据全在纯函数里，`xtask/tests/canary_rotation.rs` 9 条金丝雀逐个钉）：
+
+- **定格面**：开圈时把 `--list` 出来的 `(文件, 条数)` 存进游标；一圈的目标是**这份清单**，不是每轮重算的移动球门。
+- 每窗按 `ADV_MUTANTS_WINDOW_BUDGET`（默认 150）在面里贪心取文件，**至少取 1 个**（单文件超预算照样开窗并点名，
+  否则那个文件永远进不了圈 = 圈永远关不了账）。
+- **关账两条**（同一轮真跑之后才判，不靠事后补记）：① 定格面每个文件都进过窗 ⇒ 各窗并集 = 全档面；
+  ② `mutants-baseline.json` 每个键在这一圈里都被判过。键缺口按**成因**分两说（所在文件在面上却没判到 ⇒
+  查那扇窗的 unviable 日志；所在文件压根不在面上 ⇒ 人工分诊），混成一条会让人查错地方。
+- 口径变了或面漂了 ⇒ **点名重开一圈**（`completed_laps` 保留计数，证据清零），不拿旧证据顶新面。
+- 未关账时 `--update` 一律拒绝（半圈的 missed 整表替换会静默删掉别的窗里才有的键）；关账那一轮的 `--update`
+  才拿**一圈累计并集**重录全档 missed 集——这是轮转档相对增量档多出来的真东西。
+- 三档（全档/增量/轮转）共用 `mutants::run_cargo_mutants` 一条读数路径，`write_baseline` 也共用同一支笔。
+- 档名自带窗口身份：`mutants·轮转档(每窗≤150变异·一圈覆盖全档面+全部基线键才关账)`，绿不会被抄成收尾全档绿。
+
+### 首跑（走真门）没跑成，但把 fail-closed 验在了实处
+
+第一次真接 `--rotate` 时我在门跑到一半期间继续改了 `xtask/src/main.rs`（工作树相对 HEAD 变脏），
+cargo-mutants 按 exit 5 拒了 patch（"Diff content doesn't match source file"）。门给出的**不是**沉默也不是绿，
+而是一行独立退出码 3 的裁决：
+
+```text
+mutants·轮转档(每窗≤45变异·一圈覆盖全档面+全部基线键才关账): 判不了（本轮没出判定，别把别的数当结论）：
+--list 取面失败（exit Some(5)）：… The diff might be out of date with this source tree.
+```
+
+且**游标一个字都没写**（没跑过就不能记成跑过）。⇒ 「工作树必须先干净」这条前置在轮转档里同样是硬前置，
+只是这次它由门的判不了路径当场演示了一遍，而不是靠我记住。
+
+### 三清单披露
+
+- `tools/baselines/mutants-baseline.json`：**未动**（本轮没跑真窗，15 键原样）。
+- Rust 尺 `tools/baselines/god-baseline.json`：844 → 845 键。新增 `xtask/src/rotation.rs`(492 行) 与
+  `xtask/tests/canary_rotation.rs`(288 行) 的全部键、`fn:xtask/src/mutants.rs::run_cargo_mutants`=61、
+  `::tier_label`=6、`::write_baseline`=25、`type:RoundEvidence`=4、`type:Lap`=9、`type:Window`=3、
+  `fn:xtask/src/main.rs::mutants_gate`=27；消失 0；变大 `file:xtask/src/main.rs` 102→107、
+  `file:xtask/src/mutants.rs` 581→642（搬出+读数层）、`git_diff_patch` 16→21、`tier_verdicts` 31→33；
+  **变小** `fn:xtask/src/mutants.rs::run` 113→41（把读数与重录搬出去）。
+- python 尺 `god-baseline.json`：505 → 507 键（新增 `xtask/src/rotation.rs`、`xtask/tests/canary_rotation.rs`），
+  移除 0，变大 3（`xtask/src/lib.rs`、`main.rs`、`mutants.rs`，均为上面那两处搬动与登记）。
+- `spec/design-debt.json`：DD-0017 的 `defect` 与 `guards` 就地改写（上面的撤回原文留在条目里）；
+  `due_after_tasks` **没放宽**（仍是 10）；在册开放债仍是 `DD-0005`（用户控制台那条）+ `DD-0017`。
+
+### 下一步（DD-0017 不在这一步销账）
+
+一圈还没真跑完过。按 49 个面文件、默认预算 150 条/窗**模拟贪心选窗**跑出来的划分是 **12 窗**
+（83/127/90/141/140/97/141/134/137/46/150/11 条，恰好覆盖 1297 条），每窗一次冷构建 ⇒
+墙钟小时级、且必须分多次调用（游标可续）。两个执行纪律：① 跑门之前工作树必须干净；
+② **游标提交要打包**（每窗一次 commit 会把 12 次 commit 直接砸进 DD-0017 的 10-commit 限期里，
+限期是给"活儿没干"用的，不是给"活儿正常推进"用的——真要撞线就一次提交多窗游标）。

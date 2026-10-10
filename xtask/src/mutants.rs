@@ -314,10 +314,18 @@ pub fn unviable_resource_failures(parsed: &serde_json::Value, out_dir: &Path) ->
     hits
 }
 
-fn git_diff_patch(root: &Path, spec: &str) -> Result<PathBuf> {
+/// 生成 `--in-diff` 用的 patch。`paths` 非空时按 git pathspec **只取那几个文件**——
+/// 轮转档靠它把万级变异面切成窗口；收窄只改"喂哪些文件"，读数与判据仍走
+/// [`run_cargo_mutants`] 这一条，免得某一档悄悄用另一套算法。
+pub fn git_diff_patch(root: &Path, spec: &str, paths: &[String]) -> Result<PathBuf> {
     let patch = root.join("target/mutants-diff.patch");
+    let mut args: Vec<String> = vec!["diff".into(), "--binary".into(), spec.into()];
+    if !paths.is_empty() {
+        args.push("--".into());
+        args.extend(paths.iter().cloned());
+    }
     let out = std::process::Command::new("git")
-        .args(["diff", "--binary", spec])
+        .args(&args)
         .current_dir(root)
         .output()?;
     anyhow::ensure!(
@@ -407,9 +415,11 @@ pub fn tier_verdicts(
         }));
     } else if !unverifiable.is_empty() {
         // 增量档不拿它判红（半张面量不到全档的键是必然的），但要把数报出来，免得
-        // "增量绿"被读成"账都核过了"——关账的是收尾那轮全档。
+        // "增量绿"被读成"账都核过了"——关账的是跑完一圈轮转窗口（见 `xtask::rotation`，
+        // DD-0017：一次跑完整个全档面在可用盘量上兑现不了，所以关账口径换成"一圈覆盖
+        // 全档面 + 全部基线键"，而不是欠着一轮永远跑不动的全档）。
         note = Some(format!(
-            "增量档不核对基线可验证性：基线 {} 键里 {} 个不在本轮面内（收尾必须再跑全档关账）",
+            "增量档不核对基线可验证性：基线 {} 键里 {} 个不在本轮面内（收尾须跑完一圈轮转窗口关账）",
             baseline.missed.len(),
             unverifiable.len()
         ));
@@ -418,30 +428,43 @@ pub fn tier_verdicts(
     (violations, note)
 }
 
-/// 跑变异门。`base` 为 diff 基线 ref；`update` 重录基线（披露通道）。
-pub fn run(
+/// 一档真跑回来的读数。**判据不在这里**，这里只负责"跑完 + 把 outcomes 读成键"。
+///
+/// 抽出来的理由：全档/增量/轮转三档必须共用同一条读数路径——分档只该改"喂哪个 patch"，
+/// 不该各写一套解析（一写两套，其中一套就会悄悄漂移）。
+pub struct RoundEvidence {
+    /// 本轮实际跑的变异条数（与 patch 计划数可对照）。
+    pub total: usize,
+    /// 本轮未捕获键（排序去重）。
+    pub missed: Vec<String>,
+    /// 本轮跑到判定环节的键（caught / missed / timeout 的并）。
+    pub verifiable: Vec<String>,
+    /// 资源耗尽造成的缺测（非空即红）。
+    pub resource: Vec<String>,
+}
+
+/// 档名在三档共用的裁决行里出现——"绿"必须能看出是哪一档绿的。
+pub fn tier_label(since: Option<&str>) -> &'static str {
+    match since {
+        None => "全档",
+        Some(_) => "增量",
+    }
+}
+
+/// 按给定 patch 跑 cargo-mutants 并读回裁决材料（三档共用）。
+///
+/// 退出码契约（上游文档 mutants.rs/exit-codes.html，27.1.0 实测一致）：
+/// 0 = 全部被捕获；2 = 有未捕获变异；3 = 有变异超时。**三码都算"跑完了"**，正文一律
+/// 进棘轮比对。1/4/5/6/70（用法错 / 基线本身就红或挂 / patch 与树不符 / patch 非法 /
+/// 内部错）才是真失败——判红而不解读结果。
+/// 这一条是 2026-10-06 补的：旧判据只认 0|2，于是 `seg_eq` 里两个 `+= → *=` 死循环
+/// 触发 exit 3，整道门在比对前就中止，连着两轮把"门绿"报成了 cargo-mutants 的转储。
+pub fn run_cargo_mutants(
     root: &Path,
-    base: &str,
-    since: Option<&str>,
-    update: bool,
+    patch: &Path,
     timeout_secs: u64,
-) -> Result<Vec<String>> {
-    if let Some(why) = refuse_incremental_update(since, update) {
-        return Ok(vec![why]);
-    }
-    let spec = diff_spec(base, since);
-    let patch = git_diff_patch(root, &spec)?;
-    let patch_text = std::fs::read_to_string(&patch)?;
-    if patch_text.trim().is_empty() {
-        return Ok(vec![format!(
-            "skip: 与 {spec} 无差异，无变异面（skip 不算绿——门在此档视为通过并留痕）"
-        )]);
-    }
-    let min_gib = min_free_gib(std::env::var("ADV_MUTANTS_MIN_FREE_GIB").ok());
-    let short = precheck_scratch(min_gib);
-    if !short.is_empty() {
-        return Ok(short);
-    }
+    tier: &str,
+) -> Result<RoundEvidence> {
     let out_dir = root.join("target/mutants-out");
     let _ = std::fs::remove_dir_all(&out_dir);
     let (jobs, jobs_note) = mutants_jobs(std::env::var("ADV_MUTANTS_JOBS").ok().as_deref());
@@ -463,12 +486,6 @@ pub fn run(
         ])
         .current_dir(root)
         .output()?;
-    // cargo-mutants 退出码契约（上游文档 mutants.rs/exit-codes.html，27.1.0 实测一致）：
-    // 0 = 全部被捕获；2 = 有未捕获变异；3 = 有变异超时。**三码都算"跑完了"**，正文一律
-    // 进棘轮比对。1/4/5/6/70（用法错 / 基线本身就红或挂 / patch 与树不符 / patch 非法 /
-    // 内部错）才是真失败——判红而不解读结果。
-    // 这一条是 2026-10-06 补的：旧判据只认 0|2，于是 `seg_eq` 里两个 `+= → *=` 死循环
-    // 触发 exit 3，整道门在比对前就中止，连着两轮把"门绿"报成了 cargo-mutants 的转储。
     anyhow::ensure!(
         completed_status(out.status.code()),
         "cargo mutants 没跑完（exit {:?}）：{}",
@@ -484,10 +501,7 @@ pub fn run(
     let missed = keys_by_summary(&parsed, |s| s == "MissedMutant")?;
     let verifiable = keys_by_summary(&parsed, |s| VERIFIABLE_SUMMARIES.contains(&s))?;
     let [total, caught, missed_n, unviable_n] = tally(&parsed);
-    println!(
-        "变异面 总={total} 捕获={caught} 未捕获={missed_n} unviable={unviable_n} 档={}",
-        if since.is_some() { "增量" } else { "全档" }
-    );
+    println!("变异面 总={total} 捕获={caught} 未捕获={missed_n} unviable={unviable_n} 档={tier}");
     if unviable_n > 0 {
         println!(
             "提示：unviable {unviable_n} 条的日志在 {}/mutants.out/log/；条数增多先怀疑 scratch 盘满/链接失败，别把缺测读成没问题",
@@ -499,34 +513,81 @@ pub fn run(
     if let Some(note) = timeout_note(&timeouts) {
         println!("{note}");
     }
+    Ok(RoundEvidence {
+        total,
+        missed,
+        verifiable,
+        resource,
+    })
+}
+
+/// `--update` 通道：整表重录 + 逐键点名离账的旧键。
+///
+/// `resource` 非空 ⇒ 拒绝重录（本轮有盘满/内存缺测，重录会把缺测当成已清带下去）。
+/// 全档档喂当轮读数，轮转档喂"一圈累计并集"——同一支笔，两种来源，判据一致。
+pub fn write_baseline(path: &Path, missed: &[String], resource: &[String]) -> Result<Vec<String>> {
+    if !resource.is_empty() {
+        println!("基线未改动：本轮有资源缺测（盘满/内存），重录会把缺测当成已清带下去");
+        return Ok(resource.to_vec());
+    }
+    let old = read_baseline(path).unwrap_or_else(|_| Baseline { missed: vec![] });
+    std::fs::create_dir_all(path.parent().expect("parent"))?;
+    std::fs::write(
+        path,
+        serde_json::to_string_pretty(&serde_json::json!({ "missed": missed }))?,
+    )?;
+    println!("基线已写 {BASELINE_PATH}（missed {} 条）", missed.len());
+    // 重录是整表替换：本轮没再产的旧键会离开债账，这里点名而不静默。
+    let dropped = new_missed(&old.missed, missed);
+    if !dropped.is_empty() {
+        eprintln!(
+            "注意：本次重录从基线移除了 {} 个键（要么真被杀掉了，要么本轮不可验证）：",
+            dropped.len()
+        );
+        for k in dropped {
+            eprintln!("  - {k}");
+        }
+    }
+    Ok(vec![])
+}
+
+/// 跑变异门。`base` 为 diff 基线 ref；`update` 重录基线（披露通道）。
+pub fn run(
+    root: &Path,
+    base: &str,
+    since: Option<&str>,
+    update: bool,
+    timeout_secs: u64,
+) -> Result<Vec<String>> {
+    if let Some(why) = refuse_incremental_update(since, update) {
+        return Ok(vec![why]);
+    }
+    let spec = diff_spec(base, since);
+    let patch = git_diff_patch(root, &spec, &[])?;
+    let patch_text = std::fs::read_to_string(&patch)?;
+    if patch_text.trim().is_empty() {
+        return Ok(vec![format!(
+            "skip: 与 {spec} 无差异，无变异面（skip 不算绿——门在此档视为通过并留痕）"
+        )]);
+    }
+    let min_gib = min_free_gib(std::env::var("ADV_MUTANTS_MIN_FREE_GIB").ok());
+    let short = precheck_scratch(min_gib);
+    if !short.is_empty() {
+        return Ok(short);
+    }
+    let evidence = run_cargo_mutants(root, &patch, timeout_secs, tier_label(since))?;
     let baseline_path = root.join(BASELINE_PATH);
     if update {
-        if !resource.is_empty() {
-            println!("基线未改动：本轮有资源缺测（盘满/内存），重录会把缺测当成已清带下去");
-            return Ok(resource);
-        }
-        let old = read_baseline(&baseline_path).unwrap_or_else(|_| Baseline { missed: vec![] });
-        std::fs::create_dir_all(baseline_path.parent().expect("parent"))?;
-        std::fs::write(
-            &baseline_path,
-            serde_json::to_string_pretty(&serde_json::json!({ "missed": missed }))?,
-        )?;
-        println!("基线已写 {}（missed {} 条）", BASELINE_PATH, missed.len());
-        // 重录是整表替换：本轮没再产的旧键会离开债账，这里点名而不静默。
-        let dropped = new_missed(&old.missed, &missed);
-        if !dropped.is_empty() {
-            eprintln!(
-                "注意：本次重录从基线移除了 {} 个键（要么真被杀掉了，要么本轮不可验证）：",
-                dropped.len()
-            );
-            for k in dropped {
-                eprintln!("  - {k}");
-            }
-        }
-        return Ok(vec![]);
+        return write_baseline(&baseline_path, &evidence.missed, &evidence.resource);
     }
     let baseline = read_baseline(&baseline_path)?;
-    let (violations, note) = tier_verdicts(since, &baseline, &missed, &verifiable, resource);
+    let (violations, note) = tier_verdicts(
+        since,
+        &baseline,
+        &evidence.missed,
+        &evidence.verifiable,
+        evidence.resource,
+    );
     if let Some(line) = note {
         println!("{line}");
     }
@@ -574,8 +635,8 @@ pub fn keys_by_summary(
     Ok(keys)
 }
 
-/// 读基线（缺失即红——不允许"没有基线"当成"没有债"）。
-fn read_baseline(path: &Path) -> Result<Baseline> {
+/// 读基线（缺失即红——不允许"没有基线"当成"没有债"）。轮转档共用同一份债账。
+pub fn read_baseline(path: &Path) -> Result<Baseline> {
     let raw = std::fs::read_to_string(path).with_context(|| format!("读 {}", path.display()))?;
     Ok(serde_json::from_str(&raw)?)
 }

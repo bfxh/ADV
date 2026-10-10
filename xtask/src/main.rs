@@ -1,11 +1,12 @@
 //! ADV 质量门载体（xtask bin，逻辑在 lib：
-//! `cargo run -p xtask -- <god [--write] | lockstep | gate | mir | mutants [--base ref] [--update]>`）。
+//! `cargo run -p xtask -- <god [--write] | lockstep | gate | mir | mutants [--base ref] [--update]
+//! | mutants --rotate [轮转窗口档]>`）。
 //!
 //! 每条门路径都必须以一行 `<门>: 绿|红（N 条）|判不了（原因）` 收尾（见 `xtask::verdict`）——
 //! "门没判"和"门判绿"不许在输出上同形。
 
 use std::path::PathBuf;
-use xtask::{gate, god, lockstep, mir, mutants, suppress, verdict};
+use xtask::{gate, god, lockstep, mir, mutants, rotation, suppress, verdict};
 
 fn workspace_root() -> anyhow::Result<PathBuf> {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -61,29 +62,46 @@ fn main() {
             emit("gate", outcome);
         }
         Some("suppress") => emit("suppress", suppress::run(&root, &adv_core::today())),
-        Some("mutants") => {
-            let base = args
-                .windows(2)
-                .find(|w| w[0] == "--base")
-                .map(|w| w[1].clone())
-                .unwrap_or_else(|| "main".to_string());
-            let update = args.contains(&"--update".to_string());
-            let since = args
-                .windows(2)
-                .find(|w| w[0] == "--since")
-                .map(|w| w[1].clone());
-            let name = mutants::verdict_name(since.as_deref());
-            emit(
-                &name,
-                mutants::run(&root, &base, since.as_deref(), update, 60),
-            );
-        }
+        Some("mutants") => mutants_gate(&root, &args),
         Some("mir") => emit("mir", mir::run()),
         _ => {
             eprintln!(
-                "用法：cargo run -p xtask -- <god [--write] | lockstep | gate | mir | mutants>"
+                "用法：cargo run -p xtask -- <god [--write] | lockstep | gate | mir | mutants \
+                 [--base ref] [--since rev] [--update] | mutants --rotate>"
             );
             std::process::exit(2);
         }
     }
+}
+
+/// `mutants` 子命令的三档分派：全档 / `--since` 增量 / `--rotate` 轮转窗口。
+///
+/// 搬出 `main` 是因为 `main` 在这个仓里是**分发壳**（god 尺管着它的行数），加一档就顶一次阈；
+/// 分档口径本身（谁能配什么、拒绝什么）由 `mutants`/`rotation` 两个模块各自说清。
+fn mutants_gate(root: &std::path::Path, args: &[String]) -> ! {
+    let base = args
+        .windows(2)
+        .find(|w| w[0] == "--base")
+        .map(|w| w[1].clone())
+        .unwrap_or_else(|| "main".to_string());
+    let update = args.contains(&"--update".to_string());
+    let since = args
+        .windows(2)
+        .find(|w| w[0] == "--since")
+        .map(|w| w[1].clone());
+    if args.contains(&"--rotate".to_string()) {
+        let (budget, warn) =
+            rotation::window_budget(std::env::var("ADV_MUTANTS_WINDOW_BUDGET").ok().as_deref());
+        if let Some(note) = warn {
+            eprintln!("{note}");
+        }
+        emit(
+            &rotation::verdict_name(budget),
+            rotation::run(root, &base, budget, update, 60),
+        );
+    }
+    emit(
+        &mutants::verdict_name(since.as_deref()),
+        mutants::run(root, &base, since.as_deref(), update, 60),
+    )
 }

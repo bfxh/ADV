@@ -2465,7 +2465,7 @@
   "max_type_members": 4
  },
  "xtask/src/lib.rs": {
-  "file_lines": 13,
+  "file_lines": 14,
   "max_fn_lines": 0,
   "max_type_members": 0
  },
@@ -2475,8 +2475,8 @@
   "max_type_members": 0
  },
  "xtask/src/main.rs": {
-  "file_lines": 90,
-  "max_fn_lines": 61,
+  "file_lines": 108,
+  "max_fn_lines": 45,
   "max_type_members": 0
  },
  "xtask/src/maturity.rs": {
@@ -2490,9 +2490,14 @@
   "max_type_members": 0
  },
  "xtask/src/mutants.rs": {
-  "file_lines": 582,
-  "max_fn_lines": 113,
-  "max_type_members": 1
+  "file_lines": 643,
+  "max_fn_lines": 61,
+  "max_type_members": 4
+ },
+ "xtask/src/rotation.rs": {
+  "file_lines": 493,
+  "max_fn_lines": 109,
+  "max_type_members": 9
  },
  "xtask/src/suppress.rs": {
   "file_lines": 69,
@@ -2517,6 +2522,11 @@
  "xtask/tests/canary_mutants.rs": {
   "file_lines": 674,
   "max_fn_lines": 60,
+  "max_type_members": 0
+ },
+ "xtask/tests/canary_rotation.rs": {
+  "file_lines": 289,
+  "max_fn_lines": 41,
   "max_type_members": 0
  },
  "xtask/tests/canary_verdict.rs": {
