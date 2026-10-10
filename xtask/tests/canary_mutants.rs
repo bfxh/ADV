@@ -716,12 +716,16 @@ fn canary_ensure_scratch_creates_pin_and_rejects_unusable() {
     assert!(ensure_scratch_at(Some(&ok)).is_ok(), "合法指盘要能建出来");
     assert!(ok.is_dir());
     let _ = std::fs::remove_dir_all(&ok);
-    // Windows 非法文件名字符 ⇒ 红：指了但建不出来绝不悄悄回落到系统临时目录，
-    // 盘满假绿的教训正是"回落了没人知道"。
-    let bad = std::path::PathBuf::from("C:/adv-pin-<illegal>-dir");
+    // 指到"真文件底下的子目录"⇒ 两条平台上 create_dir_all 都只能红（父级不是目录）：
+    // 别用平台非法字符造不可用路径——`<` 在 Linux 是合法文件名，CI runner 上会建成功
+    // （本测试 2026-10-10 在 windows 本机绿、CI linux 红的第一案）。
+    let file = std::env::temp_dir().join(format!("adv-pin-file-{}", std::process::id()));
+    std::fs::write(&file, b"x").expect("写占位文件");
+    let bad = file.join("sub");
     let err = ensure_scratch_at(Some(&bad)).expect_err("非法指盘必须红");
     assert!(
         err.to_string().contains("建不出来"),
         "报错要指到 ADV_MUTANTS_TMP：{err:#}"
     );
+    let _ = std::fs::remove_file(&file);
 }

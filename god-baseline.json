@@ -2520,7 +2520,7 @@
   "max_type_members": 0
  },
  "xtask/tests/canary_mutants.rs": {
-  "file_lines": 728,
+  "file_lines": 732,
   "max_fn_lines": 60,
   "max_type_members": 0
  },
