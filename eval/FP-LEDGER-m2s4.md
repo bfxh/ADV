@@ -2551,3 +2551,91 @@ cargo/test 差异玄学：`RUSTC_WORKSPACE_WRAPPER` 指向的驱动 exe 需要**
 副本形状（先红：空 bin 曾静默返回原路径；后绿）。
 两把 god 尺同步精准登记新面：Rust 基线新增 5 键、Python 基线新增 1 键
 （启发式计量 `file_lines=196 / max_fn_lines=55`），没有既有键变大。
+
+# M4-2 首片：自研零依赖 BM25 与地板对拍（2026-10-10）
+
+M4-2 的题不是"引入检索器"，是**先回答自研 BM25 打不打得过 M4-1 那条 tf-idf 地板**：打赢才有资格谈
+Tantivy 的 +40 依赖，打不赢就是自欺。语料与查询一律走 M4-1 冻结面（`corpus.pin` 钉 `46249091`、
+2404 篇文档、120 条查询），BM25 侧零依赖（`crates/adv-index/src/bm25.rs`，k1=1.2 / b=0.75，
+并列按插入序打破），指标公式**直接复用 `floor.py`**——两边不同尺就没有可比性。
+
+## 读数（`bench/retrieval/bm25.json` 已冻结）
+
+| 指标 | 地板 tf-idf | 自研 BM25 | 差值 | 相对 |
+|---|---|---|---|---|
+| Recall@1 | 0.3250 | **0.6000** | +0.2750 | +84.6% |
+| Recall@5 | 0.6417 | **0.8583** | +0.2166 | +33.8% |
+| Recall@10 | 0.7333 | **0.8917** | +0.1584 | +21.6% |
+| MRR | 0.4599 | **0.7147** | +0.2548 | +55.4% |
+| nDCG@10 | 0.5167 | **0.7587** | +0.2420 | +46.8% |
+
+排名分布（120 条）：rank1 **72** / 2–5 **31** / 6–10 **4** / top10 未中 **13**；Rust 侧返回空表的查询 **0** 条。
+按种类的 Recall@10：`sentence` 52/55、`ident` 26/28、**`combo` 29/37**——多词组合查询是短板，
+下一步要动 BM25 就先动这里，别拿总平均当结论。
+
+结论：自研 BM25 五项全赢。**Tantivy 引不引由用户按这份读数裁**——它的举证责任比 M4-1 时重了：
+一个零依赖实现已经把 Recall@1 抬到 0.60。
+
+## 依赖动作（LIBRARY-POLICY §四 要求"写下选择与理由"）
+
+`crates/adv-index/Cargo.toml` 只加了 **serde + serde_json**，且都是工作区**既有**依赖
+（`adv-sca`/`adv-rules`/`adv-ast-rust`/`adv-cli` 四个成员早已在用）⇒ 不构成"新引入第三方 crate"，
+§二 那条"先改红线文档（VULN-HUNTING §五）"的触发条件不成立；机器化红线（`rust/Cargo.toml` 恒空 +
+CI 依赖钉版）由 `deps-lock` 判，本轮绿。BM25 本体保持零依赖：两个常数（k1=1.2 / b=0.75）加一份
+HashMap 倒排，`bm25.rs` 的 import 只有 `std::cmp::Ordering` 与 `std::collections::HashMap`；
+serde 只用在 bin 的 JSONL 协议层，不碰评分路径。
+
+## 红→绿证据
+
+- 先红（上一片留下的评测通路）：`pytest tests/test_bm25_retrieval_eval.py` **2 failed**，
+  当场炸在 `bench/retrieval/bm25.py:106` 的 `KeyError: 'query_id'`。
+- 修后：该文件 **7 passed**；连同 `tests/test_retrieval_protocol.py` 共 **17 passed**。
+- Rust 侧：`cargo test -p adv-index` **4 passed**（切词与 `protocol.py` 对齐、排序确定性、空索引/limit 安全）。
+- 确定性：同输入两次 `bm25.py` 输出**逐字节一致**（`cmp` 0 差异）。
+- 调用形状：仓内绝对路径与从 `D:\KF` 用相对路径各跑一次 `--check`，两边 rc=0
+  （[[feedback-adv-measurement-workflow]] 第 7 条）。格式化后复测读数不变。
+- clippy 按"强制重扫"口径出证：`touch` 三个改动文件后 `cargo clippy -p adv-index --all-targets -- -D warnings`
+  **rc=0**（门里那条 0.4s 是增量免扫，不能当证据——见 [[env-windows-rust-toolchain]]）。
+
+## 这一片修掉的 5 个口径缺陷
+
+| 编号 | 症状 | 实测 | 处置 |
+|---|---|---|---|
+| D1 | 脚本按 `query_id` 读冻结件、拿 `source` 当查询键 | 冻结件字段是 `{kind,qid,relevant,source,text}`，**没有 `query_id`**；120 条只有 **83** 个不同 `source`（33 个被 2–3 条共用）⇒ 按 source 收键**静默丢 37 条查询** | 请求键改 `qid`；金标取 `relevant`（集合）；`rows_and_gold` 少一条就 `KeyError`，不降样本 |
+| D2 | 测试期望**自相矛盾**：mrr 0.5 / nDCG 0.6309 按 1 条分母，recall 却按 2 条分母，还要求不四舍五入 | 同一 fixture 按 `floor.py:92-111` 应是 mrr **0.25** / nDCG **0.3155** | **改测试不改公式**：锚在 `floor.py` 与冻结 `baseline.json`（规则作者之外的观测），并把"分母=查询数、round 4、金标是集合"钉成断言 |
+| D3 | `--check` 在基线缺失时行为未定义，且**先读语料再判基线** | 冻结件在位时永远走不到基线分支；照旧改会让单测去付 2404 篇文档的 git 读取 | 基线不在 ⇒ **载语料之前** exit 3；测试把 `corpus` 换成"一读就炸"来钉住这个顺序 |
+| D4 | BM25 直调 `enumerate_docs()`，绕过语料 sha256 核对 | 可以在漂过的语料上出一个"打赢地板"的读数，而地板自己判不了 | 改走 `floor.load_corpus()`，漂移 ⇒ 判不了（exit 3），与地板同规 |
+| D5 | bin 缺 `//!`，`-W missing-docs` 报 warning | CI clippy 是 `-D warnings` ⇒ 推上去必红 | 补 3 行模块文档，写明协议由 `bm25.py` 消费 |
+
+## 双 god 尺净账（重录对账，双向披露）
+
+- **Python 尺**（根 `god-baseline.json`）490 → **494** 键：4 个新面全是本片——`bench/retrieval/bm25.py`
+  164/34、`crates/adv-index/src/bm25.rs` 243/35/成员 4、`bin/bm25_retrieval.rs` 59/31、
+  `tests/test_bm25_retrieval_eval.py` 123/22。
+- **Rust 尺**（`tools/baselines/god-baseline.json`）739 → **739** 项：新增 17 键（全在 `bm25.rs` 与 bin），
+  **移除 2 键、收紧 1 键——这两处不是本片删的**：`38cfc3f8` 把 `scan_crate_via_cargo`/`collect_crate_findings`
+  从 `mir.rs` 删掉并砍了 91 行，却漏重录，基线一直挂着死键（`file:...mir.rs` = 281、`fn:...scan_crate_via_cargo` = 54）。
+  本轮重录才收到 **190**（Python 尺 282 → 191、max_fn 54 → 45）。方向是**收紧**，但账要说明白：
+  **那次提交带着未重录的基线过了门**——棘轮只禁恶化，偏高不红，所以死键能活一个提交。
+- `crates/adv-index/src/lib.rs` 变大 2 处（Python 尺 21 → 24、Rust 尺 20 → 23）：加 `pub mod bm25;` 的接线成本，
+  模块声明 + 空行压不下去。
+- `bin/bm25_retrieval.rs` 中途变大 47 → 58：先前按 rustfmt 前的形状登记，跑 `fmt_workspace.py --write` 后
+  rustfmt 把那条 match 分支竖排；**以格式化后的形状为登记值**。
+- 重录顺带掉了一个字段：HEAD 的 `crates/adv-cli/src/wrapper.rs` 条目带 `hot`/`heuristic`，全仓另外 490 条都没有
+  （那是 `38cfc3f8` 手工加的形状）。`god_gate.py` 的这两个字段是**扫描时现算**（`scripts/god_gate.py:278-279,442-446`），
+  基线从不读它 ⇒ 掉它不改变判据也不改变打印。
+
+## 门与接线
+
+- `retrieval-eval` 步（`bench/retrieval/check.py`）**不含 BM25**：进线就要在 CI 里先
+  `cargo build --bin bm25_retrieval`，给 M4-1 那步纯 python 的门加上 Rust 编译，还要动 `ci-wiring` 与步数账。
+  用户口径（2026-10-10 拍板前先按"不进线"办）：读数进账本，验收走手工
+  `python -X utf8 bench/retrieval/bm25.py --check`。
+- 收尾重放：`python -X utf8 scripts/local_gate.py --line adv-m2` ⇒ **17 步跑 / 3 步 SKIP**（计时档
+  `cli-bench`、`perf-gate` 与本机测量受限的 `coverage-gate`），唯一红 = `debt-gate` 的
+  **DD-0005**（在册设计债，等控制台侧，**设计要它红**；`spec/design-debt.json` 上次动是 `06866d0b`，
+  与本片无关）。`cargo run -p xtask -- gate` ⇒ **gate 绿 / lockstep 绿 / suppress 绿**。
+- 变异门：**本片未跑**——全档要单独时间窗，且规矩是跑门期间一条 cargo 都不能碰
+  （[[adv-mutation-gate-replay]]、[[env-windows-rust-toolchain]]）。新面（`bm25.rs` 的评分与切词、
+  bin 的协议解析）的存活分诊留到下一次窗口。
+

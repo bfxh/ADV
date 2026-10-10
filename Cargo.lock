@@ -46,6 +46,8 @@ name = "adv-index"
 version = "0.1.0"
 dependencies = [
  "adv-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -114,6 +114,11 @@
   "max_fn_lines": 29,
   "max_type_members": 0
  },
+ "bench/retrieval/bm25.py": {
+  "file_lines": 164,
+  "max_fn_lines": 34,
+  "max_type_members": 0
+ },
  "bench/retrieval/check.py": {
   "file_lines": 65,
   "max_fn_lines": 20,
@@ -295,8 +300,8 @@
   "max_type_members": 4
  },
  "crates/adv-cli/src/mir.rs": {
-  "file_lines": 282,
-  "max_fn_lines": 54,
+  "file_lines": 191,
+  "max_fn_lines": 45,
   "max_type_members": 0
  },
  "crates/adv-cli/src/sca.rs": {
@@ -307,6 +312,11 @@
  "crates/adv-cli/src/snapshot.rs": {
   "file_lines": 139,
   "max_fn_lines": 48,
+  "max_type_members": 0
+ },
+ "crates/adv-cli/src/wrapper.rs": {
+  "file_lines": 196,
+  "max_fn_lines": 55,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/common/mod.rs": {
@@ -414,8 +424,18 @@
   "max_fn_lines": 13,
   "max_type_members": 0
  },
+ "crates/adv-index/src/bin/bm25_retrieval.rs": {
+  "file_lines": 59,
+  "max_fn_lines": 31,
+  "max_type_members": 0
+ },
+ "crates/adv-index/src/bm25.rs": {
+  "file_lines": 243,
+  "max_fn_lines": 35,
+  "max_type_members": 4
+ },
  "crates/adv-index/src/lib.rs": {
-  "file_lines": 21,
+  "file_lines": 24,
   "max_fn_lines": 3,
   "max_type_members": 0
  },
@@ -1342,6 +1362,11 @@
  "tests/test_bevy.py": {
   "file_lines": 125,
   "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "tests/test_bm25_retrieval_eval.py": {
+  "file_lines": 123,
+  "max_fn_lines": 22,
   "max_type_members": 0
  },
  "tests/test_cargo_lock.py": {
@@ -2443,12 +2468,5 @@
   "file_lines": 203,
   "max_fn_lines": 69,
   "max_type_members": 0
- },
- "crates/adv-cli/src/wrapper.rs": {
-  "file_lines": 196,
-  "max_fn_lines": 55,
-  "max_type_members": 0,
-  "hot": "scan_crate_via_cargo",
-  "heuristic": true
  }
 }

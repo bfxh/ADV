@@ -6,6 +6,9 @@
 //! 存储 index+report 同库 / cache 独立文件；增量失效 = SAC early cutoff + 内容 hash 重验；
 //! difftastic 语法 diff 收窄变更集（先量收窄比）。M4 落地。
 
+/// 零依赖 BM25 首片：先与检索评测地板基线对拍。
+pub mod bm25;
+
 /// 域版本（与工作区同源）。
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
