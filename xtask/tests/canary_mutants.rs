@@ -3,10 +3,11 @@
 
 use xtask::mutants::{
     Baseline, Resource, VERIFIABLE_SUMMARIES, completed_status, df_args, diff_spec, drive_letter,
-    free_bytes_probe, free_bytes_via_df, human_bytes, keys_by_summary, min_free_gib, mutants_jobs,
-    new_missed, parse_df_avail, parse_u64_lines, powershell_args, precheck_scratch,
-    refuse_incremental_update, resource_signature, scratch_is_short, short_message, tally,
-    tier_verdicts, timeout_note, unverifiable_keys, unviable_resource_failures, verdict_name,
+    ensure_scratch_at, free_bytes_probe, free_bytes_via_df, human_bytes, keys_by_summary,
+    min_free_gib, mutants_jobs, new_missed, parse_df_avail, parse_u64_lines, pinned_tmp,
+    powershell_args, precheck_scratch, refuse_incremental_update, resource_signature,
+    scratch_is_short, short_message, tally, tier_verdicts, timeout_note, timeout_secs,
+    unverifiable_keys, unviable_resource_failures, verdict_name,
 };
 
 #[test]
@@ -670,4 +671,57 @@ fn canary_mutants_jobs_cover_is_fail_closed() {
         assert_eq!(jobs, "4", "非法值 {bad:?} 必须退回默认 4");
         assert!(note.is_some(), "非法值 {bad:?} 必须播报，不许静默");
     }
+}
+
+#[test]
+fn canary_timeout_env_bad_value_falls_back_loudly() {
+    // 默认 60（2026-10-06 以来每一轮真跑的口径）不许动；好值照收；坏值/0 退默认并点名。
+    assert_eq!(timeout_secs(None), (60, None));
+    assert_eq!(timeout_secs(Some("")), (60, None));
+    assert_eq!(
+        timeout_secs(Some(" 300 ")),
+        (300, None),
+        "好值要收，trim 无关紧要"
+    );
+    let (n, note) = timeout_secs(Some("abc"));
+    assert_eq!(n, 60);
+    let note = note.expect("坏值必须点名，不许静默退默认");
+    assert!(note.contains("abc"), "点名要带上原值：{note}");
+    let (n, note) = timeout_secs(Some("0"));
+    assert_eq!(n, 60, "0 秒超时等于秒杀一切，退默认");
+    assert!(note.is_some());
+}
+
+#[test]
+fn canary_pinned_tmp_empty_means_unpinned() {
+    assert_eq!(pinned_tmp(None), None);
+    assert_eq!(pinned_tmp(Some("")), None);
+    assert_eq!(
+        pinned_tmp(Some("   ")),
+        None,
+        "纯空白 = 没指盘，不是指到相对路径"
+    );
+    assert_eq!(
+        pinned_tmp(Some(" D:/tmp/adv-mut ")),
+        Some(std::path::PathBuf::from("D:/tmp/adv-mut"))
+    );
+}
+
+#[test]
+fn canary_ensure_scratch_creates_pin_and_rejects_unusable() {
+    // 未指盘 = 无事可做。
+    assert!(ensure_scratch_at(None).is_ok());
+    // 指到合法的新目录 ⇒ 建出来（后台链/CI 都不用先 mkdir）。
+    let ok = std::env::temp_dir().join(format!("adv-pin-ok-{}", std::process::id()));
+    assert!(ensure_scratch_at(Some(&ok)).is_ok(), "合法指盘要能建出来");
+    assert!(ok.is_dir());
+    let _ = std::fs::remove_dir_all(&ok);
+    // Windows 非法文件名字符 ⇒ 红：指了但建不出来绝不悄悄回落到系统临时目录，
+    // 盘满假绿的教训正是"回落了没人知道"。
+    let bad = std::path::PathBuf::from("C:/adv-pin-<illegal>-dir");
+    let err = ensure_scratch_at(Some(&bad)).expect_err("非法指盘必须红");
+    assert!(
+        err.to_string().contains("建不出来"),
+        "报错要指到 ADV_MUTANTS_TMP：{err:#}"
+    );
 }

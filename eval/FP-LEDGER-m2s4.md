@@ -3260,3 +3260,71 @@ mutants·轮转档(每窗≤45变异·一圈覆盖全档面+全部基线键才�
 墙钟小时级、且必须分多次调用（游标可续）。两个执行纪律：① 跑门之前工作树必须干净；
 ② **游标提交要打包**（每窗一次 commit 会把 12 次 commit 直接砸进 DD-0017 的 10-commit 限期里，
 限期是给"活儿没干"用的，不是给"活儿正常推进"用的——真要撞线就一次提交多窗游标）。
+
+---
+
+# DD-0017 A 案（键缺口专用窗）+ 两个可跑性旋钮（2026-10-10）
+
+> 交付：轮转档不再死在「面已全覆盖但基线键判不到」——对判不到的键整文件开窗判它；
+> 外加 `ADV_MUTANTS_TIMEOUT` / `ADV_MUTANTS_TMP` 两个旋钮，从第 2 窗真死的两个坑里抽出来。
+> 复现：`cargo test -p xtask`（canary_rotation 12 条 + canary_mutants 20 条）；
+> 真窗 `ADV_MUTANTS_TIMEOUT=300 ADV_MUTANTS_TMP=D:	mpdv-mut cargo run -p xtask -- mutants --rotate --base origin/main`。
+
+## 为什么是 A（用户拍板「选 A，处理 taint.rs 的问题」；另两案留在对话导出里）
+
+关账条件②对「判不到」原本只有两条死路文案。实测 15 个基线键里有一批在 diff 面上**结构性地**
+产不出变异：`body_touches_source`、`rustc_print` 等——函数没被本分支改过，`--in-diff` 取不到它们，
+这不是"没问题"。A = 键缺口专用窗（`--file` 整文件，不带 `--in-diff`），覆盖只变大不缩小；
+B（base 随键回退）成本更高；C（维持现状）= DD-0017 红到人工分诊。
+
+## 动码前先探针（全部真输出，不凭记忆）
+
+- `cargo mutants --list --file crates/adv-rules/src/taint.rs` = **68 条**，其中含
+  `replace body_touches_source -> bool with true/false`——diff 面上它是 0 条（第 1 窗的 15 键探针）。
+- `--file` 可重复（再添 `xtask/src/mir.rs` = 73 条）。
+- `rustc_print` 还在树里（`xtask/src/mir.rs:12`）⇒ 整文件窗判得到它。
+
+## 金丝雀首跑抓到一个真错（既有，两处都带着）
+
+`key_gap_files` / `key_gaps` 用 `rsplit_once("::")` 提键的文件段；函数段自带 `::` 的键
+（`bm25.rs::SearchIndex::search`）会被切成 `bm25.rs::SearchIndex` ⇒ `key_gaps` 把"在面上"
+误判成"不在变异面上"。改成从**第一个** `::` 切（文件路径不含 `::`）。旧 `key_gaps` 一直带着
+这个错——只是从没喂过双段函数名的键；`SearchIndex::search` 恰好就是真基线键。
+
+## 两个旋钮（第 2 窗真死的两个坑，2026-10-10 实测）
+
+1. **exit 4 TIMEOUT**：cargo-mutants 把同一个 timeout 用于**基线测试**，adv-cli 测试套
+   60s 跑不完（`Unmutated baseline in 209s build + 60s test`）⇒ `ADV_MUTANTS_TIMEOUT`
+   （默认 60 不动——timeout 计入"可验证"，默认一变历史轮次就不可比；含 adv-cli 的窗取 300）。
+2. **TMP 回落 C 盘**：后台链用 .cmd 续窗，`set` 没跟上，precheck 打出 C 盘 ⇒ `ADV_MUTANTS_TMP`
+   门自己指盘：precheck（`scratch_dir`）与子进程（`Command::env` 喂 TMP/TEMP/TMPDIR 三件套）
+   同源；指了建不出来 ⇒ 红，绝不悄悄回落。工作区 deny unsafe，`std::env::set_var`
+   （edition 2024 里是 unsafe）不采用——钉盘只对子进程生效，进程内读盘一律走 `scratch_dir()`。
+
+## 行为契约（键缺口窗改了什么）
+
+- `run()` 里 `pick_window` 取空的早退分支（原"没活可跑"）→ `key_gap_window`：
+  `key_gap_files`（未判键 → 文件，从第一个 `::` 切）→ `--list --file` 取材面 → 同一把
+  `pick_window` 按预算切 → `Scope::Files` 整文件变异。读数/记账/游标与 diff 窗共用
+  `run_cargo_mutants` / `record` / `settle_round`，没有第二套解析。
+- 游标 `Lap` 加 `key_gap_rounds`（`serde(default)`，旧游标读 0 不破——有金丝雀钉着）；
+  关账行追加"其中键缺口专用窗 N 扇"。读数档名 "轮转·键缺口"，裁决档名不变。
+- 关账动作抽成 `close_lap`，一窗后的裁决抽成 `settle_round`（god 硬阈 120 逼的：`run` 136 → 99）。
+
+## 三清单披露
+
+- `tools/baselines/mutants-baseline.json`：**未动**（15 键原样；重录仍须先关账一圈）。
+- Rust 尺 `tools/baselines/god-baseline.json`：845 → 861。新增 16
+  （fn:mutants::{ensure_scratch, ensure_scratch_at, pinned_tmp, scratch_dir, timeout_secs}、
+  fn:rotation::{close_lap, file_limit, key_gap_files, key_gap_window, settle_round}、
+  金丝雀 fn ×5、type:Scope=2）；变更 13（`mutants_gate` 27→38、`run_cargo_mutants` 61→76、
+  `key_gaps` 15→21、`list_face` 18→15、`run` 109→99、`Lap` fields 9→10、文件行 ×5）；移除 0。
+- python 尺 `god-baseline.json`：文件数 507 不变，9 条变更（main.rs 108→119、mutants.rs 643→724
+  且 max_fn 61→76、rotation.rs 493→650 且 max_fn 109→99 / max_type_members 9→10、金丝雀 ×2 变大）。
+- `spec/design-debt.json`：DD-0017 的 `guards` 就地补 A 案落地段（撤回原文与本段之前的
+  落地段都不动）；`due_after_tasks` 仍是 10。
+
+## 重放记录
+
+`cargo test -p xtask` 50 条全过（含本轮新增 6 条金丝雀）· clippy `--all-targets -D warnings` 干净 ·
+fmt 0 · Rust 尺 god 门绿（重录后）· python 尺 god 门绿（重录后）。

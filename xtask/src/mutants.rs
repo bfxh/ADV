@@ -241,7 +241,7 @@ pub fn short_message(scratch: &Path, free: Option<u64>, min_gib: u64) -> Option<
 
 /// 跑之前的盘量预检：查实测余量，不足则红。
 pub fn precheck_scratch(min_gib: u64) -> Vec<String> {
-    let scratch = std::env::temp_dir();
+    let scratch = scratch_dir();
     let (free, channel) = free_bytes_probe(&scratch);
     println!(
         "预检 TMP={} 余量={} 通道={channel} 下限={min_gib}GB",
@@ -451,7 +451,16 @@ pub fn tier_label(since: Option<&str>) -> &'static str {
     }
 }
 
-/// 按给定 patch 跑 cargo-mutants 并读回裁决材料（三档共用）。
+/// 变异面口径：喂 `--in-diff` 的 patch（全档 / 增量 / 轮转窗），或喂**整文件清单**
+/// （轮转档的键缺口专用窗——把"diff 口径取不到变异"的基线键捞回来，覆盖只变大）。
+pub enum Scope {
+    /// `--in-diff <patch>`：只变异 diff 触到的函数。
+    Diff(PathBuf),
+    /// `--file <f>…`：整文件变异，与 diff 无关（键缺口专用窗的口径）。
+    Files(Vec<String>),
+}
+
+/// 按给定口径（[`Scope`]：diff patch 或整文件清单）跑 cargo-mutants 并读回裁决材料（各档共用）。
 ///
 /// 退出码契约（上游文档 mutants.rs/exit-codes.html，27.1.0 实测一致）：
 /// 0 = 全部被捕获；2 = 有未捕获变异；3 = 有变异超时。**三码都算"跑完了"**，正文一律
@@ -461,7 +470,7 @@ pub fn tier_label(since: Option<&str>) -> &'static str {
 /// 触发 exit 3，整道门在比对前就中止，连着两轮把"门绿"报成了 cargo-mutants 的转储。
 pub fn run_cargo_mutants(
     root: &Path,
-    patch: &Path,
+    scope: Scope,
     timeout_secs: u64,
     tier: &str,
 ) -> Result<RoundEvidence> {
@@ -471,20 +480,35 @@ pub fn run_cargo_mutants(
     if let Some(note) = &jobs_note {
         eprintln!("{note}");
     }
+    let mut args: Vec<String> = vec!["mutants".to_string()];
+    match scope {
+        Scope::Diff(patch) => {
+            args.push("--in-diff".into());
+            args.push(patch.to_str().context("patch 路径")?.to_string());
+        }
+        Scope::Files(files) => {
+            for file in &files {
+                args.push("--file".into());
+                args.push(file.clone());
+            }
+        }
+    }
+    args.push("-o".into());
+    args.push(out_dir.to_str().context("out 路径")?.to_string());
+    args.push("--no-shuffle".into());
+    args.push("-j".into());
+    args.push(jobs);
+    args.push("--timeout".into());
+    args.push(timeout_secs.to_string());
+    let scratch = scratch_dir();
     let out = std::process::Command::new("cargo")
-        .args([
-            "mutants",
-            "--in-diff",
-            patch.to_str().context("patch 路径")?,
-            "-o",
-            out_dir.to_str().context("out 路径")?,
-            "--no-shuffle",
-            "-j",
-            &jobs,
-            "--timeout",
-            &timeout_secs.to_string(),
-        ])
+        .args(&args)
         .current_dir(root)
+        // scratch 三件套显式喂给子进程链（cargo-mutants → cargo test → 测试二进制都吃它）；
+        // 未指盘时 scratch_dir() 就是系统临时目录，等于原值覆写，语义不变。
+        .env("TMP", &scratch)
+        .env("TEMP", &scratch)
+        .env("TMPDIR", &scratch)
         .output()?;
     anyhow::ensure!(
         completed_status(out.status.code()),
@@ -519,6 +543,63 @@ pub fn run_cargo_mutants(
         verifiable,
         resource,
     })
+}
+
+/// `--timeout` 默认值（秒）：与 2026-10-06 以来每一轮真跑的口径一致（60），不动默认。
+/// timeout 计入"可验证"（见 [`VERIFIABLE_SUMMARIES`]），默认值一变，历史轮次的判定
+/// 语义就不可比了——要放大走 [`timeout_secs`] 的环境变量旋钮。
+pub const DEFAULT_TIMEOUT_SECS: u64 = 60;
+
+/// `ADV_MUTANTS_TIMEOUT` 的读法：坏值退回默认并点名（与 `rotation::window_budget` 同款）。
+///
+/// 为什么要有这个旋钮：cargo-mutants 把同一个 timeout 同时用于**基线测试**和每条变异，
+/// 而本仓 adv-cli 的测试套（外部子进程为主）实测 60s 跑不完——2026-10-10 轮转第 2 窗
+/// （含 adv-cli）在基线阶段 exit 4（TIMEOUT），那是"门没跑成"不是"变异存活"。要跑
+/// adv-cli 的窗把它放大（实测取 300），真超时仍由 [`timeout_note`] 如实点名。
+pub fn timeout_secs(raw: Option<&str>) -> (u64, Option<String>) {
+    match raw.map(str::trim).filter(|s| !s.is_empty()) {
+        None => (DEFAULT_TIMEOUT_SECS, None),
+        Some(s) => match s.parse::<u64>() {
+            Ok(0) | Err(_) => (
+                DEFAULT_TIMEOUT_SECS,
+                Some(format!(
+                    "ADV_MUTANTS_TIMEOUT={s} 不是正整数，退回默认 {DEFAULT_TIMEOUT_SECS}"
+                )),
+            ),
+            Ok(n) => (n, None),
+        },
+    }
+}
+
+/// `ADV_MUTANTS_TMP` 的解析（trim + 空串当未指盘）。env 的读取留在调用点，逻辑纯净可测。
+pub fn pinned_tmp(raw: Option<&str>) -> Option<PathBuf> {
+    raw.map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+}
+
+/// 本轮 scratch 落点：`ADV_MUTANTS_TMP` 显式指盘优先（2026-10-10 起门自己指盘，
+/// 不指望调用方环境还记得带），否则系统临时目录。precheck 与子进程喂 env 都从这取，
+/// 两条通道必须同源——precheck 报的盘和 cargo-mutants 真用的盘不是同一块，预检就白做。
+/// （本进程 `std::env::set_var` 在 edition 2024 是 unsafe，而工作区 deny unsafe ⇒
+/// 钉盘只对子进程经 [`run_cargo_mutants`] 的 `Command::env` 生效。）
+pub fn scratch_dir() -> PathBuf {
+    pinned_tmp(std::env::var("ADV_MUTANTS_TMP").ok().as_deref()).unwrap_or_else(std::env::temp_dir)
+}
+
+/// 显式指盘时把落点建出来；建不出来 ⇒ 红，绝不悄悄回落——盘满假绿的教训正是
+/// "回落了没人知道"。未指盘 = 用系统临时目录，无事可做。
+pub fn ensure_scratch() -> Result<()> {
+    ensure_scratch_at(pinned_tmp(std::env::var("ADV_MUTANTS_TMP").ok().as_deref()).as_deref())
+}
+
+/// [`ensure_scratch`] 的可测形态：给定解析后的指盘（None = 未指盘）建目录。
+pub fn ensure_scratch_at(pin: Option<&Path>) -> Result<()> {
+    let Some(dir) = pin else {
+        return Ok(());
+    };
+    std::fs::create_dir_all(dir)
+        .with_context(|| format!("ADV_MUTANTS_TMP={} 建不出来，先修指盘再跑门", dir.display()))
 }
 
 /// `--update` 通道：整表重录 + 逐键点名离账的旧键。
@@ -575,7 +656,7 @@ pub fn run(
     if !short.is_empty() {
         return Ok(short);
     }
-    let evidence = run_cargo_mutants(root, &patch, timeout_secs, tier_label(since))?;
+    let evidence = run_cargo_mutants(root, Scope::Diff(patch), timeout_secs, tier_label(since))?;
     let baseline_path = root.join(BASELINE_PATH);
     if update {
         return write_baseline(&baseline_path, &evidence.missed, &evidence.resource);

@@ -6,9 +6,9 @@
 
 use xtask::mutants::RoundEvidence;
 use xtask::rotation::{
-    self, Window, face_drift, face_total, file_counts, file_gaps, key_gaps, listing_file, open_lap,
-    pick_window, progress_line, record, refuse_partial_update, save_lap, uncovered, window_budget,
-    window_scratch_message,
+    self, Window, face_drift, face_total, file_counts, file_gaps, key_gap_files, key_gaps,
+    listing_file, load_lap, open_lap, pick_window, progress_line, record, refuse_partial_update,
+    save_lap, uncovered, window_budget, window_scratch_message,
 };
 
 /// 真产物片段（2026-10-10 `cargo mutants --list --in-diff` 原样抄的三行 + 一行 cargo 噪声）。
@@ -149,6 +149,16 @@ fn closure_needs_every_file_and_every_baseline_key() {
         gaps[0]
     );
 
+    // 函数段自带 `::` 的键（真基线里有 SearchIndex::search 这种）也要归对成因：
+    // 文件在面上就按"进了窗没判到"说——从右切错位会把成因说反（金丝雀首跑抓到过）。
+    let gaps = key_gaps(&["b.rs::SearchIndex::g".to_string()], &face, &lap);
+    assert_eq!(gaps.len(), 1);
+    assert!(
+        gaps[0].contains("键缺口专用窗") && !gaps[0].contains("不在变异面上"),
+        "多段函数名的键文件段切错会把成因说反：{}",
+        gaps[0]
+    );
+
     // 进度行把两个数都摆出来（不让人自己数）。
     let line = progress_line(&face, &lap, &["a.rs::f".to_string(), "b.rs::g".to_string()]);
     assert!(line.contains("1/2 文件"), "{line}");
@@ -285,4 +295,47 @@ fn verdict_line_carries_the_window_so_green_cannot_be_read_as_full_tier() {
     assert!(name.contains("轮转档"), "档名要点名这是窗口：{name}");
     assert!(name.contains("60"), "预算要进档名：{name}");
     assert!(name.contains("关账"), "要写清什么才算关账：{name}");
+}
+
+#[test]
+fn key_gap_files_maps_unjudged_keys_to_their_files_sorted_deduped() {
+    // 键的 fn 段自带 `::`（SearchIndex::search、<impl ...>::method）⇒ 从右取第一处切，
+    // 别把文件切错；已判过的键不再进窗；同文件多键去重；输出有序（确定性）。
+    let mut lap = open_lap("main...HEAD", 150, &face(), 0);
+    lap.covered_keys = vec!["crates/adv-index/src/bm25.rs::push_token".to_string()];
+    let baseline = vec![
+        "crates/adv-rules/src/taint.rs::body_touches_source".to_string(),
+        "crates/adv-index/src/bm25.rs::SearchIndex::search".to_string(),
+        "crates/adv-index/src/bm25.rs::push_token".to_string(),
+        "crates/adv-index/src/bm25.rs::tokenize".to_string(),
+        "xtask/src/mir.rs::rustc_print".to_string(),
+    ];
+    assert_eq!(
+        key_gap_files(&baseline, &lap),
+        vec![
+            "crates/adv-index/src/bm25.rs".to_string(),
+            "crates/adv-rules/src/taint.rs".to_string(),
+            "xtask/src/mir.rs".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn cursor_without_key_gap_rounds_field_loads_as_zero() {
+    // 旧游标（bb997cdb 那一轮写盘的形状）没有 key_gap_rounds ⇒ 默认 0，不许读挂：
+    // 轮转档升级不能把已在跑的一圈判成"游标坏了"。
+    let root = std::env::temp_dir().join(format!("adv-rot-compat-{}", std::process::id()));
+    std::fs::create_dir_all(&root).expect("建临时目录");
+    let path = root.join("cursor.json");
+    std::fs::write(
+        &path,
+        r#"{"spec":"origin/main...HEAD","budget":150,"face":[["a.rs",3]],"covered_files":["a.rs"],"covered_keys":["a.rs::f"],"missed_keys":[],"rounds":1,"resource_rounds":0,"completed_laps":0}"#,
+    )
+    .expect("写旧形状游标");
+    let lap = load_lap(&path)
+        .expect("旧游标要能读")
+        .expect("旧游标要算已开圈");
+    assert_eq!(lap.key_gap_rounds, 0, "缺席字段读成 0，不是报错");
+    assert_eq!(lap.rounds, 1);
+    let _ = std::fs::remove_dir_all(&root);
 }

@@ -79,6 +79,17 @@ fn main() {
 /// 搬出 `main` 是因为 `main` 在这个仓里是**分发壳**（god 尺管着它的行数），加一档就顶一次阈；
 /// 分档口径本身（谁能配什么、拒绝什么）由 `mutants`/`rotation` 两个模块各自说清。
 fn mutants_gate(root: &std::path::Path, args: &[String]) -> ! {
+    // scratch 落点与 timeout 两个旋钮在分派最早段收进来：门自己指盘、自己定超时，
+    // 不指望调用方环境还记得带（实测后台链丢过 TMP）。
+    if let Err(e) = mutants::ensure_scratch() {
+        eprintln!("{e:#}");
+        std::process::exit(2);
+    }
+    let (timeout, warn) =
+        mutants::timeout_secs(std::env::var("ADV_MUTANTS_TIMEOUT").ok().as_deref());
+    if let Some(note) = warn {
+        eprintln!("{note}");
+    }
     let base = args
         .windows(2)
         .find(|w| w[0] == "--base")
@@ -97,11 +108,11 @@ fn mutants_gate(root: &std::path::Path, args: &[String]) -> ! {
         }
         emit(
             &rotation::verdict_name(budget),
-            rotation::run(root, &base, budget, update, 60),
+            rotation::run(root, &base, budget, update, timeout),
         );
     }
     emit(
         &mutants::verdict_name(since.as_deref()),
-        mutants::run(root, &base, since.as_deref(), update, 60),
+        mutants::run(root, &base, since.as_deref(), update, timeout),
     )
 }

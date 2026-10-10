@@ -16,7 +16,7 @@
 //! ② 基线每个键在这一圈里都被判过。两条都在同一轮真跑之后才判，不靠事后补记。
 //!
 //! 判据一条没放松：新 missed 照样红、资源缺测照样红，且共用 [`mutants::run_cargo_mutants`]
-//! 这一条读数路径——分档只改"喂哪个 patch"，不许各写一套解析。
+//! 这一条读数路径——分档只改"喂哪个 patch 或哪份文件清单"，不许各写一套解析。
 //!
 //! 中途来了新提交怎么办：**重开一圈并点名**（旧证据不再等于当前面，不拿它关账）。为此面本身
 //! 存进游标文件，而不是每轮重算需求。
@@ -68,6 +68,10 @@ pub struct Lap {
     pub missed_keys: Vec<String>,
     /// 已跑的窗数。
     pub rounds: usize,
+    /// 其中"键缺口专用窗"数（DD-0017 A 案）：整文件开窗判"diff 口径取不到变异"的
+    /// 基线键。旧游标没有这个字段 ⇒ `serde(default)` 读成 0，不许读挂。
+    #[serde(default)]
+    pub key_gap_rounds: u32,
     /// 本圈里出现资源缺测（盘满/内存）的窗数：非 0 就不许拿这一圈重录基线。
     pub resource_rounds: u32,
     /// 历史已关账的圈数（关账后 `face/covered_*` 清零，这个数继续涨）。
@@ -167,20 +171,30 @@ pub fn file_gaps(face: &[(String, usize)], covered: &[String]) -> Vec<String> {
 
 /// 关账条件②：本圈没判过的基线键，按**成因**分两说。
 ///
-/// 为什么分两说：键所在文件压根不在面上（全档口径下也产不出它的变异，得人工分诊：要么代码
-/// 变了键该划账、要么改 diff 口径）和"在面上但那扇窗里变异全没跑到判定环节"是两种不同的红，
-/// 混成一条会让人去查错的地方。
+/// 为什么分两说：键所在文件压根不在面上（全档口径下也产不出它的变异）和"在面上但那扇窗里
+/// 变异全没跑到判定环节"是两种不同的红，混成一条会让人去查错的地方。两案现在都由键缺口
+/// 专用窗接走（DD-0017 A 案），差别只剩"整文件 listing 里到底还有没有它"。
+///
+/// 键的文件段从**第一个** `::` 处切：文件路径（`…/bm25.rs`）自身不含 `::`，而函数段可以
+/// 带好几段（`SearchIndex::search`、`<impl Analysis<'tcx> for Reach<'a>>::apply_…`）——
+/// 从右切会把 `bm25.rs::SearchIndex` 当文件（金丝雀首跑抓到的真错，旧版两处都带着）。
 pub fn key_gaps(baseline: &[String], face: &[(String, usize)], lap: &Lap) -> Vec<String> {
     let face_files: Vec<&str> = face.iter().map(|(f, _)| f.as_str()).collect();
     baseline
         .iter()
         .filter(|k| !lap.covered_keys.iter().any(|c| c == *k))
         .map(|k| {
-            let file = k.rsplit_once("::").map(|(f, _)| f).unwrap_or(k.as_str());
+            let file = k.split_once("::").map(|(f, _)| f).unwrap_or(k.as_str());
             if face_files.contains(&file) {
-                format!("基线键 {k} 所在文件进了窗，但这一圈里没有它任何可判定的变异（查那扇窗的 unviable 日志）")
+                format!(
+                    "基线键 {k} 本圈没判到（所在文件进了窗却没产出它的可判定变异）：\
+                     下一轮键缺口专用窗会对 {file} 整文件开窗（DD-0017 A 案）；若还不行查那扇窗的 unviable 日志"
+                )
             } else {
-                format!("基线键 {k} 所在文件不在变异面上（全档口径也取不到它）：人工分诊——键随代码消失了就划账，否则改口径")
+                format!(
+                    "基线键 {k} 所在文件不在变异面上：下一轮键缺口专用窗会整文件开窗判它\
+                     （DD-0017 A 案，覆盖只变大）；若整文件 listing 也没有它，键随代码消失了就划账"
+                )
             }
         })
         .collect()
@@ -242,6 +256,7 @@ pub fn open_lap(spec: &str, budget: usize, face: &[(String, usize)], completed: 
         covered_keys: Vec::new(),
         missed_keys: Vec::new(),
         rounds: 0,
+        key_gap_rounds: 0,
         resource_rounds: 0,
         completed_laps: completed,
     }
@@ -306,15 +321,13 @@ pub fn verdict_name(budget: usize) -> String {
     format!("mutants·轮转档(每窗≤{budget}变异·一圈覆盖全档面+全部基线键才关账)")
 }
 
-/// `cargo mutants --list --in-diff <patch>` → 面（实测 sub-second，不编译，所以每轮都敢重算）。
-fn list_face(root: &Path, patch: &Path) -> Result<Vec<(String, usize)>> {
+/// `cargo mutants --list <限定>` → 面（实测 sub-second，不编译，所以每轮都敢重算）。
+/// 限定 = `--in-diff <patch>`（diff 面）或一串 `--file <f>`（键缺口窗的整文件面）。
+fn list_face(root: &Path, limit: &[String]) -> Result<Vec<(String, usize)>> {
+    let mut args: Vec<String> = vec!["mutants".into(), "--list".into()];
+    args.extend(limit.iter().cloned());
     let out = std::process::Command::new("cargo")
-        .args([
-            "mutants",
-            "--list",
-            "--in-diff",
-            patch.to_str().context("patch 路径")?,
-        ])
+        .args(&args)
         .current_dir(root)
         .output()?;
     anyhow::ensure!(
@@ -324,6 +337,37 @@ fn list_face(root: &Path, patch: &Path) -> Result<Vec<(String, usize)>> {
         String::from_utf8_lossy(&out.stderr).trim()
     );
     Ok(file_counts(&String::from_utf8_lossy(&out.stdout)))
+}
+
+/// 本圈还没判过的基线键 → 所在文件（去重、排序）。键缺口专用窗按它取材。
+///
+/// 键的文件段从**第一个** `::` 处切：文件路径（`…/bm25.rs`）自身不含 `::`，而函数段可以
+/// 带好几段（`SearchIndex::search`、`<impl Analysis<'tcx> for Reach<'a>>::apply_…`）——
+/// 从右切会把 `bm25.rs::SearchIndex` 当文件（金丝雀首跑抓到的真错，旧版两处都带着）。
+pub fn key_gap_files(baseline: &[String], lap: &Lap) -> Vec<String> {
+    let mut files: Vec<String> = baseline
+        .iter()
+        .filter(|k| !lap.covered_keys.iter().any(|c| c == *k))
+        .map(|k| {
+            k.split_once("::")
+                .map(|(f, _)| f)
+                .unwrap_or(k.as_str())
+                .to_string()
+        })
+        .collect();
+    files.sort();
+    files.dedup();
+    files
+}
+
+/// 整文件口径的 listing 限定：`["--file", f, "--file", g, …]`。
+fn file_limit(files: &[String]) -> Vec<String> {
+    let mut limit = Vec::new();
+    for file in files {
+        limit.push("--file".to_string());
+        limit.push(file.clone());
+    }
+    limit
 }
 
 /// 接着上一圈跑还是重开一圈：口径变了或面漂移就**点名**后重开，已关账圈数保留。
@@ -351,17 +395,140 @@ fn resume_lap(stored: Option<Lap>, spec: &str, budget: usize, live: &[(String, u
     }
 }
 
+/// 关账那一轮的固定动作：点名 ⇒ 有资格才重录基线 ⇒ 开新圈（覆盖清零、圈数保留、面原样带走）。
+fn close_lap(
+    lap: &mut Lap,
+    spec: &str,
+    budget: usize,
+    baseline_path: &Path,
+    baseline_keys: usize,
+    update: bool,
+    violations: &mut Vec<String>,
+) -> Result<()> {
+    println!(
+        "本圈关账：{} 窗覆盖全档面 {} 条变异 / {} 文件，基线 {baseline_keys} 键全部判过 ⇒ 这一圈顶一轮全档{}",
+        lap.rounds,
+        face_total(&lap.face),
+        lap.face.len(),
+        if lap.key_gap_rounds > 0 {
+            format!(
+                "（其中键缺口专用窗 {} 扇，判的是 diff 面取不到的键）",
+                lap.key_gap_rounds
+            )
+        } else {
+            String::new()
+        }
+    );
+    if update {
+        let resource = if lap.resource_rounds > 0 {
+            vec![format!(
+                "本圈 {} 窗出现资源缺测（盘满/内存）：缺测不能当成已清，基线不动",
+                lap.resource_rounds
+            )]
+        } else {
+            Vec::new()
+        };
+        violations.extend(mutants::write_baseline(
+            baseline_path,
+            &lap.missed_keys,
+            &resource,
+        )?);
+    }
+    let completed = lap.completed_laps + 1;
+    let face = std::mem::take(&mut lap.face);
+    *lap = open_lap(spec, budget, &face, completed);
+    Ok(())
+}
+
+/// 一窗跑完后的裁决：关账 / 键缺口点名 / 进度播报，违规并进 `violations`。
+fn settle_round(
+    lap: &mut Lap,
+    spec: &str,
+    budget: usize,
+    baseline: &mutants::Baseline,
+    baseline_path: &Path,
+    update: bool,
+    violations: &mut Vec<String>,
+) -> Result<()> {
+    let closing = file_gaps(&lap.face, &lap.covered_files).is_empty();
+    let gaps = if closing {
+        key_gaps(&baseline.missed, &lap.face, lap)
+    } else {
+        Vec::new()
+    };
+    if closing && gaps.is_empty() {
+        close_lap(
+            lap,
+            spec,
+            budget,
+            baseline_path,
+            baseline.missed.len(),
+            update,
+            violations,
+        )?;
+    } else if closing {
+        println!("面已全覆盖，但基线键还没判齐（本圈不能关账）：");
+        for gap in &gaps {
+            println!("  - {gap}");
+        }
+        violations.extend(gaps);
+        if let Some(why) = refuse_partial_update(false, update) {
+            violations.push(why);
+        }
+    } else {
+        println!("{}", progress_line(&lap.face, lap, &baseline.missed));
+        if let Some(why) = refuse_partial_update(false, update) {
+            violations.push(why);
+        }
+    }
+    Ok(())
+}
+
 /// 跑一扇窗前的两道盘量线：全档那条体验线（`precheck_scratch`）+ 本窗投影。
 /// 非空即"这窗先别跑"，且此时**游标一个字都不改**（没跑过就不能记成跑过）。
 fn preflight(window: &Window) -> Vec<String> {
     let min_gib = mutants::min_free_gib(std::env::var("ADV_MUTANTS_MIN_FREE_GIB").ok());
     let mut short = mutants::precheck_scratch(min_gib);
-    let scratch = std::env::temp_dir();
+    let scratch = mutants::scratch_dir();
     let (free, channel) = mutants::free_bytes_probe(&scratch);
     if let Some(why) = window_scratch_message(free, window.mutants, channel) {
         short.push(why);
     }
     short
+}
+
+/// 面已全覆盖时补判基线键的窗（DD-0017 A 案，2026-10-10 用户拍板"选 A"）：
+/// 对判不到的键**整文件开窗**（`--file`，不带 `--in-diff`）。函数没被本分支改过 ⇒
+/// diff 面取不到它的变异，这是结构性判不到，不是"没问题"；整文件窗多判的全是
+/// diff 面外的变异，覆盖只变大不缩小。
+///
+/// 返回 `(窗, 死路违规)`：有缺口 ⇒ 预算切好的窗 + 空违规；缺口存在但整文件 listing
+/// 一条变异都没有 ⇒ 键随代码消失了，返回让 `--update` 披露通道去划账的死路文案；
+/// 连缺口都空（游标该关账没关）⇒ fail-loud。
+fn key_gap_window(
+    root: &Path,
+    lap: &Lap,
+    baseline_missed: &[String],
+    budget: usize,
+) -> Result<(Window, Vec<String>)> {
+    let gap_files = key_gap_files(baseline_missed, lap);
+    anyhow::ensure!(
+        !gap_files.is_empty(),
+        "面已全覆盖且基线键已判齐，游标却未关账——状态矛盾，查 {ROTATION_PATH}"
+    );
+    let gap_face = list_face(root, &file_limit(&gap_files))?;
+    let window = pick_window(&gap_face, &[], budget);
+    if window.files.is_empty() {
+        return Ok((
+            window,
+            vec![format!(
+                "键缺口专用窗没活可干：{} 的整文件 listing 一条变异都没有——\
+                 键随代码消失了就走 --update 的披露通道划账，否则人工分诊",
+                gap_files.join(", ")
+            )],
+        ));
+    }
+    Ok((window, Vec::new()))
 }
 
 /// 跑一扇窗（轮转档入口）。返回违规清单；游标在判定之后落盘。
@@ -374,7 +541,13 @@ pub fn run(
 ) -> Result<Vec<String>> {
     let spec = mutants::diff_spec(base, None);
     let full_patch = mutants::git_diff_patch(root, &spec, &[])?;
-    let live_face = list_face(root, &full_patch)?;
+    let live_face = list_face(
+        root,
+        &[
+            "--in-diff".to_string(),
+            full_patch.to_string_lossy().into_owned(),
+        ],
+    )?;
     if live_face.is_empty() {
         return Ok(vec![format!(
             "skip: 与 {spec} 无变异面（skip 不算绿——门在此档视为通过并留痕）"
@@ -386,12 +559,24 @@ pub fn run(
     let rotation_path = root.join(ROTATION_PATH);
     let mut lap = resume_lap(load_lap(&rotation_path)?, &spec, budget, &live_face);
 
-    let window = pick_window(&lap.face, &lap.covered_files, budget);
+    let mut window = pick_window(&lap.face, &lap.covered_files, budget);
+    let mut key_gap = false;
     if window.files.is_empty() {
-        return Ok(vec![
-            "面已全部进窗却仍没关账（键缺口见上一轮输出）：本轮没活可跑，别再空转 —— 先分诊键缺口"
-                .to_string(),
-        ]);
+        let (gap_window, gap_dead) = key_gap_window(root, &lap, &baseline.missed, budget)?;
+        if !gap_dead.is_empty() {
+            return Ok(gap_dead);
+        }
+        key_gap = true;
+        let unjudged = baseline
+            .missed
+            .iter()
+            .filter(|k| !lap.covered_keys.contains(k))
+            .count();
+        println!(
+            "键缺口专用窗：基线还有 {unjudged} 键没判到，对 {} 整文件开窗（覆盖只变大不缩小）",
+            gap_window.files.join(", ")
+        );
+        window = gap_window;
     }
     if let Some(why) = &window.over_budget {
         println!("注意：{why}");
@@ -408,8 +593,15 @@ pub fn run(
         return Ok(short);
     }
 
-    let patch = mutants::git_diff_patch(root, &spec, &window.files)?;
-    let mut evidence = mutants::run_cargo_mutants(root, &patch, timeout_secs, "轮转")?;
+    let (scope, tier) = if key_gap {
+        (mutants::Scope::Files(window.files.clone()), "轮转·键缺口")
+    } else {
+        (
+            mutants::Scope::Diff(mutants::git_diff_patch(root, &spec, &window.files)?),
+            "轮转",
+        )
+    };
+    let mut evidence = mutants::run_cargo_mutants(root, scope, timeout_secs, tier)?;
 
     let mut violations: Vec<String> = mutants::new_missed(&evidence.missed, &baseline.missed)
         .into_iter()
@@ -418,53 +610,18 @@ pub fn run(
     violations.extend(evidence.resource.clone());
 
     record(&mut lap, &window, &mut evidence);
-    let closing = file_gaps(&lap.face, &lap.covered_files).is_empty();
-    let gaps = if closing {
-        key_gaps(&baseline.missed, &lap.face, &lap)
-    } else {
-        Vec::new()
-    };
-    if closing && gaps.is_empty() {
-        println!(
-            "本圈关账：{} 窗覆盖全档面 {} 条变异 / {} 文件，基线 {} 键全部判过 ⇒ 这一圈顶一轮全档",
-            lap.rounds,
-            face_total(&lap.face),
-            lap.face.len(),
-            baseline.missed.len()
-        );
-        if update {
-            let resource = if lap.resource_rounds > 0 {
-                vec![format!(
-                    "本圈 {} 窗出现资源缺测（盘满/内存）：缺测不能当成已清，基线不动",
-                    lap.resource_rounds
-                )]
-            } else {
-                Vec::new()
-            };
-            violations.extend(mutants::write_baseline(
-                &baseline_path,
-                &lap.missed_keys,
-                &resource,
-            )?);
-        }
-        let completed = lap.completed_laps + 1;
-        let face = std::mem::take(&mut lap.face);
-        lap = open_lap(&spec, budget, &face, completed);
-    } else if closing {
-        println!("面已全覆盖，但基线键还没判齐（本圈不能关账）：");
-        for gap in &gaps {
-            println!("  - {gap}");
-        }
-        violations.extend(gaps);
-        if let Some(why) = refuse_partial_update(false, update) {
-            violations.push(why);
-        }
-    } else {
-        println!("{}", progress_line(&lap.face, &lap, &baseline.missed));
-        if let Some(why) = refuse_partial_update(false, update) {
-            violations.push(why);
-        }
+    if key_gap {
+        lap.key_gap_rounds += 1;
     }
+    settle_round(
+        &mut lap,
+        &spec,
+        budget,
+        &baseline,
+        &baseline_path,
+        update,
+        &mut violations,
+    )?;
     save_lap(&rotation_path, &lap)?;
     println!(
         "游标已写 {ROTATION_PATH}（第 {} 窗，累计覆盖 {} 文件 / 判过 {} 键）",
