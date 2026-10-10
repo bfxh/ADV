@@ -3092,3 +3092,36 @@ M4-3 把"分块提召回"判成负的之后，账本写的是分块真正买的�
 判据侧补一句可复现口径：复核轮的命令就是首轮那条（`cargo run -p xtask -- mutants --base 7976b468`，
 `TMP/TEMP=D:/tmp/adv-mut`，跑前工作树干净），产物在 `target/mutants-out/mutants.out/`。
 
+## M4-4b-1：把"增量买的是成本"这句话量出来（读数是 74%，且冷路径**更贵**）
+
+M4-4a 的账本里我写了"墙钟收益没量，别把基数读成加速比"。这片把它补上。
+
+- **入口**：`crates/adv-index/src/bin/incremental_cost.rs`（stdin 收 `type=doc` 的 JSONL），
+  驱动 `bench/retrieval/incremental_cost.py`；语料走地板那把尺（`floor.load_corpus`，sha256 漂移即判不了）。
+  每段 3 次取**中位**、不剔首轮。
+- **读数**（2404 篇 / 111,777 token，本机 windows-gnu）：
+
+| 段 | 中位 | 含义 |
+|---|---|---|
+| `full_build` | **58.0 ms** | 全量重建（切词 + 倒排） |
+| `cold_apply` | 50.3 ms | 冷缓存 `apply`（切词 + 存 tf 表，**不含**倒排） |
+| `warm_apply` | **3.8 ms** | 热缓存 `apply`（逐字节比对，一次 `tokenize` 都不做） |
+| `index_rebuild` | 11.5 ms | 从缓存的 tf 表重建倒排 |
+
+  热轮全程 = `warm_apply + index_rebuild` = **15.3 ms**，对全量 58.0 ms ⇒ **省 42.7 ms（74%）**。
+- **代价也要点名**（不写成"增量总是更快"）：冷路径全程 = `cold_apply + index_rebuild` = 61.8 ms，
+  比全量重建**慢 3.8 ms（+6.6%）**——多养一份 tf 表与克隆是有价的。所以这条链的卖点是
+  "**第二次及以后**便宜"，第一次不便宜；接进 `adv search` 时要按"是否已有缓存"分岔，别无脑走增量。
+- **两条自检长在测量里**（"快"必须是"对"的快，任一不过就非 0 退出）：
+  ① 复用后的索引与 `SearchIndex::build` **逐字段相等**；
+  ② 冷+热两轮累计 `tokens_tokenized` 恰等于语料 token 总数（热轮没重切词）。
+  ②由 python 侧独立数一遍再对（`protocol.tokenize`），Rust 侧也自己数一遍：三方都是 **111,777**。
+- **这不是门**：墙钟随负载漂，本仓计时档要独占（`cli-bench`/`perf-gate` 的 SKIP 同族口径）。
+  这里不设阈值、不冻结数字，账本引用时要带上跑出当天的负载条件；复现命令：
+  `cargo build -p adv-index --bin incremental_cost && python -X utf8 bench/retrieval/incremental_cost.py`。
+
+**一处形状修正（对我自己的做法）**：第一版把这条读数塞进 `bm25_retrieval.rs`，
+god 尺当场报该文件 `59 → 139` 变胖——那个 bin 是被金样测试与评测协议钉着的承重面，
+不该为一条测量长 80 行。拆成独立 bin 后重录**只有"新增"，既路面 0 变动、移除 0**
+（python 尺 +2 键、Rust 尺 +8 键，全在 `incremental_cost.rs` 与新 bench 脚本上）。
+

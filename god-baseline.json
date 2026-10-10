@@ -149,6 +149,11 @@
   "max_fn_lines": 30,
   "max_type_members": 0
  },
+ "bench/retrieval/incremental_cost.py": {
+  "file_lines": 96,
+  "max_fn_lines": 49,
+  "max_type_members": 0
+ },
  "bench/retrieval/protocol.py": {
   "file_lines": 124,
   "max_fn_lines": 28,
@@ -442,6 +447,11 @@
  "crates/adv-index/src/bin/bm25_retrieval.rs": {
   "file_lines": 59,
   "max_fn_lines": 31,
+  "max_type_members": 0
+ },
+ "crates/adv-index/src/bin/incremental_cost.rs": {
+  "file_lines": 131,
+  "max_fn_lines": 65,
   "max_type_members": 0
  },
  "crates/adv-index/src/bm25.rs": {
