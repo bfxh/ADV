@@ -1,17 +1,24 @@
-//! 增量索引层（M4-4a）：以"整份文档集合"为输入，只重算内容真的变了的那几篇。
+//! 增量索引层（M4-4a + M4-4b）：以"整份文档集合"为输入，只重算内容真的变了的那几篇，
+//! 并把"原文 + tf 表"整份落盘，跨进程重启后仍然只做字节比对。
 //!
 //! 增量买到的东西很具体：**跳过未变更文档的切词**（`tokenize` 是这条链上最贵的一段）。
-//! 每篇缓存同时存原文与 `term → tf` 表，比对用**逐字节相等**而不是概率性哈希——
-//! 判据要能当场说清（"指纹没变"带概率，"字节没变"不带），而 M4-4 的验收要求增量产物
-//! 与全量重建**相等**，这里不能塞一个概率项。磁盘化缓存（只存 tf 表不存原文）留后续片，
-//! 那片才需要"保守上界的哈希 + 便宜复验"这套（蓝图 §12 E2）。
+//! 比对用**逐字节相等**而不是概率性哈希。蓝图 §12 E2 写的是"保守上界的哈希 + 便宜复验"，
+//! 这里**不照抄**，理由是量出来的而不是偏好：2404 篇 / 111,777 token 的逐字节比对实测
+//! **3.8 ms**（见 `bench/retrieval/incremental_cost.py` 的 `warm_apply`），比任何指纹方案都便宜，
+//! 而且不带概率项——哈希方案要额外背"采样复验仍有未采样漏网"这条残余风险，省下的只是磁盘体积。
+//! 代价也写清楚：缓存里存了原文副本，**体积约等于再存一份语料**，这是"零概率项"的价格。
 //!
 //! 倒排本身每次都从缓存的 tf 表重建（代价随**不同词数**走，不随 token 数走），
 //! 所以这层的复用收益全部落在"少切了几篇"上，别读成"少建了索引"。
 
 use std::collections::{HashMap, HashSet};
 
+use serde::{Deserialize, Serialize};
+
 use crate::bm25::{SearchIndex, tokenize};
+
+/// 磁盘缓存的格式版本；[`IndexStore::from_json`] 认不出的版本一律判 `Err`（调用方重建，不猜）。
+pub const CACHE_VERSION: u32 = 1;
 
 /// 一篇文档的缓存单元：原文 + 已算好的 tf 表。
 struct Cached {
@@ -19,6 +26,23 @@ struct Cached {
     text: String,
     /// `tokenize(text)` 的计数结果。
     term_counts: HashMap<String, u32>,
+}
+
+/// 落盘形状的一篇：`terms` 出盘前按词字典序排、`docs` 按 id 排 ⇒ **同一批文档两次导出逐字节相同**
+/// （这条自证写在 `tests/disk_cache.rs`，它是"缓存文件可 diff、可钉哈希"的前提）。
+#[derive(Serialize, Deserialize)]
+struct DiskDoc {
+    id: String,
+    text: String,
+    terms: Vec<(String, u32)>,
+}
+
+/// 落盘形状：版本号 + 文档顺序 + 逐篇（顺序与 `docs` 分开存，因为顺序是打分并列-break 的一部分）。
+#[derive(Serialize, Deserialize)]
+struct DiskCache {
+    version: u32,
+    order: Vec<String>,
+    docs: Vec<DiskDoc>,
 }
 
 /// 一次 [`IndexStore::apply`] 的账面：四类文档各多少篇。
@@ -115,6 +139,76 @@ impl IndexStore {
     /// 累计切过的篇数（新增 + 变更）。
     pub fn retokenized(&self) -> usize {
         self.retokenized
+    }
+
+    /// 导出为 JSON 文本（**确定序**：`docs` 按 id、每篇 `terms` 按词排序）。
+    ///
+    /// 因此同一批文档两次导出的字节完全相同 ⇒ 缓存文件可以 diff、可以钉哈希、可以在门里做
+    /// "重存必须逐字节相同"的自证。
+    pub fn to_json(&self) -> Result<String, String> {
+        let mut docs: Vec<DiskDoc> = self
+            .cached
+            .iter()
+            .map(|(id, c)| {
+                let mut terms: Vec<(String, u32)> =
+                    c.term_counts.iter().map(|(t, n)| (t.clone(), *n)).collect();
+                terms.sort();
+                DiskDoc {
+                    id: id.clone(),
+                    text: c.text.clone(),
+                    terms,
+                }
+            })
+            .collect();
+        docs.sort_by(|left, right| left.id.cmp(&right.id));
+        serde_json::to_string(&DiskCache {
+            version: CACHE_VERSION,
+            order: self.order.clone(),
+            docs,
+        })
+        .map_err(|error| format!("缓存导出失败：{error}"))
+    }
+
+    /// 从 JSON 文本读回。计量口径（`tokens_tokenized`/`retokenized`）**从 0 起**——那是本进程的账，
+    /// 不跨进程继承，否则"热轮零重切词"那条自检会被读回的旧值糊过去。
+    ///
+    /// 版本不符、id 重复、`order` 引用了不存在的 id ⇒ 一律 `Err`（调用方重建，不猜、不半接）。
+    pub fn from_json(text: &str) -> Result<Self, String> {
+        let cache: DiskCache =
+            serde_json::from_str(text).map_err(|error| format!("缓存不是本格式：{error}"))?;
+        if cache.version != CACHE_VERSION {
+            return Err(format!("缓存版本 {} ≠ 当前 {CACHE_VERSION}", cache.version));
+        }
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut cached: HashMap<String, Cached> = HashMap::new();
+        for doc in cache.docs {
+            if !seen.insert(doc.id.clone()) {
+                return Err(format!("缓存里 id 重复：{}", doc.id));
+            }
+            let count = doc.terms.len();
+            let term_counts: HashMap<String, u32> = doc.terms.into_iter().collect();
+            if term_counts.len() != count {
+                return Err(format!("缓存里 {} 的词表有重复项", doc.id));
+            }
+            cached.insert(
+                doc.id,
+                Cached {
+                    text: doc.text,
+                    term_counts,
+                },
+            );
+        }
+        for id in &cache.order {
+            if !cached.contains_key(id) {
+                return Err(format!("缓存的文档顺序引用了不存在的 id：{id}"));
+            }
+        }
+        Ok(Self {
+            cached,
+            order: cache.order,
+            tokens_tokenized: 0,
+            retokenized: 0,
+        })
     }
 
     fn count(text: &str, tokens: &mut u64) -> HashMap<String, u32> {
