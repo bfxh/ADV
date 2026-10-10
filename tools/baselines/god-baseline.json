@@ -32,7 +32,7 @@
     "file:crates/adv-cli/tests/three_way_ledger.rs": 211,
     "file:crates/adv-core/src/lib.rs": 57,
     "file:crates/adv-index/src/bin/bm25_retrieval.rs": 58,
-    "file:crates/adv-index/src/bm25.rs": 292,
+    "file:crates/adv-index/src/bm25.rs": 297,
     "file:crates/adv-index/src/lib.rs": 23,
     "file:crates/adv-index/tests/bm25_bin.rs": 115,
     "file:crates/adv-index/tests/bm25_scores_golden.rs": 167,

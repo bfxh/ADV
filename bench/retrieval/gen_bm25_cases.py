@@ -6,7 +6,8 @@
 
     freq·(k1+1) / (freq + k1·((1 - b) + b·|d|/avgdl))，
     idf = ln(1 + (N - df + 0.5)/(df + 0.5))
-    （Elastic Practical BM25 part 3；k1=1.2 / b=0.25 —— b 是本仓冻结集实测最优，见 bm25.rs 的常数注释）
+    （Elastic Practical BM25 part 3；k1=0.3 / b=0.25 —— 两个参数都是本仓冻结集实测值，
+     曲线与理由写在 `crates/adv-index/src/bm25.rs` 的常数注释里）
 
 切词口径仍取 `protocol.py`（与 Rust 侧由 `tokenizer_protocol.rs` 的 1,331 条对拍钉住一致）。
 
@@ -23,7 +24,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import protocol  # noqa: E402
 
-K1, B, TOP_K = 1.2, 0.25, 10
+K1, B, TOP_K = 0.3, 0.25, 10
 
 #: 每条用例都挑一个公式形状敏感的形状：长度差、df 差、并列、纯单字、零命中、limit 截断。
 CASES: list[tuple[str, list[tuple[str, str]], str]] = [

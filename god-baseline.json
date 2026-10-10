@@ -130,7 +130,7 @@
   "max_type_members": 0
  },
  "bench/retrieval/gen_bm25_cases.py": {
-  "file_lines": 100,
+  "file_lines": 101,
   "max_fn_lines": 17,
   "max_type_members": 0
  },
@@ -440,7 +440,7 @@
   "max_type_members": 0
  },
  "crates/adv-index/src/bm25.rs": {
-  "file_lines": 293,
+  "file_lines": 298,
   "max_fn_lines": 37,
   "max_type_members": 4
  },
