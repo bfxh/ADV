@@ -146,6 +146,35 @@ fn a_second_sync_is_a_no_op_when_the_etags_still_match() {
 }
 
 #[test]
+fn a_changed_etag_refetches_even_when_the_local_file_is_already_there() {
+    // unchanged 的判据是 `etag 相同 && 本地文件还在` 两个条件**都**成立。
+    // 把 `&&` 写成 `||` 后，"etag 变了但本地文件还在"这一形会被当成没变化直接跳过 ⇒
+    // 本地从此停在旧件上，而记账说它同步过了。上一条测的是 etag 没变的另一侧，照不出这个。
+    let dir = tmp("refetch");
+    let first = FakeBucket::new(&[("crates.io/A.json", b"old-body")]);
+    assert_eq!(sync_with(&dir, BASE, PREFIX, &first).unwrap().fetched, 1);
+    assert_eq!(
+        std::fs::read(dir.join("crates.io/A.json")).unwrap(),
+        b"old-body"
+    );
+
+    // 同一个键、不同内容 ⇒ 假桶给出的 ETag（body 的 md5）变了，而本地文件仍然在
+    // （字节串里不放中文：`b"..."` 只收 ASCII，这是本仓测试夹具的既有口径）
+    let second = FakeBucket::new(&[("crates.io/A.json", b"new-body-longer")]);
+    let report = sync_with(&dir, BASE, PREFIX, &second).unwrap();
+    assert_eq!(
+        (report.fetched, report.unchanged),
+        (1, 0),
+        "etag 变了必须重抓，哪怕本地文件还在"
+    );
+    assert_eq!(
+        std::fs::read(dir.join("crates.io/A.json")).unwrap(),
+        b"new-body-longer",
+        "重抓要真的把本地旧件覆盖掉"
+    );
+}
+
+#[test]
 fn pagination_follows_the_continuation_token() {
     let dir = tmp("pages");
     let bucket = FakeBucket::with_pages(

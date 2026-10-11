@@ -3522,3 +3522,43 @@ adv-rules 4 / adv-sca 4 / adv-secrets 4 / adv-core 2。与 DD-0018 登记的"44 
 - 后续格次改法：**轻包（adv-core 这类零依赖）用 `cargo mutants --file` 单文件真跑**；
   **重包（adv-secrets/adv-cli 等走 vectorscan 的）用手动打变异 + `cargo test -p <pkg>` 增量验证**，
   不开整批门跑。并发一律 `-j 1`。
+
+## DD-0018 产品面第二格 adv-sca（2026-10-11 21:30，轻包单文件真跑法）
+
+**先量**：`cargo mutants --file crates/adv-sca/src/snapshot.rs --file crates/adv-sca/src/rustsec.rs
+-j 1 --timeout 300`（scratch 指 `E:\tmp\adv-mut`）⇒ **76 变异：7 存活 / 60 捕获 / 9 unviable**（5 分钟）。
+轻包（adv-sca 只依赖 adv-core）实测每条变异 build+test 约 3–4 秒，整文件跑得起，不必退到手动打变异。
+
+**7 条存活的处置**：
+- `rustsec.rs::git` ×3（整体换 `Ok(String::new())`、换 `Ok("xyzzy")`、`delete !` 的 status 判据）⇒ **击杀**。
+  这个壳**有**真观察面：本机与 CI runner 都有 git（`mutants::git_diff_patch`、`lockstep::git_tags`
+  本就依赖它），所以照 `canary_df_channel…` 的先例真调不 mock——`git --version` 必须 Ok、含
+  "git version"、且等于自己的 trim（钉"换常量"与 trim 面）；`git --definitely-not-a-git-flag`
+  必须 Err 且文案带上命令名（钉 status 取反）。
+- `rustsec.rs::sync` 的 `delete !`（`!dir.join(".git").is_dir()`）⇒ **击杀**，但**不是**通过测 `sync`
+  本体：`sync` 的源是硬编码 `REPO`，要联网，集成测试喂不进假源。做法是把这道分叉抽成具名谓词
+  `fresh_clone_for(dir)`，用临时目录钉两面（空目录=待克隆 / 有 `.git`=原地 fetch）。
+  判错的真实后果写进函数注：已同步过的目录再克隆一次，`git clone` 在非空目录上直接失败。
+- `snapshot.rs::sync_with` 312:41 的 `&&`→`||` ⇒ **击杀**。`unchanged` 判据是
+  `etag 相同 && 本地文件还在`；写成 `||` 后"etag 变了但本地文件还在"会被当成没变化跳过 ⇒
+  本地永久停在旧件上，而记账说同步过了。既有测试只钉了 etag 没变那一侧（`a_second_sync_is_a_no_op…`），
+  照不出这条；补 `a_changed_etag_refetches_even_when_the_local_file_is_already_there`
+  （同一个假桶键换 body ⇒ md5 推出的 ETag 变、本地文件仍在 ⇒ 必须 fetched=1 且真的覆盖旧件）。
+- `rustsec.rs::sync` 与 `snapshot.rs::sync` 各 1 条"整体换成 `Ok(Default::default())`" ⇒ **接受（壳类）**。
+  两条都要真联网（rustsec 硬编码 `REPO`；snapshot 走 `CurlFetcher` + 真桶），包内无注入点，
+  离线不可判。不为它加网络测试、也不靠 `--update` 洗掉——留基线并逐键写明"为什么观察不到"。
+
+**后量（同一把尺复跑）**：**78 变异：2 存活 / 67 捕获 / 9 unviable** ⇒ 击杀 5 条、**0 新增存活**。
+（面从 76 涨到 78 是抽出的 `fresh_clone_for` 自带 2 条新变异，属预期的面扩大，不是覆盖退化。）
+
+**门账**：god 基线 `900 → 904`（新增 4 / 移除 0 / 变大 2）；python god 同轮重录。
+`cargo test -p adv-sca` 60 绿、clippy 零告警、fmt、`xtask gate` / `mir` 全绿。
+
+**踩到的坑（写下来防再犯）**：测试夹具里 `b"旧内容"` 编不过——**字节字面量只收 ASCII**，
+本仓夹具既有口径就是 ASCII body（`b"aa"`/`b"bbbb"`）。中文只放在断言文案与注释里。
+
+**余下产品面 29 键**（adv-parse 10 / adv-index 6 / adv-cli 5 / adv-rules 4 / adv-secrets 4）。
+零编译分档（扫函数体的 proc/net/io/time 标记，**只是候选、没算下级调用，判前仍需读码**）：
+纯逻辑候选 22、仅 IO/时间 7。按验证成本排：adv-index（只依赖 adv-core，20 条）→ adv-parse /
+adv-rules（tree-sitter，中）→ adv-cli / adv-secrets（经 noseyparker→vectorscan，一轮 scratch 实测
+17GB ⇒ 走手动打变异 + 增量测试，不开整批）。

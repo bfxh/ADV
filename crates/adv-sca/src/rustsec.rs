@@ -177,10 +177,19 @@ fn git(dir: Option<&Path>, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
+/// `sync` 的第一道分叉：目录里没有 `.git` 才算待克隆，否则原地 fetch + reset。
+///
+/// 抽成具名谓词的理由：`sync` 本体要联网（源是硬编码的 `REPO`），集成测试喂不进假源，
+/// 于是 `delete !` 突变（把"已是仓库"判成"待克隆"）此前没有任何观察面——判错会让
+/// 已同步过的目录再克隆一次，`git clone` 在非空目录上直接失败。
+fn fresh_clone_for(dir: &Path) -> bool {
+    !dir.join(".git").is_dir()
+}
+
 /// 同步一份 DB 到 `dir`：已存在则原地 fetch + reset，否则浅克隆；随后钉 HEAD 的 SHA。
 /// 返回值给调用方写进快照记账（`manifest.json` 的 `rustsec` 段）。
 pub fn sync(dir: &Path) -> Result<RustSecSync> {
-    let fresh_clone = !dir.join(".git").is_dir();
+    let fresh_clone = fresh_clone_for(dir);
     if fresh_clone {
         if let Some(parent) = dir.parent() {
             std::fs::create_dir_all(parent).with_context(|| format!("建 {}", parent.display()))?;
@@ -255,5 +264,45 @@ patched = []
         .unwrap();
         assert_eq!(a.informational, None);
         assert_eq!(a.patched, vec!["1.0.0".to_string()]);
+    }
+
+    /// `git` 是本层唯一的对外壳，但它**有**可钉的观察面：真调本机 git。
+    /// 门的其它部分（`mutants::git_diff_patch`、`lockstep::git_tags`）本就依赖 git 二进制，
+    /// 所以这里不 mock：真调才照得出"整体换成 `Ok(常量)`"与"status 判据取反"两类突变。
+    #[test]
+    fn git_shell_returns_trimmed_stdout_and_fails_loudly() {
+        let v = git(None, &["--version"]).expect("本机应当有 git（变异门与锁步门也靠它）");
+        assert!(v.contains("git version"), "该拿到版本行，实得：{v:?}");
+        assert_eq!(
+            v,
+            v.trim(),
+            "stdout 必须去过首尾空白，否则拼进记账会带噪声：{v:?}"
+        );
+
+        let e = git(None, &["--definitely-not-a-git-flag"]).expect_err("非零退出必须判错");
+        assert!(
+            e.contains("--definitely-not-a-git-flag"),
+            "报错要带上是哪条命令失败了：{e}"
+        );
+    }
+
+    /// `sync` 的待克隆/原地更新分叉判据（见 `fresh_clone_for` 的注）。
+    #[test]
+    fn fresh_clone_is_decided_by_the_git_directory() {
+        let root = std::env::temp_dir().join(format!("adv-rustsec-fresh-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("建临时目录");
+
+        // 空目录 = 没有 .git ⇒ 该浅克隆
+        assert!(fresh_clone_for(&root), "空目录必须判待克隆");
+
+        // 已有 .git 目录 = 是仓库 ⇒ 该原地 fetch，不许再克隆一遍
+        std::fs::create_dir_all(root.join(".git")).expect("造 .git");
+        assert!(
+            !fresh_clone_for(&root),
+            "已有 .git 还判待克隆 ⇒ 会把仓库再克隆一次（`delete !` 突变的症状）"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

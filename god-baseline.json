@@ -610,7 +610,7 @@
   "max_type_members": 4
  },
  "crates/adv-sca/src/rustsec.rs": {
-  "file_lines": 260,
+  "file_lines": 309,
   "max_fn_lines": 32,
   "max_type_members": 6
  },
@@ -640,7 +640,7 @@
   "max_type_members": 0
  },
  "crates/adv-sca/tests/snapshot_sync.rs": {
-  "file_lines": 325,
+  "file_lines": 354,
   "max_fn_lines": 37,
   "max_type_members": 4
  },
