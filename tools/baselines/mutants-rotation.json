@@ -214,7 +214,10 @@
     "crates/adv-cli/src/mir.rs",
     "crates/adv-cli/src/sca.rs",
     "crates/adv-cli/src/snapshot.rs",
-    "crates/adv-cli/src/wrapper.rs"
+    "crates/adv-cli/src/wrapper.rs",
+    "crates/adv-core/src/lib.rs",
+    "crates/adv-index/src/bin/bm25_retrieval.rs",
+    "crates/adv-index/src/bin/incremental_cost.rs"
   ],
   "covered_keys": [
     "crates/adv-ast-rust/src/driver_probe.rs::find_driver_artifact",
@@ -275,13 +278,31 @@
     "crates/adv-cli/src/snapshot.rs::sync_rustsec",
     "crates/adv-cli/src/wrapper.rs::collect_crate_findings",
     "crates/adv-cli/src/wrapper.rs::scan_crate_via_cargo",
-    "crates/adv-cli/src/wrapper.rs::wrapper_with_dlls"
+    "crates/adv-cli/src/wrapper.rs::wrapper_with_dlls",
+    "crates/adv-core/src/lib.rs::civil",
+    "crates/adv-core/src/lib.rs::today",
+    "crates/adv-core/src/lib.rs::today_from",
+    "crates/adv-core/src/lib.rs::version",
+    "crates/adv-index/src/bin/bm25_retrieval.rs::main",
+    "crates/adv-index/src/bin/bm25_retrieval.rs::run",
+    "crates/adv-index/src/bin/incremental_cost.rs::apply_round",
+    "crates/adv-index/src/bin/incremental_cost.rs::decode_doc_lines",
+    "crates/adv-index/src/bin/incremental_cost.rs::main",
+    "crates/adv-index/src/bin/incremental_cost.rs::median_ms",
+    "crates/adv-index/src/bin/incremental_cost.rs::parity_of",
+    "crates/adv-index/src/bin/incremental_cost.rs::read_docs",
+    "crates/adv-index/src/bin/incremental_cost.rs::run",
+    "crates/adv-index/src/bin/incremental_cost.rs::self_check_passed",
+    "crates/adv-index/src/bin/incremental_cost.rs::timed"
   ],
   "missed_keys": [
     "crates/adv-cli/src/snapshot.rs::sync_rustsec",
-    "crates/adv-cli/src/wrapper.rs::wrapper_with_dlls"
+    "crates/adv-cli/src/wrapper.rs::wrapper_with_dlls",
+    "crates/adv-index/src/bin/incremental_cost.rs::main",
+    "crates/adv-index/src/bin/incremental_cost.rs::read_docs",
+    "crates/adv-index/src/bin/incremental_cost.rs::run"
   ],
-  "rounds": 2,
+  "rounds": 3,
   "key_gap_rounds": 0,
   "resource_rounds": 0,
   "completed_laps": 1
