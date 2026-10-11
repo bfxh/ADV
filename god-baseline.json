@@ -655,13 +655,18 @@
   "max_type_members": 4
  },
  "crates/adv-secrets/src/lib.rs": {
-  "file_lines": 149,
-  "max_fn_lines": 41,
+  "file_lines": 161,
+  "max_fn_lines": 38,
   "max_type_members": 4
  },
  "crates/adv-secrets/tests/scan_canary.rs": {
   "file_lines": 80,
   "max_fn_lines": 51,
+  "max_type_members": 0
+ },
+ "crates/adv-secrets/tests/scan_surface.rs": {
+  "file_lines": 190,
+  "max_fn_lines": 77,
   "max_type_members": 0
  },
  "crates/adv-server/src/lib.rs": {

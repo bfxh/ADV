@@ -3701,3 +3701,60 @@ fmt/clippy 干净、`gate`/`mir` 全绿。踩坑记档：`Rule` 只有 `Deserial
 （`check_fixture`/`annotated_lines` 所在的 testing.rs 11/11 全杀；`load_rules` 1 条已杀）、
 2 键仍有存活但均已归因（`collect` 的 1 条不可达随 DD-0019①、1 条等价），随该债处置一起收。
 余下两包都经 noseyparker→vectorscan（一轮 scratch 实测 17GB）⇒ 走手动打变异 + 增量 `cargo test -p`。
+
+## 第六格：adv-secrets（DD-0018 产品面 4 键，2026-10-11）
+
+**先量的口径差异（必须先说）**：adv-secrets 走 noseyparker→vectorscan，整批变异门一轮的 scratch
+实测 17 GB（D 盘只剩 3.4 GB；E 盘那份 17 GB 是别的会话的 scratch，正占着）⇒ 这一格**不开整批门**，改用
+「手动逐条打变异 + `cargo test -p adv-secrets` 增量验证 + 逐字节还原」。尺子是同一个包面
+（本包只有 `lib.rs` 一个源文件，`cargo mutants --list --file crates/adv-secrets/src/lib.rs`
+全量 **24 条**），两把尺的差别只在**新测试在不在**：
+
+| 尺 | 变异 | 击杀 | 存活 | unviable |
+|---|---|---|---|---|
+| 先量（新测试未加） | 24 | 11 | **12** | 1 |
+| 后量（新测试已加） | 24 | 23 | **0** | 1 |
+
+⇒ 击杀 12 条、**0 新增存活**；`RESTORE_OK`（24 次改完全部逐字节还原，工作树只剩预期的 17/5 行）。
+
+**12 条存活逐键归因（四条都是"面缺失"，不是"断言写弱"）**：
+- `scan_paths`（`lib.rs:64` `>`→`==`、`>`→`>=`）：金丝雀那份大文件夹具是
+  `vec![b'x'; MAX_FILE_BYTES + 1]`——**跟着常数一起变**，于是"恰好等于上限"与"超一个字节"
+  两侧从来没被分开过。现用 20 KiB / 2 MiB / 恰好 8 MiB / 8 MiB+1 四份夹具把两侧钉死。
+- `enumerate_skip`（`→true`、`→false` **双向都存活**）：此前唯一扫目录的用例只断言
+  `findings.is_empty()`——把目录全跳掉也是空、一个都不跳也是空 ⇒ 这个函数没有任何正向面。
+  现要求四个跳过名**作为文件**必须出账、**作为目录**里面的文件必须不出账。
+- `enumerate_files`（`delete !`、`&&`→`||`）：同上，且 `&&`→`||` 只有"名字恰为 target/.git/…
+  的**文件**"这一种情形能区分，夹具里必须同时放同名目录和同名文件才杀得掉。
+- `scan_one`（`+`→`-`）：只测过第 1 行的命中，而 `1 - 0` 还是 1 ⇒ 必须有一个非首行的命中。
+  现在测第 2、5 行（同文件两把键）和嵌套目录里的第 4 行。
+- `MAX_FILE_BYTES`（`40:35` `*`→`+`、`40:42` `*`→`+`）：上限被换成 1_048_584 / 9_216 时
+  全仓没人能看见。现在先 `assert_eq!(max, 8 * 1024 * 1024)` 直接钉死算术，再由两侧夹具兜住。
+
+**一处真改动（不只是加测试）**：跳过留痕原来写成 `if !skipped.is_empty() { eprintln!(…) }`，
+而 `eprintln!` 在同进程测试里**不可观察** ⇒ 这条"没扫到不许长得像干净"的闸从来没有面能看见。
+抽成纯函数 `pub fn skip_notice(&[String]) -> Option<String>`，`scan_paths` 只在拿到 `Some` 时打印。
+抽之前它没有可断言的返回面；抽之后 3 条变异（`→None`、`→Some("")`、`→Some("xyzzy")`）全可断言且全杀。
+这与 `main.rs::three_way_buckets` 当年抽纯函数的理由是同一条（片A6 实测）。
+
+**unviable 1 条如实披露**：`scan_paths → Ok(vec![Default::default()])` 编不过
+（`SecretFinding` 只有 `Clone/Eq/Ord`，没有 `Default`）⇒ 不计入击杀。
+
+**断言夹具的一条自避的坑**：合成键的填充字符最初按 `tag.len()` 取 ASCII，会落到 `%`、`:`
+这类**不在 `[A-Z0-9]` 里**的字符上，键形当场就不满足上游 `np.aws.1` 的形状（表现是"扫不到"，
+很容易被误读成"规则没命中=缺陷"）。改成按位置取 `A..Z` 后每条键都落在字符集内、且互不相同
+——互不相同这条是必须的：**同内容会在同一次调用里被内容寻址去重**，两份一样的夹具只会出一条账。
+
+**门账**：god 基线 rust `937 → 946`（新增 9、移除 0、变大 1；新增 = 新测试文件 1 + 其 7 个函数 +
+`lib.rs::skip_notice`）、python `510 → 511`（新增同一文件、`lib.rs` 行数变大），两份同轮重录。
+`cargo test -p adv-secrets` 6 条全绿（1 单元 + 2 金丝雀 + 3 新面），`cargo clippy -p adv-secrets
+--all-targets -- -D warnings` 零告警，`xtask gate`/`xtask mir` 绿。
+门线（`local_gate.py --line adv-m2`，17 步）除既有的 `debt-gate` 红（**DD-0005 拖过 110 个 commit**，
+非本批账）外全绿。**口径提醒**（第 10 条纪律）：门线里的 `cargo-test`/`clippy` 两格跑的是
+`rust/Cargo.toml`，**不覆盖 `crates/` 工作区**——crates 面按上面的 `-p adv-secrets` 单独跑，
+fmt 一格（`fmt_workspace.py`）才是全工作区的。
+
+**DD-0018 产品面余 5 键（adv-cli）**：35 新键 − core 2 − sca 4 − index 6 − parse 10 − rules 4
+− secrets 4 = **5** ✓，全在 adv-cli（同样经 noseyparker→vectorscan，继续手动打变异法）：
+`main.rs::report`、`sca.rs::parse`、`snapshot.rs::run`、`snapshot.rs::sync_rustsec`、
+`wrapper.rs::wrapper_with_dlls`。

@@ -73,16 +73,28 @@ pub fn scan_paths(paths: &[PathBuf]) -> Result<Vec<SecretFinding>> {
                 .with_context(|| format!("扫 {}", file.display()))?;
         }
     }
-    if !skipped.is_empty() {
+    if let Some(notice) = skip_notice(&skipped) {
         // "没扫到"不许长得像"干净"（本仓同一条纪律）：跳过必须留痕。
-        eprintln!("adv-secrets：跳过 {} 个文件：", skipped.len());
-        for s in &skipped {
-            eprintln!("  - {s}");
-        }
+        eprintln!("{notice}");
     }
     out.sort();
     out.dedup();
     Ok(out)
+}
+
+/// 跳过留痕的文案（纯函数）：没跳过就不该有这段话。
+/// 抽出来是因为 `eprintln!` 在测试里不可观察，而"`skipped` 非空才留痕"这条判据
+/// （`!skipped.is_empty()` 取反）此前没有任何面能看见。
+pub fn skip_notice(skipped: &[String]) -> Option<String> {
+    if skipped.is_empty() {
+        return None;
+    }
+    let mut out = format!("adv-secrets：跳过 {} 个文件：", skipped.len());
+    for s in skipped {
+        out.push_str("\n  - ");
+        out.push_str(s);
+    }
+    Some(out)
 }
 
 fn enumerate_skip(dir: &Path) -> bool {
