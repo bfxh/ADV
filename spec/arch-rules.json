@@ -3,30 +3,205 @@
   "rules": [
     {
       "id": "platform-no-toolface-loadtime",
-      "from": ["hub_*"],
-      "import": ["tools", "tools.*", "server", "server_web"],
+      "from": [
+        "hub_*"
+      ],
+      "import": [
+        "tools",
+        "tools.*",
+        "server",
+        "server_web"
+      ],
       "scope": "toplevel",
       "why": "平台层（hub_*）**加载期**不得依赖工具面/协议层——依赖方向是 server→tools→hub_*；hub_lesson 复用 tools.learn 属 S184 明文豁免（函数内延迟导入，避免加载期耦合）"
     },
     {
       "id": "registry-independence-loadtime",
-      "from": ["registry"],
-      "import": ["tools", "tools.*", "server", "server_web", "hub_*"],
+      "from": [
+        "registry"
+      ],
+      "import": [
+        "tools",
+        "tools.*",
+        "server",
+        "server_web",
+        "hub_*"
+      ],
       "scope": "toplevel",
       "why": "registry 是框架层：**加载期**不得依赖任何被注册者/协议层；运行期按需加载工具面助手（burnwatch/aci）是分发器的明文设计"
     },
     {
       "id": "toolface-no-protocol",
-      "from": ["tools", "tools.*"],
-      "import": ["server", "server_web"],
+      "from": [
+        "tools",
+        "tools.*"
+      ],
+      "import": [
+        "server",
+        "server_web"
+      ],
       "why": "工具面（任意位置）不依赖协议层——server/server_web 组装工具面，反向即循环"
     },
     {
       "id": "hub-base-no-upper",
-      "from": ["hub_ledger", "hub_manifest", "hub_core"],
-      "import": ["hub_runner", "hub_vc", "hub_resilience", "hub_live",
-                 "hub_impact", "hub_propose", "hub_lesson", "hub_auth"],
+      "from": [
+        "hub_ledger",
+        "hub_manifest",
+        "hub_core"
+      ],
+      "import": [
+        "hub_runner",
+        "hub_vc",
+        "hub_resilience",
+        "hub_live",
+        "hub_impact",
+        "hub_propose",
+        "hub_lesson",
+        "hub_auth"
+      ],
       "why": "平台底座（账本/manifest/核心）不得依赖上层执行器——上层单向依赖底座（任意位置，含延迟导入）"
+    },
+    {
+      "id": "rust-core-is-base",
+      "from": [
+        "adv-core",
+        "adv-core.*"
+      ],
+      "import": [
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-index",
+        "adv-parse",
+        "adv-rules",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "adv-core 是全域地基（实测零内部依赖）。地基回头依赖任何上层，所有包都被拽成环。"
+    },
+    {
+      "id": "rust-parse-no-upper",
+      "from": [
+        "adv-parse",
+        "adv-parse.*"
+      ],
+      "import": [
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-index",
+        "adv-rules",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "归一 AST 层只许踩 adv-core。反手 import adv-rules/adv-cli 会把解析与判定焊死，规则面没法脱离解析单独测。"
+    },
+    {
+      "id": "rust-rules-no-aggregator-or-consumer",
+      "from": [
+        "adv-rules",
+        "adv-rules.*"
+      ],
+      "import": [
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-index",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "adv-rules 只许 adv-core + adv-parse。特意禁 adv-ast-rust：真实方向是 adv-ast-rust→adv-rules（深轨驱动消费规则集），反过来就是环。"
+    },
+    {
+      "id": "rust-leaves-only-core",
+      "from": [
+        "adv-sca",
+        "adv-sca.*",
+        "adv-secrets",
+        "adv-secrets.*",
+        "adv-index",
+        "adv-index.*",
+        "adv-bin",
+        "adv-bin.*",
+        "adv-server",
+        "adv-server.*",
+        "adv-sandbox",
+        "adv-sandbox.*",
+        "adv-taint",
+        "adv-taint.*"
+      ],
+      "import": [
+        "adv-ast-rust",
+        "adv-cli",
+        "adv-core",
+        "adv-parse",
+        "adv-rules",
+        "xtask"
+      ],
+      "why": "产品叶子包(sca/secrets/index/bin/server/sandbox/taint)实测只踩 adv-core：既不许碰判定层与聚合层，也不许彼此依赖——否则 FP 账没法按包归因。"
+    },
+    {
+      "id": "rust-no-reverse-dep-on-xtask",
+      "from": [
+        "adv-ast-rust",
+        "adv-ast-rust.*",
+        "adv-bin",
+        "adv-bin.*",
+        "adv-cli",
+        "adv-cli.*",
+        "adv-core",
+        "adv-core.*",
+        "adv-index",
+        "adv-index.*",
+        "adv-parse",
+        "adv-parse.*",
+        "adv-rules",
+        "adv-rules.*",
+        "adv-sandbox",
+        "adv-sandbox.*",
+        "adv-sca",
+        "adv-sca.*",
+        "adv-secrets",
+        "adv-secrets.*",
+        "adv-server",
+        "adv-server.*",
+        "adv-taint",
+        "adv-taint.*"
+      ],
+      "import": [
+        "xtask"
+      ],
+      "why": "xtask 是质检门的载体，产品面永远不许依赖工具面（实测零边）。要共享逻辑就往 adv-core 或新 crate 下移。"
+    },
+    {
+      "id": "xtask-no-heavy-product-dep",
+      "from": [
+        "xtask",
+        "xtask.*"
+      ],
+      "import": [
+        "adv-bin",
+        "adv-cli",
+        "adv-index",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint"
+      ],
+      "why": "xtask 今天只依赖 core/parse/rules/ast-rust。禁 adv-cli/adv-secrets/adv-sca/adv-index：门一旦依赖 CLI 或 noseyparker 那条链，vectorscan 的 C++ 就被拽进 xtask 的构建图（本机两次硬死就是这个形状）。"
     }
   ]
 }

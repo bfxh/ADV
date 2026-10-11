@@ -16,6 +16,7 @@
 """
 import json
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -172,3 +173,38 @@ def test_edges_are_deterministic(tmp_path):
     a = _run("--root", str(tmp_path), "--rules", str(rp))
     b = _run("--root", str(tmp_path), "--rules", str(rp))
     assert a.stdout == b.stdout and a.returncode == b.returncode, (a.stdout, b.stdout)
+
+
+def test_bom_prefixed_file_is_not_blind(tmp_path):
+    """带 UTF-8 BOM 的源文件**不许掉出依赖图**（本仓实测盲过：tests/test_ide_diag.py
+    的 BOM 让 ast.parse 撞在 U+FEFF 上 ⇒ 那个文件的 import 边全在门的视野外，
+    摘要只留一个 unparsed=1 的计数）。判据两头：违规要能红，且 unparsed 必须归零。"""
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "a.py").write_text("import vxl_phys_render\n", encoding="utf-8-sig")  # 真 BOM 头
+    rp = _rules(tmp_path, [{"id": "r-bom", "from": ["pkg", "pkg.*"],
+                            "import": ["vxl_phys_render"]}])
+    got = _run("--root", str(tmp_path), "--rules", str(rp))
+    assert "unparsed=0" in got.stdout, f"BOM 文件仍被当成不可解析：{got.stdout}"
+    assert got.returncode == 1, f"BOM 文件里的违规没被抓到：{got.stdout}"
+    assert "r-bom" in got.stdout, got.stdout
+
+
+def test_every_workspace_crate_is_covered_by_a_rule():
+    """**在册 crate 必须都出现在某条规则的 from 里**（钉本仓真实分层，不是夹具）。
+    新加一个 crate 而忘给它写禁向规则 ⇒ 这条红；否则分层图会悄悄留出一个无人看的洞
+    （2026-10-12 实测：spec/arch-rules.json 原本 4 条规则全是 python 侧，13 个 rust
+    crate 一条都没声明，adv-parse 反手 import adv-rules 也不会判红）。"""
+    members = sorted(list((ROOT / "crates").glob("*/Cargo.toml")) + [ROOT / "xtask" / "Cargo.toml"])
+    crates = []
+    for mf in members:
+        m = re.search(r'^\s*name\s*=\s*"([^"]+)"', mf.read_text(encoding="utf-8"), re.MULTILINE)
+        assert m, f"{mf} 读不出 crate 名"
+        crates.append(m.group(1))
+    assert len(crates) >= 13, f"crate 清单缩水：{crates}"
+
+    rules = json.loads((ROOT / "spec" / "arch-rules.json").read_text(encoding="utf-8"))["rules"]
+    # from 侧只认**连字符形态**（实测：写成 adv_rules 一条都命中不了），`.*` 是子模块通配
+    covered = {p[:-2] if p.endswith(".*") else p for r in rules for p in r.get("from", [])}
+    missing = [c for c in crates if c not in covered]
+    assert not missing, f"这些 crate 没有被任何架构规则覆盖（分层图上无人看的洞）：{missing}"

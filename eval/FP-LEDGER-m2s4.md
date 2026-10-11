@@ -3953,3 +3953,77 @@ claim-gate 0 失配；debt-gate 2 处红（见上）。变异面不受影响（c
 自说自话有力。余下约 8-9 窗（全档面 1483 条）按 23 秒/条 推 ≈ **5-7 小时**独占机时；哨兵
 `E:\tmp\gate-watchdog.ps1` 第 2 窗全程没触发过一次（空闲 2.7–10GB，从未连三拍到 1200MB 以下）⇒
 限并发这套是有效的，之前两次硬死是 24 路 `cc1plus` 造成的，不是变异阶段。
+
+## 架构整理：Rust 分层第一次被钉成会判红的门（2026-10-12）
+
+用户指令「继续整理架构和清理垃圾」。这一批**不动任何 `.rs` 生产代码**，做的是把分层关系交给机器看。
+
+### 先量（实测，不是感觉）
+拿仓里现成的两把尺量：`tools/baselines/god-baseline.json`（970 面 / 95 文件 / 17222 行）与 `arch_gate` 的边集。
+
+| 包 | 在册行 | 文件 |
+|---|---|---|
+| xtask | 4770 | 17 |
+| adv-sca | 2947 | 13 |
+| adv-cli | 2906 | 17 |
+| adv-index | 1650 | 10 |
+| adv-rules | 1648 | 11 |
+| adv-ast-rust | 1481 | 12 |
+| adv-parse | 1190 | 7 |
+| adv-secrets | 428 | 3 |
+| adv-core | 125 | 1 |
+
+- 结构压力在 **xtask**：`mutants.rs 751`、`canary_mutants.rs 731`、`canary_rotation.rs 657`、
+  `rotation.rs 652`、`canary.rs 639` **五个文件全贴着 800 阈下沿**（顶破是硬红、`--write` 拒录）；
+  最长函数 `rotation.rs::run` 99 行（阈 120）。今天没有硬违规，但余量薄——这行留给下一个往 xtask 塞东西的人。
+- **真问题**：`arch_gate` 早就认 Rust（`_rust_edges`、`crate::`/`super::` 解析成 crate 限定名、
+  crate 名取最近的 `Cargo.toml`），5913 条边里含 rust 边；可 `spec/arch-rules.json` 的 **4 条规则全是
+  python 侧**（`hub_*`/`tools`/`server`）⇒ **13 个 crate 一个都没被覆盖**（复算见下）。
+  当时的 `violations=0` 是"没有规则"，不是"没有漂移"。
+
+### 钉上 6 条分层规则（棘轮钉现状）
+`rust-core-is-base`、`rust-parse-no-upper`、`rust-rules-no-aggregator-or-consumer`、
+`rust-leaves-only-core`、`rust-no-reverse-dep-on-xtask`、`xtask-no-heavy-product-dep`。
+禁向集合是**按实测边集反推**的（`adv-core` 零内部依赖；`adv-parse→core`；`adv-rules→core,parse`；
+`adv-ast-rust→rules`；叶子包只踩 core；`adv-cli` 聚合；`xtask` 只依赖 core/parse/rules/ast-rust）。
+
+**两处写法上的硬约定，是探针打出来的，不是猜的**：
+1. `from` 侧**只认连字符形态**（`adv-rules` 命中、`adv_rules` 一条都不中）；`import` 侧两种都认。
+   我第一版按 `adv_core` 写 `from`，注入真违规后门照判绿——**规则当场是摆设**，靠金丝雀才暴露。
+2. `import` 侧同时写 `X` 与 `X.*` 会把**同一行重复报**（S192 注释里那条"已知缺陷"）⇒ 新规则 import 只写单模式。
+
+### 金丝雀（每条都要能红，否则不算门）
+往六个不同 crate 的文件各注入一条真违规 `use`：6/6 **全 RED**，且定位到注入那一行
+（如 `✗ adv-core:1 import adv-rules（rust-core-is-base…）`、`✗ xtask.mutants:1 import adv-secrets`），
+逐条还原 `还原=OK`。**这次还原出过一个事故**：脚本里 `finally` 前的 `shutil.copyfile(p, p)` 抛
+`SameFileError` ⇒ 还原没执行，`adv-core/src/lib.rs` 带着注入留在树里，是 `git status` 暴露的；
+另外按 LF 写回把两个文件行尾改了（原树 CRLF），得 `git checkout --` 才干净 ⇒
+"自己写的还原逻辑"不如"git 还原 + 复核 status"，这条记进 memory。
+
+### 顺手补上门的两个盲点（`tests/test_s192_arch_rust.py` 加 2 条常驻测试）
+- **BOM 盲点**：`unparsed=1` 那个文件实体是 `tests/test_ide_diag.py`——开头带 UTF-8 BOM，门按
+  `encoding="utf-8"` 读文本、`ast.parse` 撞在 U+FEFF 上 ⇒ **该文件的 import 边全在视野外**，摘要只留一个计数。
+  改门按 `utf-8-sig` 读两处源读点（`Cargo.toml` 那处无实例，不动），边 5913→**5920**、`unparsed=0`；
+  配套测试 `test_bom_prefixed_file_is_not_blind`（真 BOM 夹具 + 违规必须红 + `unparsed=0`）。
+- **覆盖棘轮**：`test_every_workspace_crate_is_covered_by_a_rule`——在册 crate 必须都出现在某条规则的
+  `from` 里。区分度实测：**只看原来 4 条 python 规则时 13 个 crate 全部未覆盖**，加上新 6 条后未覆盖 `[]` ⇒
+  以后新增 crate 忘了写规则会当场红，而不是留个没人看的洞。
+
+### 垃圾清理
+- 删掉 C:\Temp 里两个 3 天没被写过的测试 scratch：`adv-test-wrapper` 417MB、`adv-wrapper-test-40780` 326MB。
+  加上此前清的 `D:\tmp` 两个死变异 scratch 2.6GB ⇒ D: 从 0.9GB 回到 3.5GB。
+- 仓内**在册文件零杂物**：`git ls-files` 没有任何 `.tmp/.bak/.orig/.rej/.log/.out/待删` 类文件。
+- **没动、等人点头的**：`E:\tmp\adv-mut` 17GB（别的会话的变异 scratch，最新写入 10-11 22:06，当前无进程在用；
+  memory 明写过"E:\tmp 是变异门 TMP 别当垃圾"⇒ 不擅删别人的工作目录）；`adv-driver-cache` 1.3GB 与
+  `adv-mir-target` 475MB（删了只是测试重建）；`wsl…msi` 351MB、`unified-rx-pytest` 558MB（不是我造的）。
+
+### 门账
+`arch_gate` 10 规则 / 5920 边 / **0 违例** / unparsed=0；`test_s188_arch.py` + `test_s192_arch_rust.py`
+**18 条全绿**；python god 基线 `512 → 512`（变大 1：`test_s192_arch_rust.py` 加了两条测试），
+rust god 未变（这批没动 `.rs`）；`local_gate --line adv-m2` 17 步只余既有 debt-gate 两处红
+（DD-0005 114/10、DD-0018 13/10，见上一节的自我更正）。
+
+### 变异面影响
+只改 `spec/*.json`、`scripts/*.py`、`tests/*.py` ⇒ cargo-mutants 的 rust 面**一个字节都没变**，
+关账圈游标（14/50 文件、74 键、`resource_rounds=0`）继续有效。门目前**停在人工叫停状态**：
+第 4 窗被手动中断，未计入。

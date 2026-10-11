@@ -101,7 +101,7 @@ def scan(root: pathlib.Path) -> tuple[list[tuple[str, int, str, bool]], int]:
                     skipped += 1
                 continue
             try:
-                tree = ast.parse(fp.read_text(encoding="utf-8", errors="replace"))
+                tree = ast.parse(fp.read_text(encoding="utf-8-sig", errors="replace"))
             except (SyntaxError, OSError):
                 skipped += 1
                 continue
@@ -251,7 +251,7 @@ def _rust_edges(fp: pathlib.Path, root: pathlib.Path) -> list[tuple[str, int, st
     """单文件 `use` 边；`mod` 声明不取（模块树不是依赖）。顶层 = 不在任何 `fn` 体内。"""
     _crate, mod = _rust_module(fp, root)
 
-    lines = _strip_comments(fp.read_text(encoding="utf-8", errors="replace")).split("\n")
+    lines = _strip_comments(fp.read_text(encoding="utf-8-sig", errors="replace")).split("\n")
     out: list[tuple[str, int, str, bool]] = []
     stack: list[int] = []          # 进入 fn 体时的花括号深度
     depth = 0
