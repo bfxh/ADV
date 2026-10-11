@@ -71,12 +71,18 @@ pub fn git_tags(root: &std::path::Path) -> anyhow::Result<Vec<String>> {
         .args(["tag", "--list", "adv-v*"])
         .current_dir(root)
         .output()?;
-    Ok(String::from_utf8_lossy(&out.stdout)
+    Ok(parse_tag_list(&String::from_utf8_lossy(&out.stdout)))
+}
+
+/// `git tag --list` 的 stdout → tag 清单（trim + 丢空行；纯函数，喂文本即可测）。
+/// 分诊发现 `delete !` 突变存活（真 repo 里 tag 行从不为空，区分度只在文本里）⇒ 提取。
+pub fn parse_tag_list(stdout: &str) -> Vec<String> {
+    stdout
         .lines()
         .map(str::trim)
         .filter(|l| !l.is_empty())
         .map(str::to_string)
-        .collect())
+        .collect()
 }
 
 /// 执行锁步门：绿 = Ok(())，红 = Err(原因)。

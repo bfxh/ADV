@@ -1,0 +1,67 @@
+{
+ "outcomes": [
+  {
+   "scenario": {
+    "Mutant": {
+     "name": "xtask/src/maturity.rs:83:20: replace += with *= in seg_eq",
+     "package": "xtask",
+     "file": "xtask/src/maturity.rs",
+     "function": {
+      "function_name": "seg_eq",
+      "return_type": "-> bool",
+      "span": {
+       "start": {
+        "line": 67,
+        "column": 1
+       },
+       "end": {
+        "line": 98,
+        "column": 2
+       }
+      }
+     },
+     "span": {
+      "start": {
+       "line": 83,
+       "column": 20
+      },
+      "end": {
+       "line": 83,
+       "column": 22
+      }
+     },
+     "replacement": "*=",
+     "genre": "BinaryOperator"
+    }
+   },
+   "summary": "Timeout",
+   "log_path": "log/xtask__src__maturity.rs_line_83_col_20_001.log",
+   "diff_path": "diff/xtask__src__maturity.rs_line_83_col_20_001.diff",
+   "phase_results": [
+    {
+     "phase": "Build",
+     "duration": 7.6188386,
+     "process_status": "Success",
+     "argv": [
+      "C:\\Users\\lbx13\\.rustup\\toolchains\\1.99.0-x86_64-pc-windows-gnu\\bin\\cargo.exe",
+      "test",
+      "--no-run",
+      "--verbose",
+      "--package=xtask@0.1.0"
+     ]
+    },
+    {
+     "phase": "Test",
+     "duration": 300.0494115,
+     "process_status": "Timeout",
+     "argv": [
+      "C:\\Users\\lbx13\\.rustup\\toolchains\\1.99.0-x86_64-pc-windows-gnu\\bin\\cargo.exe",
+      "test",
+      "--verbose",
+      "--package=xtask@0.1.0"
+     ]
+    }
+   ]
+  }
+ ]
+}

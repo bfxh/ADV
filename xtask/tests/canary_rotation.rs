@@ -6,9 +6,10 @@
 
 use xtask::mutants::RoundEvidence;
 use xtask::rotation::{
-    self, Window, face_drift, face_total, file_counts, file_gaps, key_gap_files, key_gaps,
-    listing_file, load_lap, open_lap, pick_window, progress_line, record, refuse_partial_update,
-    save_lap, uncovered, window_budget, window_scratch_message,
+    self, Window, closing_note, face_drift, face_total, file_counts, file_gaps, file_limit,
+    key_gap_files, key_gaps, listing_file, load_lap, open_lap, pick_window, progress_line, record,
+    refuse_partial_update, save_lap, settle_round, uncovered, window_budget,
+    window_scratch_message,
 };
 
 /// 真产物片段（2026-10-10 `cargo mutants --list --in-diff` 原样抄的三行 + 一行 cargo 噪声）。
@@ -337,5 +338,320 @@ fn cursor_without_key_gap_rounds_field_loads_as_zero() {
         .expect("旧游标要算已开圈");
     assert_eq!(lap.key_gap_rounds, 0, "缺席字段读成 0，不是报错");
     assert_eq!(lap.rounds, 1);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// DD-0018 分诊：预算边界的两条都要钉死。`>` 写成 `>=` 会把**正好等于预算**的第二个文件
+/// 挤出窗（覆盖变小）；`&&` 写成 `||` 会在只有一个文件已进窗时照样 break（防死锁的那道
+/// "至少取 1 个"被反过来用）。
+#[test]
+fn canary_pick_window_takes_the_file_that_lands_exactly_on_budget() {
+    let face = vec![
+        ("a.rs".to_string(), 100usize),
+        ("b.rs".to_string(), 50usize),
+    ];
+    let w = pick_window(&face, &[], 150);
+    assert_eq!(w.files, ["a.rs", "b.rs"], "正好等于预算的文件要进窗");
+    assert_eq!(w.mutants, 150);
+    assert_eq!(w.over_budget, None, "没超预算不该点名");
+
+    // 超一丁点就停：1 条之差也不能放进来（否则预算就是软约束，scratch 投影会失真）。
+    let tight = pick_window(&face, &[], 149);
+    assert_eq!(tight.files, ["a.rs"], "超预算就得停");
+
+    // `over_budget` 点名行自己的边界（134 行，与上面贪心循环是两处分支）：
+    // 单文件正好等于预算 = 没超，不许点名（`>` 写成 `>=` 会在这里误报）。
+    let exact = pick_window(&[("solo.rs".to_string(), 150usize)], &[], 150);
+    assert_eq!(exact.files, ["solo.rs"]);
+    assert_eq!(
+        exact.over_budget, None,
+        "正好等于预算不是超预算（`>=` 突变的症状）"
+    );
+    // 单文件远低于预算也不许点名（`&&` 写成 `||` 时 `len()==1` 单独成立就误报）。
+    let small = pick_window(&[("tiny.rs".to_string(), 10usize)], &[], 150);
+    assert_eq!(
+        small.over_budget, None,
+        "没超预算就别点名（`||` 突变的症状：单文件就报超）"
+    );
+}
+
+/// 防死锁那条：首个文件自己就超预算时**必须照样开窗**，否则它永远进不了圈、圈永远关不了账。
+#[test]
+fn canary_pick_window_opens_for_a_single_oversized_first_file() {
+    let face = vec![
+        ("big.rs".to_string(), 200usize),
+        ("b.rs".to_string(), 1usize),
+    ];
+    let w = pick_window(&face, &[], 150);
+    assert_eq!(w.files, ["big.rs"], "单文件超预算也要开窗（防死锁）");
+    assert_eq!(w.mutants, 200);
+    let why = w.over_budget.expect("超预算必须点名");
+    assert!(why.contains("big.rs") && why.contains("200"), "{why}");
+    // 第二个文件不跟着进窗（贪心在超预算处 break），并且要点名"点的是哪个文件"——
+    // 名字写错就等于让人去查一个没开窗的文件。
+    assert!(
+        !w.files.contains(&"b.rs".to_string()),
+        "超预算的文件不该把后面的拖进窗：{:?}",
+        w.files
+    );
+}
+
+/// `file_limit` 是键缺口专用窗唯一的口径装配：少一个 `--file` 就少判一批键，
+/// 而少判在轮转档里表现为"判过了"——所以逐个 flag 都要钉。
+#[test]
+fn canary_file_limit_repeats_the_flag_per_file() {
+    assert_eq!(
+        file_limit(&["a.rs".to_string(), "b.rs".to_string()]),
+        vec!["--file", "a.rs", "--file", "b.rs"]
+    );
+    assert_eq!(
+        file_limit(&[]),
+        Vec::<String>::new(),
+        "空清单不许塞半个 flag"
+    );
+}
+
+/// `closing_note` 三个突变（`>` → `==` / `<` / `>=`）此前全在 println 的格式分支里，
+/// 没有任何观察面；提取成纯函数后 0 与 1 两面都能照。
+#[test]
+fn canary_closing_note_names_the_key_gap_windows_only_when_there_are_some() {
+    assert_eq!(closing_note(0), "", "没有键缺口窗就不加尾注");
+    assert!(
+        closing_note(3).contains("键缺口专用窗 3 扇"),
+        "有键缺口窗要点名扇数：{}",
+        closing_note(3)
+    );
+    assert!(
+        closing_note(1).contains("diff 面取不到的键"),
+        "要说清这批窗判的是什么：{}",
+        closing_note(1)
+    );
+}
+
+/// `progress_line` 的 `==` 反过来时分子分母对调：全判齐的那一圈会显示成"已判 0/2"。
+#[test]
+fn canary_progress_line_counts_all_judged_keys_when_the_lap_is_complete() {
+    let face = vec![("a.rs".to_string(), 1usize), ("b.rs".to_string(), 1usize)];
+    let mut lap = open_lap("main...HEAD", 150, &face, 0);
+    lap.rounds = 2;
+    lap.covered_files = vec!["a.rs".to_string(), "b.rs".to_string()];
+    lap.covered_keys = vec!["a.rs::f".to_string(), "b.rs::g".to_string()];
+    let baseline = vec!["a.rs::f".to_string(), "b.rs::g".to_string()];
+    let line = progress_line(&face, &lap, &baseline);
+    assert!(line.contains("2/2 文件"), "{line}");
+    assert!(line.contains("已判 2/2"), "{line}");
+    assert!(line.contains("（2 窗）"), "窗数要进进度行：{line}");
+    // 基线里还有没判的键时不能报满（反向照出分子分母对调）。
+    let mut more = baseline.clone();
+    more.push("c.rs::h".to_string());
+    let partial = progress_line(&face, &lap, &more);
+    assert!(partial.contains("已判 2/3"), "{partial}");
+}
+
+/// `load_lap` 的 `Err(e) if e.kind() == NotFound` 反过来（guard→true）后，**任何**读失败
+/// 都被当成"还没开过圈"⇒ 坏掉的游标会被静默重开一圈、把已判的证据丢掉。
+/// 既有那条"坏 JSON"照不到它（坏 JSON 走的是 `Ok(raw)` 分支的解析失败），
+/// 所以这里用**读得到但不是文件**（目录）来照：那是读失败且 kind ≠ NotFound。
+#[test]
+fn canary_load_lap_fails_closed_on_read_errors_other_than_missing() {
+    let root = std::env::temp_dir().join(format!("adv-loadlap-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("建临时目录");
+
+    // 缺失 = 还没开圈（这条是正常路径，不是红）。
+    assert!(
+        load_lap(&root.join("nope.json"))
+            .expect("读不到不该报错")
+            .is_none()
+    );
+
+    // 目录顶替游标：Windows 读目录是 PermissionDenied/Other，Linux 是 IsADirectory，
+    // 两者都不是 NotFound ⇒ 必须判红（fail-closed），不许当成"还没开圈"。
+    let dir_cursor = root.join("cursor-dir");
+    std::fs::create_dir_all(&dir_cursor).expect("建目录型游标");
+    assert!(
+        load_lap(&dir_cursor).is_err(),
+        "目录顶替游标必须判红：当成「还没开圈」就是静默丢证据"
+    );
+
+    // 坏 JSON 也要判红（既有那条的形状，保持住）。
+    let bad = root.join("bad.json");
+    std::fs::write(&bad, "{ not json").expect("写坏游标");
+    assert!(load_lap(&bad).is_err(), "游标坏了要判不了");
+
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// `settle_round` 的 `closing && gaps.is_empty()` 反过来是**假关账**：面全覆盖但键没判齐时
+/// 仍然走关账分支，游标清零、已判证据丢一圈，而基线键一直判不齐却没人被点名。
+#[test]
+fn canary_settle_round_never_closes_a_lap_with_unjudged_baseline_keys() {
+    let face = vec![("a.rs".to_string(), 10usize), ("b.rs".to_string(), 5usize)];
+    let mut lap = open_lap("main...HEAD", 150, &face, 0);
+    // 面已全覆盖（关账条件①满足），但 b.rs 的基线键还没判过。
+    lap.rounds = 2;
+    lap.covered_files = vec!["a.rs".to_string(), "b.rs".to_string()];
+    lap.covered_keys = vec!["a.rs::f".to_string()];
+    let baseline = || xtask::mutants::Baseline {
+        missed: vec!["a.rs::f".to_string(), "b.rs::g".to_string()],
+    };
+    let root = std::env::temp_dir().join(format!("adv-settle-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("建临时目录");
+    let path = root.join("mutants-baseline.json");
+    std::fs::write(&path, r#"{"missed":[]}"#).expect("铺基线");
+
+    let mut violations = Vec::new();
+    settle_round(
+        &mut lap,
+        "main...HEAD",
+        150,
+        &baseline(),
+        &path,
+        false,
+        &mut violations,
+    )
+    .expect("结算不该报错");
+
+    assert!(
+        violations
+            .iter()
+            .any(|v| v.contains("b.rs::g") || v.contains("没判齐")),
+        "键没判齐必须被点名（`&&` 反过来就会静默关账）：{violations:?}"
+    );
+    assert!(
+        !lap.covered_keys.is_empty(),
+        "假关账会把游标清零 ⇒ 这条证据就没了：{:?}",
+        lap.covered_keys
+    );
+    assert_eq!(
+        lap.completed_laps, 0,
+        "没判齐不许计入已关账圈数：{}",
+        lap.completed_laps
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// 判齐了那一圈才允许关账：证据清零、圈数 +1、面原样带走（`completed_laps + 1` 的
+/// `*` / `-` 两个突变在这里露馅——`*` 会把圈数抹成 0）。
+#[test]
+fn canary_settle_round_closes_when_face_and_keys_are_all_judged() {
+    let face = vec![("a.rs".to_string(), 10usize), ("b.rs".to_string(), 5usize)];
+    let mut lap = open_lap("main...HEAD", 150, &face, 2);
+    lap.rounds = 3;
+    lap.covered_files = vec!["a.rs".to_string(), "b.rs".to_string()];
+    lap.covered_keys = vec!["a.rs::f".to_string(), "b.rs::g".to_string()];
+    lap.missed_keys = vec!["b.rs::g".to_string()];
+    let baseline = || xtask::mutants::Baseline {
+        missed: vec!["a.rs::f".to_string(), "b.rs::g".to_string()],
+    };
+    let root = std::env::temp_dir().join(format!("adv-close-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("建临时目录");
+    let path = root.join("mutants-baseline.json");
+    std::fs::write(&path, r#"{"missed":[]}"#).expect("铺基线");
+
+    let mut violations = Vec::new();
+    settle_round(
+        &mut lap,
+        "main...HEAD",
+        150,
+        &baseline(),
+        &path,
+        false,
+        &mut violations,
+    )
+    .expect("关账不该报错");
+
+    assert_eq!(lap.completed_laps, 3, "关账轮要把圈数 +1（不是抹成 0）");
+    assert_eq!(lap.rounds, 0, "关账后新一轮从零起");
+    assert!(lap.covered_keys.is_empty() && lap.covered_files.is_empty());
+    assert_eq!(lap.face, face, "面要原样带进新一轮（重开一圈不等于换面）");
+    assert!(
+        violations.is_empty(),
+        "判齐的一圈不该有违规（--update 未开）：{violations:?}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// `resume_lap` 的四个突变（`lap.spec == spec` 守卫两个方向、`==` 反过来、丢 budget 字段）
+/// 都在"读游标"这条路径上：口径变了却不重开，就等于拿旧证据顶新面。
+#[test]
+fn canary_resume_lap_reopens_when_the_spec_or_the_face_changed() {
+    let face = vec![("a.rs".to_string(), 10usize)];
+    let mut stored = open_lap("main...HEAD", 150, &face, 1);
+    stored.covered_keys = vec!["a.rs::f".to_string()];
+    stored.rounds = 2;
+
+    // ① 同口径、面没漂 ⇒ 证据留着，只更新本轮预算。
+    let same = rotation::resume_lap(Some(stored.clone()), "main...HEAD", 99, &face);
+    assert_eq!(same.covered_keys, stored.covered_keys, "同口径续用旧证据");
+    assert_eq!(same.budget, 99, "本轮预算要覆盖旧游标的");
+    assert_eq!(same.completed_laps, 1, "已关账圈数不能被续用丢掉");
+
+    // ② 口径变了 ⇒ 重开一圈（证据清零，已关账圈数保留）。
+    let other = rotation::resume_lap(Some(stored.clone()), "abc..HEAD", 150, &face);
+    assert!(
+        other.covered_keys.is_empty() && other.rounds == 0,
+        "口径变了必须重开：{other:?}"
+    );
+    assert_eq!(other.spec, "abc..HEAD");
+    assert_eq!(other.completed_laps, 1, "已关账圈数在重开后保留");
+
+    // ③ 面在圈中漂了 ⇒ 重开（拿旧面顶新面就是移动球门）。
+    let drifted = vec![("a.rs".to_string(), 10usize), ("b.rs".to_string(), 1usize)];
+    let reopened = rotation::resume_lap(Some(stored.clone()), "main...HEAD", 150, &drifted);
+    assert_eq!(reopened.face, drifted, "面漂了就以当前面重新定格");
+    assert!(reopened.covered_keys.is_empty(), "面漂了旧证据不顶用");
+
+    // ④ 没有游标 ⇒ 新开一圈，已关账圈数从 0 起。
+    let fresh = rotation::resume_lap(None, "main...HEAD", 150, &face);
+    assert_eq!(fresh.completed_laps, 0);
+    assert_eq!(fresh.spec, "main...HEAD");
+    assert_eq!(fresh.budget, 150);
+}
+
+/// `close_lap` 里 `--update` 的缺测闸（`lap.resource_rounds > 0`）：写成 `==` 时干净圈
+/// 被误拒、写成 `<` 时**有缺测的圈照写基线**（缺测被洗白——这正是 DD-0017 收尾时
+/// resource_rounds 判据要挡的事）。两个方向都用真落盘/不落盘钉死。
+#[test]
+fn canary_close_lap_update_refuses_only_on_resource_shortfalls() {
+    let face = vec![("a.rs".to_string(), 10usize)];
+    let root = std::env::temp_dir().join(format!("adv-close-upd-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("建临时目录");
+    let path = root.join("mutants-baseline.json");
+
+    // ① 干净圈（resource_rounds=0）+ --update ⇒ 基线照写，violations 空。
+    let mut lap = open_lap("main...HEAD", 150, &face, 0);
+    lap.rounds = 1;
+    lap.covered_files = vec!["a.rs".to_string()];
+    lap.missed_keys = vec!["a.rs::f".to_string()];
+    let mut v = Vec::new();
+    rotation::close_lap(&mut lap, "main...HEAD", 150, &path, 2, true, &mut v)
+        .expect("干净圈关账不该报错");
+    assert!(v.is_empty(), "干净圈的 --update 不该被拒：{v:?}");
+    let raw = std::fs::read_to_string(&path).expect("基线必须落盘");
+    assert!(raw.contains("a.rs::f"), "重录要把 missed 写进去：{raw}");
+
+    // ② 有缺测的圈（resource_rounds=1）+ --update ⇒ 拒绝重录、点名缺测、基线保持原样。
+    let mut lap2 = open_lap("main...HEAD", 150, &face, 1);
+    lap2.rounds = 1;
+    lap2.resource_rounds = 1;
+    lap2.covered_files = vec!["a.rs".to_string()];
+    lap2.missed_keys = vec!["b.rs::g".to_string()];
+    let mut v2 = Vec::new();
+    rotation::close_lap(&mut lap2, "main...HEAD", 150, &path, 2, true, &mut v2)
+        .expect("缺测圈关账本身不该报错");
+    assert!(
+        v2.iter().any(|x| x.contains("缺测")),
+        "缺测必须点名并拒绝重录（`>` 写成 `<` 时这里会静默洗白）：{v2:?}"
+    );
+    let raw2 = std::fs::read_to_string(&path).expect("读回基线");
+    assert!(
+        !raw2.contains("b.rs::g"),
+        "拒绝重录 ⇒ 基线保持上一轮内容：{raw2}"
+    );
+
     let _ = std::fs::remove_dir_all(&root);
 }

@@ -177,6 +177,10 @@ impl<'ast, 'a> Visit<'ast> for Counter<'a> {
             format!("type:{}::{}(items)", self.rel, i.ident),
             i.items.len() as u64,
         );
+        // 必须递归：trait 的**默认方法**是带函数体的真函数，不下钻它们等于给 god
+        // 留一个"把超长函数写进 trait 里就不计量"的口子（2026-10-11 DD-0018 分诊实测：
+        // 本函数自 M0 起就没有这一行，`visit_trait_item_fn` 从未被触达）。
+        syn::visit::visit_item_trait(self, i);
     }
 }
 

@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 use xtask::god::{
-    MAX_FN_LINES, MEMBER_DIRS, analyze_source, collect_workspace_entries, hard_violations,
-    ratchet_violations, rerecord_note, write_baseline,
+    MAX_FILE_LINES, MAX_FN_LINES, MAX_TYPE_MEMBERS, MEMBER_DIRS, analyze_source,
+    collect_workspace_entries, hard_violations, ratchet_violations, rerecord_note, write_baseline,
 };
 use xtask::lockstep::check_lockstep;
 use xtask::maturity::{experimental_patterns, pattern_matches};
@@ -318,4 +318,320 @@ fn canary_write_baseline_really_writes_and_rejects_hard_violations() {
     assert!(!target.is_file(), "拒写却仍然动了基线文件：{target:?}");
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// DD-0018 分诊：`record_fn` 的 `+ 1` 写成 `* 1` 时每个函数少算一行——棘轮里的函数行数
+/// 系统性偏低，而"少算"正是 god 门最不该有的方向（超长函数因此晚一轮才被抓）。
+/// 判据不手打行数：从 syn 报出来的 `fn` 区间算，两边必须闭合。
+#[test]
+fn canary_recorded_fn_span_includes_the_closing_brace() {
+    // `fn one() {}\nfn two() {\n  let a = 1;\n  let b = 2;\n}\n` —— 5 行里的两个函数。
+    let src = "fn one() {}\nfn two() {\n    let a = 1;\n    let b = 2;\n}\n";
+    let entries = analyze_source("crates/fake/src/span.rs", src);
+    assert_eq!(
+        entries["fn:crates/fake/src/span.rs::one"], 1,
+        "单行函数就是 1 行（少算成 0 就是 `+` 写成了 `*`）"
+    );
+    assert_eq!(
+        entries["fn:crates/fake/src/span.rs::two"], 4,
+        "从签名行到闭合花括号（含）整段都算（`saturating_sub(start) + 1`）"
+    );
+}
+
+/// `type_name_of` 的 `syn::Type::Reference` 臂删掉后，`impl Foo for &Bar` 会被记成
+/// `type:…::impl(impl)`——所有引用类型的 impl 面混成一个键，棘轮从此分辨不出它们。
+#[test]
+fn canary_impl_on_a_reference_type_is_named_by_its_inner_type() {
+    let src = "struct W;\nimpl std::ops::Deref for &W {\n    type Target = W;\n}\n";
+    let entries = analyze_source("crates/fake/src/refimpl.rs", src);
+    assert!(
+        entries.contains_key("type:crates/fake/src/refimpl.rs::W(impl)"),
+        "引用类型上的 impl 要按内层类型名计账：{:?}",
+        entries.keys().collect::<Vec<_>>()
+    );
+    assert!(
+        !entries.contains_key("type:crates/fake/src/refimpl.rs::impl(impl)"),
+        "删掉 Reference 臂后 impl 面会塌成 `impl` 一个键：{:?}",
+        entries.keys().collect::<Vec<_>>()
+    );
+    assert_eq!(entries["type:crates/fake/src/refimpl.rs::W(impl)"], 1);
+}
+
+/// trait / enum 的成员计数：三个 `visit_*` 的"整体替换成 ()"（整个函数体被抹掉）
+/// 在此前没有任何观察面——god 从来没有针对"trait 默认方法 / enum 变体 / trait 项"的夹具。
+#[test]
+fn canary_trait_enum_and_default_methods_all_get_counted() {
+    let src = r#"
+enum E { A, B, C }
+trait T {
+    const N: u32;
+    fn provided(&self) -> u32 { 1 }
+    fn required(&self);
+}
+"#;
+    let entries = analyze_source("crates/fake/src/traits.rs", src);
+    assert_eq!(
+        entries["type:crates/fake/src/traits.rs::E(variants)"], 3,
+        "enum 变体数必须计数"
+    );
+    assert_eq!(
+        entries["type:crates/fake/src/traits.rs::T(items)"], 3,
+        "trait 项数（const + 两个 fn）必须计数"
+    );
+    assert!(
+        entries.contains_key("fn:crates/fake/src/traits.rs::provided"),
+        "trait 默认方法有函数体就要计入函数面：{:?}",
+        entries.keys().collect::<Vec<_>>()
+    );
+    assert!(
+        !entries.contains_key("fn:crates/fake/src/traits.rs::required"),
+        "没有默认实现的声明不该计入函数面"
+    );
+}
+
+/// `collect_workspace_entries` 的两个 `&&` 反过来是**漏扫**：`target` 与点开头的目录
+/// 会走进计量，`target/` 里的生成物就会变成承重面（且体积巨大 ⇒ 硬阈误报）。
+#[test]
+fn canary_workspace_scan_skips_target_and_dot_directories() {
+    let root = std::env::temp_dir().join(format!("adv-scan-{}-{}", std::process::id(), file!()));
+    let _ = std::fs::remove_dir_all(&root);
+    for dir in MEMBER_DIRS {
+        std::fs::create_dir_all(root.join(dir)).expect("建成员目录");
+    }
+    let kept = root.join("crates/adv-core/src");
+    std::fs::create_dir_all(&kept).expect("建 src");
+    std::fs::write(kept.join("lib.rs"), "pub fn kept() {}\n").expect("写承重文件");
+    // 两种该被排除的目录各摆一份超阈内容：一个 170 行的单函数——fn 线当场炸（file 线
+    // 不炸），所以漏扫的第一症状是硬阈/未登记面直接点名 generated.rs。
+    let big = format!(
+        "fn huge_junk() {{\n{}\n}}\n",
+        "    let _x = 1;\n".repeat(MAX_FN_LINES as usize + 50)
+    );
+    for junk in ["crates/adv-core/target", "crates/adv-core/.hidden"] {
+        let dir = root.join(junk);
+        std::fs::create_dir_all(&dir).expect("建垃圾目录");
+        std::fs::write(dir.join("generated.rs"), &big).expect("写垃圾文件");
+    }
+    // 名字以 `.rs` 结尾的**目录**：受扫判据的 `is_file && ext` 写成 `||` 时它会被当成
+    // 源文件去读 ⇒ 读目录失败 ⇒ 整个计量报错（fail-closed 那半也在这里钉住）。
+    std::fs::create_dir_all(root.join("crates/adv-core/src/fake.rs")).expect("建 .rs 目录");
+
+    let entries = collect_workspace_entries(&root).expect("计量不该失败");
+    let _ = std::fs::remove_dir_all(&root);
+    assert!(
+        entries.contains_key("file:crates/adv-core/src/lib.rs"),
+        "承重面漏掉了：{:?}",
+        entries.keys().collect::<Vec<_>>()
+    );
+    assert!(
+        entries
+            .keys()
+            .all(|k| !k.contains("target/") && !k.contains(".hidden")),
+        "生成物/隐藏目录混进计量面了（`&&` 反过来时的症状）：{:?}",
+        entries.keys().collect::<Vec<_>>()
+    );
+    assert!(
+        hard_violations(&entries).is_empty(),
+        "垃圾目录漏进来就会顶出硬阈违规：{:?}",
+        hard_violations(&entries)
+    );
+}
+
+/// `hard_violations` 的 `>` 写成 `>=`：**正好等于**阈值的面被判成违规，于是
+/// `--write` 重录在"没有真违规"时也会拒写（DD-0006 那次登记就会莫名失败）。
+#[test]
+fn canary_hard_threshold_treats_exactly_at_cap_as_green() {
+    let at_cap: BTreeMap<String, u64> = [
+        (
+            "file:crates/adv-core/src/lib.rs".to_string(),
+            MAX_FILE_LINES,
+        ),
+        ("fn:a.rs::f".to_string(), MAX_FN_LINES),
+        ("type:a.rs::T(impl)".to_string(), MAX_TYPE_MEMBERS),
+    ]
+    .into_iter()
+    .collect();
+    assert!(
+        hard_violations(&at_cap).is_empty(),
+        "正好等于上限不算违规（`>` 写成 `>=` 会在这里红）：{:?}",
+        hard_violations(&at_cap)
+    );
+    let mut over = at_cap.clone();
+    over.insert("fn:a.rs::f".to_string(), MAX_FN_LINES + 1);
+    assert_eq!(
+        hard_violations(&over).len(),
+        1,
+        "超一行就要报红（判据不能被放松成 <）"
+    );
+}
+
+/// `ratchet_violations` 的 `>` 写成 `>=` 时，**与基线持平**的面全被判成恶化 ⇒
+/// 任何一次"没变"的登记都会被报成"变大了"，棘轮失去分辨力。
+#[test]
+fn canary_ratchet_treats_equal_to_baseline_as_green() {
+    let baseline: BTreeMap<String, u64> = [
+        ("fn:a.rs::f".to_string(), 10),
+        ("fn:a.rs::g".to_string(), 4),
+    ]
+    .into_iter()
+    .collect();
+    assert!(
+        ratchet_violations(&baseline, &baseline).is_empty(),
+        "与基线持平不算恶化（`>` 写成 `>=` 会在这里红）"
+    );
+    // 只准减的面仍然绿（棘轮的本意）。
+    let smaller: BTreeMap<String, u64> =
+        [("fn:a.rs::f".to_string(), 8), ("fn:a.rs::g".to_string(), 4)]
+            .into_iter()
+            .collect();
+    assert!(ratchet_violations(&smaller, &baseline).is_empty());
+    // 变大 1 就要报。
+    let bigger: BTreeMap<String, u64> = [
+        ("fn:a.rs::f".to_string(), 11),
+        ("fn:a.rs::g".to_string(), 4),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(ratchet_violations(&bigger, &baseline).len(), 1);
+}
+
+/// `init_or_write`（`--write` 的实现）整体换成 `Ok(())` 时，`--write` 会**静默无操作**地
+/// 返回成功：人以为登记完了，基线没动，下一轮照旧报红。
+#[test]
+fn canary_init_or_write_actually_lands_the_baseline() {
+    let dir = std::env::temp_dir().join(format!("adv-init-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for dir_name in MEMBER_DIRS {
+        std::fs::create_dir_all(dir.join(dir_name)).expect("建成员目录");
+    }
+    std::fs::create_dir_all(dir.join("crates/adv-core/src")).expect("建 src");
+    std::fs::write(dir.join("crates/adv-core/src/lib.rs"), "pub fn kept() {}\n")
+        .expect("写承重文件");
+    let target = dir.join("tools/baselines/god-baseline.json");
+
+    xtask::god::init_or_write(&dir).expect("登记不该失败");
+    assert!(
+        target.is_file(),
+        "init_or_write 说成功了却没落盘（整体换成 Ok(()) 的症状）：{target:?}"
+    );
+    let raw = std::fs::read_to_string(&target).expect("读回基线");
+    assert!(raw.contains("crates/adv-core/src/lib.rs"), "{raw}");
+
+    // 超硬阈的面存在时必须拒写（不许留下半截基线）。
+    std::fs::remove_file(&target).expect("清掉基线");
+    std::fs::write(
+        dir.join("crates/adv-core/src/huge.rs"),
+        "fn huge() {\n".to_string()
+            + &"    let _x = 1;\n".repeat(MAX_FN_LINES as usize + 50)
+            + "}\n",
+    )
+    .expect("写超阈文件");
+    let err = xtask::god::init_or_write(&dir).expect_err("超硬阈必须拒绝登记");
+    assert!(err.to_string().contains("硬阈"), "{err}");
+    assert!(!target.is_file(), "拒写却仍然动了基线文件：{target:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `suppress` 的两个遍历谓词（跳 `target`/点目录、只扫 `.rs` 常规文件）六个突变全部存活：
+/// 真跑里没人喂过边界形状。判据是**真值表**，两个方向都写死。
+#[test]
+fn canary_suppress_walk_and_file_predicates_are_truth_tables() {
+    use std::ffi::OsStr;
+    use xtask::suppress::{is_rust_source, walk_keep};
+    fn n(s: &'static str) -> Option<&'static OsStr> {
+        Some(OsStr::new(s))
+    }
+
+    // 遍历保留：只有 `target` 与点开头的名字被排除。
+    assert!(!walk_keep(OsStr::new("target")));
+    assert!(!walk_keep(OsStr::new(".hidden")));
+    assert!(!walk_keep(OsStr::new(".git")));
+    assert!(walk_keep(OsStr::new("src")), "普通目录要保留");
+    assert!(
+        walk_keep(OsStr::new("targetx")),
+        "`target` 是整名相等，不是前缀（`==` 反过来时这条会红）"
+    );
+    assert!(
+        walk_keep(OsStr::new("target.rs")),
+        "带扩展名的文件不是 target 目录"
+    );
+
+    // 受扫文件：只扫 `.rs` 常规文件。
+    assert!(is_rust_source(true, n("rs")));
+    assert!(
+        !is_rust_source(false, n("rs")),
+        "目录名以 rs 结尾也不是源文件"
+    );
+    assert!(!is_rust_source(true, n("txt")), "只扫 rs");
+    assert!(!is_rust_source(true, None), "没有扩展名不是源文件");
+    assert!(!is_rust_source(true, n("RS")), "扩展名大小写敏感");
+}
+
+/// `lockstep` 的 tag 列表解析：`delete !` 后空行会被当成一个 tag ⇒ 版本串带着空行去比对，
+/// 锁步判定要么恒绿要么恒红，取决于哪边先坏。
+#[test]
+fn canary_lockstep_tag_parsing_drops_blank_and_trims() {
+    use xtask::lockstep::parse_tag_list;
+    assert_eq!(
+        parse_tag_list("adv-v0.1.0\nadv-v0.2.0\n"),
+        vec!["adv-v0.1.0".to_string(), "adv-v0.2.0".to_string()]
+    );
+    assert_eq!(
+        parse_tag_list("adv-v0.1.0\r\n\r\n  adv-v0.2.0  \r\n"),
+        vec!["adv-v0.1.0".to_string(), "adv-v0.2.0".to_string()],
+        "CRLF 与行首尾空白都要吃掉（`delete !` 时空行会漏进来）"
+    );
+    assert!(parse_tag_list("").is_empty());
+    assert!(parse_tag_list("\n\n").is_empty(), "只有空行 = 没有 tag");
+    assert!(
+        parse_tag_list("v2.58.0\nadv-v0.1.0\n").contains(&"v2.58.0".to_string()),
+        "解析不认前缀：过滤 adv-v* 是 git tag --list 那侧的事"
+    );
+}
+
+/// `pattern_matches` 的 `&&` 写成 `||` 后：**结尾**的 `**` 也会被判成"非法的中段 `**`"
+/// ⇒ 所有登记的目录型试验面一律不命中 ⇒ god 重新全量计量（放松失效，方向是"更严"，
+/// 但真实后果是登记面失效后没人知道为什么 god 变慢了）。
+#[test]
+fn canary_trailing_double_star_still_matches_below_the_registered_dir() {
+    // 结尾 `**`：目录以下任意深度都要命中（这是 `&&` 反过来时的漏网面）。
+    assert!(
+        pattern_matches("crates/*/tests/data/**", "crates/a/tests/data/x.rs"),
+        "结尾 ** 至少吃一层"
+    );
+    assert!(
+        pattern_matches("crates/*/tests/data/**", "crates/a/tests/data/x/y/z.rs"),
+        "结尾 ** 吃任意深度"
+    );
+    // 同一段里 `**` 与其它条件同时成立（`contains("**")` 为真）时不能被误判成非法中段。
+    assert!(
+        pattern_matches("a/**", "a/b/c"),
+        "两段 pattern 的结尾 ** 是最深一段（`||` 反过来时这条会红）"
+    );
+    // 中段的 `**` 一律非法：deep-tail pattern 里出现非末段 `**` 必须整体不命中。
+    // 内层守卫的 `&&` 写成 `||` 时这一条会放过（2026-10-11 诊断实测：改错的那一侧
+    // 恰好是**内层**——外层 `&&` 的突变早被现有断言杀掉，内层没人照）。
+    assert!(
+        !pattern_matches("a/**/b/**", "a/x/b/y"),
+        "中段 ** 非法：deep-tail pattern 里夹着 ** 必须整体不命中"
+    );
+    // 反向：开头的 `**` 依旧不支持（登记面比字面宽就是放松过头）。
+    assert!(!pattern_matches("**/x.rs", "a/x.rs"));
+}
+
+/// `seg_eq` 的回溯语义：回溯时让上一个 `*` 多吃一个字符再试，结尾 `*` 要能吃掉剩余全部。
+/// （`pi = sp + 1` 的 `+→*` 突变经差分实证为**等价**——见账本 DD-0018 ②——所以这条
+/// 钉的是回溯本身不被改坏，不声称能杀那一条。）
+#[test]
+fn canary_seg_eq_backtracks_so_trailing_star_eats_the_rest() {
+    // 回溯必须发生：'X' 匹配不上 'b'，只能让 `*` 多吃一个字符再试。
+    assert!(pattern_matches("a*b", "aXb"));
+    assert!(!pattern_matches("a*b", "aXbY"), "末段后面还有字符就不算");
+    // 结尾 `*`：回溯后要能把剩下的全吃掉（回溯语义的常规面；`pi = sp + 1` 的 `+→*`
+    // 突变经差分实证为等价——见账本 DD-0018 ②——这条钉的是回溯本身不被改坏）。
+    assert!(pattern_matches("a*", "aXbYc"));
+    assert!(pattern_matches("a*", "a"), "零字符也要算");
+    // 多段回溯：第一个 `*` 吃够之后要能落到第二段上。
+    assert!(pattern_matches("a*b*c", "aXXbYYc"));
+    assert!(!pattern_matches("a*b*c", "aXXbYYd"));
 }

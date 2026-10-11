@@ -3376,3 +3376,89 @@ fmt 0 · Rust 尺 god 门绿（重录后）· python 尺 god 门绿（重录后�
 ## 游标提交链
 
 `6f6df5e8`（6 窗）→ `4d4853d0`（12 窗 + 78 键定格）→ 本提交（关账态 completed_laps=1 + 账本 + 账册）。
+
+---
+
+## DD-0018 分诊·xtask 批（2026-10-11，接手自 sess_ecbd3417 的中断现场）
+
+**先量后改**：改前用整文件口径对 xtask 8 个源文件跑诊断变异（`cargo mutants --file ×8
+--timeout 300 -j 2 --no-shuffle`，产物 `target/mutants-triage.pre-fix/`，日志定格
+`target/triage-run.pre-fix.out`）——**455 变异：87 存活 / 63 键**。改后同参数复跑
+（`target/triage-run.post-fix.out`）——**472 变异：44 存活 / 36 键，击杀 43 条 / 27 键，0 条新增存活**。
+（行号随重构漂移，对账按 `file::function` 键，不按行号。）
+
+### 三清单（87 条的去向）
+
+**① 能杀——43 条（改后复杀 7 条，见下）**，全部按"同包断言 + 纯函数提取"落地：
+
+按文件的实际击杀数（第一轮复跑 `pre 87 → post 44` 的差集，逐键核对）：43 = mutants 11 + rotation 15 + god 10 + suppress 6 + lockstep 1；maturity 0（那一侧的存活是**内层**守卫，第二轮才杀）。
+
+| 面 | 杀法 | 第一轮击杀键 |
+|---|---|---|
+| mutants.rs ×11 | `parse_outcomes` 提取（真语料 102 条钉生产闭包 ×3：Missed 谓词 / unviable>0 阈 / Timeout 谓词）+ 零 unviable 语料（3 条真 Caught，杀 `>=0`）+ 真 Timeout 语料（seg_eq 死循环条目）+ `patch_is_empty` 两向 + `tier_label` + `write_baseline`（拒写/整表替换/空表落盘） | run_cargo_mutants ×5、tier_label ×2、write_baseline ×4 |
+| rotation.rs ×15 | `closing_note` / `file_limit` / `resume_lap` 四形态（同口径续用/换口径重开/面漂重开/无游标）/ `settle_round` 假关账判死 + 判齐真关账（圈数 +1 不是抹 0）/ `load_lap` 非 NotFound 读失败 fail-closed（目录顶替游标）/ `progress_line` 全判齐分子分母 / `pick_window` 贪心与点名行边界 / `close_lap` 缺测闸两向 | resume_lap ×4、file_limit ×3、load_lap ×1、progress_line ×1、settle_round ×2（整体 + `&&`）、close_lap ×2（本体 + `+1` 圈数）、run ×2（整体 + 圈数累加）——第二轮再杀 pick_window ×2 与缺测闸 ×3，见下 |
+| god.rs ×10 | 夹具补面：行数含闭括号（`+1` 写成 `*1` 照出）/ `impl Foo for &Bar` 按内层名计账 / trait 默认方法·enum 变体·trait 项计数 / 遍历谓词真值表 / 硬阈与棘轮的"正好等于上限"两向 / `init_or_write` 真落盘+拒写 | record_fn、type_name_of、visit_item_trait/enum/trait_item_fn ×4、hard_violations、ratchet_violations、init_or_write、collect_workspace_entries ×1 |
+| suppress.rs ×6 | `walk_keep` + `is_rust_source` 真值表（6 变异一次清） | run ×6 |
+| lockstep.rs ×1 | `parse_tag_list`（CRLF/空行/trim） | git_tags `delete !` ×1 |
+
+**第二轮击杀（先手动打变异逐条验红 + 定点真跑复核，`target/triage-recheck.out`）**：
+rotation 的 pick_window 点名行 `>`→`>=`·`&&`→`||` ×2 + close_lap 缺测闸 `>`→`==`·`<`·`>=` ×3；
+god 的 collect_workspace_entries 另一半 `&&`→`||` ×1；maturity 的 pattern_matches 内层守卫
+`&&`→`||` ×1 —— **7 条全部从存活翻击杀、0 新增存活**。
+
+**改后复杀确认（第二轮，2026-10-11 定点复跑 `target/triage-recheck.out`）**：第一轮复跑暴露的
+4 个可杀面（god `.rs` 目录夹具 / maturity 中段 `**` / pick_window 点名行 `>=`·`||` / close_lap
+缺测闸 `==`·`<`·`>=`）补断言后再定点复跑 god+maturity+rotation 三文件——
+**244 变异：17 存活 / 215 捕获 / 10 unviable / 2 超时**，7 条全部从存活翻击杀、**0 新增存活**。
+（先手动打变异逐条验过 7 条全红且逐字节还原，再由真跑复核；两把尺同结论。）
+**总账：87 = 击杀 50（43 + 7） + 等价 2 + 接受 35。**
+
+**② 等价——2 条（论证入基线，不靠 `--update` 洗掉）**：
+- `maturity.rs::seg_eq` 的 `+`→`*`（`pi = sp * 1`）：**差分实证**——双实现（原版/变异）在
+  120 pattern × 31 seg = 3,720 组合上 0 差异；结构论证：回溯后变异把 `pi` 停在 `sp`，
+  下一轮星分支必然重入并把 `pi` 推回 `sp+1`、`mark=si` 收敛到同态；即使循环随即退出，
+  尾检 `p[pi..].all(== '*')` 多出的只有 `*` 自身（恒真）。⇒ 观察等价，登记。
+- `mutants.rs::git_diff_patch` 的 `delete !`（`git diff <spec> --` vs `git diff <spec>`）：
+  空 pathspec 的两次真实调用 stdout **逐字节同**（sha256 `e0d9337b…`，前会话实测取证）⇒ 等价，登记。
+
+**③ 接受——35 条（壳类，逐键披露）**：
+- `main.rs::main` ×2——子命令分发壳（`lockstep`/`mir` 两个 dispatch arm；断言入口是人/CI，同包无观察面）。
+- `mir.rs` ×5——rustc 边车起进程壳（`rustc_print` ×2、`run` ×3；真产物依赖本机 rustc-dev 工具链）。
+- `lockstep.rs` ×4——`git_tags` 整体换空表 ×3 + `run` 编排壳 ×1（起 git 子进程）。
+- `rotation.rs` ×16——`list_face` ×5（`cargo mutants --list` 起进程壳）、`preflight` ×3（env/盘量探测壳，
+  可测内核 `precheck_scratch`/`window_scratch_message` 已钉）、`run` 整体 ×3 + 内部 ×5（569/576/594 的
+  `delete !` 与 617:28 的 `key_gap_rounds +=` ×2——计数只在真跑落盘的游标里可观察）。
+- `mutants.rs` ×3——`ensure_scratch` env 读取包装（可测形态 `ensure_scratch_at` 已钉）、
+  `run` 684:8 预检闸（**fail-open 方向已披露**：`!short.is_empty()` 反向会在盘量充足时跳过整个门；
+  闸本身在编排层、无可测提取面——与 rotation::run 同类）、`write_baseline` 645:8 披露门槛
+  （`!dropped.is_empty()` 门后是 eprintln，测试截不到）。
+- `suppress.rs` ×5——`fs_read` ×2 + `run` 整体 ×3（读文件 IO 壳）。
+
+### 真缺陷（分诊抓到，非变异误报）
+
+`god.rs::visit_item_trait` **自 M0 起不递归**——trait 的默认方法（带函数体的真函数）从未被
+`visit_trait_item_fn` 计量过，god 对"把超长函数写进 trait 里"零观察面。修法一行：
+`syn::visit::visit_item_trait(self, i)`。该修复同时让 trait 相关的 4 个变异可被杀。
+
+### 门账（god 基线，两轮有意识重录）
+
+- 第一轮 `861 → 895`（新增 34、移除 0、变大 9）；第二轮（补 4 个击杀面 + fmt 后）`895 → 896`。
+- 净账（对 HEAD，L3 评审修正后终值）：**861 → 896 项 | 新增 35 | 移除 0 | 变大 8 | 变小 4**。变大 8 逐键：
+  god.rs 348→352、lockstep.rs 87→93、mutants.rs 723→751、rotation.rs 649→652、suppress.rs 68→77、
+  canary.rs 321→637、canary_rotation.rs 341→657、visit_item_trait 6→10。
+  变小 4 逐键：lockstep.rs::git_tags 12→7、mutants.rs::run_cargo_mutants 76→60、
+  rotation.rs::close_lap 43→36、suppress.rs::run 29→27（四个被提取的函数本体，纯函数化了）。
+  变大全部是分诊断言/文档行；`canary_mutants.rs` 一度 901>800 撞硬阈 ⇒ DD-0018 块拆成独立
+  `canary_mutants_dd0018.rs`（硬阈先于棘轮的判据当场兑现）。
+- python god 基线同轮重录（`god_gate.py --write-baseline`，508 文件）。
+
+### 收尾与既有红（不是本批的账）
+
+- fmt-workspace / cargo-test / clippy / xtask gate / mir / adv-m2 线：**全绿**（计时与覆盖率档
+  显式 SKIP，交 CI）。
+- pytest 全量在本机红 1 条（`test_appaudit::test_clone_happy_isolated`：缺 `rust/target/release/
+  rx-appops.exe`——CI 在 pytest 前 `cargo build --release` 拷进 `%TEMP%\rx-rs-target\release`，
+  本机没建过 ⇒ 环境差，非本批引入；pytest 归 umbrella-py 线）。
+- **debt-gate 双红（本地+CI）= DD-0005 超期 102 commit**（全仓云端安全扫描，四轮扫描全被取消的
+  既有债，since=1fc62d3）。CI 最近 5 次 run 的 core job 全红在这一步、其余步骤与 coverage job
+  全绿——本批推送后 CI 仍会红在这一步。处置权在该债的归属线，本批不动它。

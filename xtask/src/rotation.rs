@@ -361,7 +361,7 @@ pub fn key_gap_files(baseline: &[String], lap: &Lap) -> Vec<String> {
 }
 
 /// 整文件口径的 listing 限定：`["--file", f, "--file", g, …]`。
-fn file_limit(files: &[String]) -> Vec<String> {
+pub fn file_limit(files: &[String]) -> Vec<String> {
     let mut limit = Vec::new();
     for file in files {
         limit.push("--file".to_string());
@@ -375,7 +375,7 @@ fn file_limit(files: &[String]) -> Vec<String> {
 /// 为什么面要"定格"而不是每轮重算需求：一圈要跨多次调用（甚至跨提交），每轮重算会让
 /// "一圈覆盖全档面"变成移动球门。定格的面对面会漂，漂了就作废重跑——宁可不关账，
 /// 也不拿旧证据顶新面。
-fn resume_lap(stored: Option<Lap>, spec: &str, budget: usize, live: &[(String, usize)]) -> Lap {
+pub fn resume_lap(stored: Option<Lap>, spec: &str, budget: usize, live: &[(String, usize)]) -> Lap {
     match stored {
         Some(lap) if lap.spec == spec => match face_drift(&lap.face, live) {
             Some(why) => {
@@ -395,8 +395,18 @@ fn resume_lap(stored: Option<Lap>, spec: &str, budget: usize, live: &[(String, u
     }
 }
 
+/// 关账行的键缺口尾注（纯函数）：0 扇 = 空串；有 = 点名扇数与用途。
+/// 分诊发现 `>` 的三个突变全在 println 的格式分支里（观测不到）——提取成纯函数后可测。
+pub fn closing_note(key_gap_rounds: u32) -> String {
+    if key_gap_rounds > 0 {
+        format!("（其中键缺口专用窗 {key_gap_rounds} 扇，判的是 diff 面取不到的键）")
+    } else {
+        String::new()
+    }
+}
+
 /// 关账那一轮的固定动作：点名 ⇒ 有资格才重录基线 ⇒ 开新圈（覆盖清零、圈数保留、面原样带走）。
-fn close_lap(
+pub fn close_lap(
     lap: &mut Lap,
     spec: &str,
     budget: usize,
@@ -410,14 +420,7 @@ fn close_lap(
         lap.rounds,
         face_total(&lap.face),
         lap.face.len(),
-        if lap.key_gap_rounds > 0 {
-            format!(
-                "（其中键缺口专用窗 {} 扇，判的是 diff 面取不到的键）",
-                lap.key_gap_rounds
-            )
-        } else {
-            String::new()
-        }
+        closing_note(lap.key_gap_rounds)
     );
     if update {
         let resource = if lap.resource_rounds > 0 {
@@ -441,7 +444,7 @@ fn close_lap(
 }
 
 /// 一窗跑完后的裁决：关账 / 键缺口点名 / 进度播报，违规并进 `violations`。
-fn settle_round(
+pub fn settle_round(
     lap: &mut Lap,
     spec: &str,
     budget: usize,

@@ -460,7 +460,45 @@ pub enum Scope {
     Files(Vec<String>),
 }
 
+/// cargo-mutants 跑完后的读数（纯函数：喂 outcomes JSON 与 out 目录，不碰子进程）。
+/// 返回证据与待打印行（判定行 / unviable 提示 / 超时点名）——打印与判定分离，
+/// 让三个生产闭包（MissedMutant 谓词、unviable>0 阈、Timeout 谓词）可被真语料测：
+/// 2026-10-11 分诊发现它们因"测试直接调 `keys_by_summary`、生产闭包零覆盖"而存活。
+pub fn parse_outcomes(
+    parsed: &serde_json::Value,
+    out_dir: &Path,
+    tier: &str,
+) -> Result<(RoundEvidence, Vec<String>)> {
+    let missed = keys_by_summary(parsed, |s| s == "MissedMutant")?;
+    let verifiable = keys_by_summary(parsed, |s| VERIFIABLE_SUMMARIES.contains(&s))?;
+    let [total, caught, missed_n, unviable_n] = tally(parsed);
+    let mut notes = vec![format!(
+        "变异面 总={total} 捕获={caught} 未捕获={missed_n} unviable={unviable_n} 档={tier}"
+    )];
+    if unviable_n > 0 {
+        notes.push(format!(
+            "提示：unviable {unviable_n} 条的日志在 {}/mutants.out/log/；条数增多先怀疑 scratch 盘满/链接失败，别把缺测读成没问题",
+            out_dir.display()
+        ));
+    }
+    let resource = unviable_resource_failures(parsed, out_dir);
+    let timeouts = keys_by_summary(parsed, |s| s == "Timeout")?;
+    if let Some(note) = timeout_note(&timeouts) {
+        notes.push(note);
+    }
+    Ok((
+        RoundEvidence {
+            total,
+            missed,
+            verifiable,
+            resource,
+        },
+        notes,
+    ))
+}
+
 /// 按给定口径（[`Scope`]：diff patch 或整文件清单）跑 cargo-mutants 并读回裁决材料（各档共用）。
+/// 子进程壳：参数拼装 / scratch 指盘 / 退出码契约在这一层，读数判定在 [`parse_outcomes`]。
 ///
 /// 退出码契约（上游文档 mutants.rs/exit-codes.html，27.1.0 实测一致）：
 /// 0 = 全部被捕获；2 = 有未捕获变异；3 = 有变异超时。**三码都算"跑完了"**，正文一律
@@ -522,27 +560,11 @@ pub fn run_cargo_mutants(
         .with_context(|| format!("读 {}", outcomes_path.display()))?;
     let parsed: serde_json::Value =
         serde_json::from_str(&raw).with_context(|| format!("解析 {}", outcomes_path.display()))?;
-    let missed = keys_by_summary(&parsed, |s| s == "MissedMutant")?;
-    let verifiable = keys_by_summary(&parsed, |s| VERIFIABLE_SUMMARIES.contains(&s))?;
-    let [total, caught, missed_n, unviable_n] = tally(&parsed);
-    println!("变异面 总={total} 捕获={caught} 未捕获={missed_n} unviable={unviable_n} 档={tier}");
-    if unviable_n > 0 {
-        println!(
-            "提示：unviable {unviable_n} 条的日志在 {}/mutants.out/log/；条数增多先怀疑 scratch 盘满/链接失败，别把缺测读成没问题",
-            out_dir.display()
-        );
-    }
-    let resource = unviable_resource_failures(&parsed, &out_dir);
-    let timeouts = keys_by_summary(&parsed, |s| s == "Timeout")?;
-    if let Some(note) = timeout_note(&timeouts) {
+    let (evidence, notes) = parse_outcomes(&parsed, &out_dir, tier)?;
+    for note in &notes {
         println!("{note}");
     }
-    Ok(RoundEvidence {
-        total,
-        missed,
-        verifiable,
-        resource,
-    })
+    Ok(evidence)
 }
 
 /// `--timeout` 默认值（秒）：与 2026-10-06 以来每一轮真跑的口径一致（60），不动默认。
@@ -632,6 +654,12 @@ pub fn write_baseline(path: &Path, missed: &[String], resource: &[String]) -> Re
     Ok(vec![])
 }
 
+/// patch 是否无差异（`skip` 判定用）。提取为纯函数：分诊发现 `delete !` 突变会让门在
+/// **有** diff 时报 skip（假绿面），纯函数化后两个方向都被断言钉死。
+pub fn patch_is_empty(patch_text: &str) -> bool {
+    patch_text.trim().is_empty()
+}
+
 /// 跑变异门。`base` 为 diff 基线 ref；`update` 重录基线（披露通道）。
 pub fn run(
     root: &Path,
@@ -646,7 +674,7 @@ pub fn run(
     let spec = diff_spec(base, since);
     let patch = git_diff_patch(root, &spec, &[])?;
     let patch_text = std::fs::read_to_string(&patch)?;
-    if patch_text.trim().is_empty() {
+    if patch_is_empty(&patch_text) {
         return Ok(vec![format!(
             "skip: 与 {spec} 无差异，无变异面（skip 不算绿——门在此档视为通过并留痕）"
         )]);

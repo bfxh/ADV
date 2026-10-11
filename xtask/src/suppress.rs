@@ -18,12 +18,10 @@ pub fn run(root: &Path, today: &str) -> Result<Vec<String>> {
         }
         for entry in WalkDir::new(&base)
             .into_iter()
-            .filter_entry(|e| {
-                e.file_name() != "target" && !e.file_name().to_string_lossy().starts_with('.')
-            })
+            .filter_entry(|e| walk_keep(e.file_name()))
             .filter_map(Result::ok)
         {
-            if !entry.file_type().is_file() || entry.path().extension().is_none_or(|e| e != "rs") {
+            if !is_rust_source(entry.file_type().is_file(), entry.path().extension()) {
                 continue;
             }
             let rel = entry
@@ -37,6 +35,17 @@ pub fn run(root: &Path, today: &str) -> Result<Vec<String>> {
         }
     }
     Ok(violations)
+}
+
+/// 目录遍历保留判据（纯函数）：跳过 `target` 与点开头的名字。
+/// 分诊发现这行的 `!=`/`&&`/`delete !` 三个突变存活（真跑里无人喂边界形状）⇒ 提取 + 真值表钉死。
+pub fn walk_keep(file_name: &std::ffi::OsStr) -> bool {
+    file_name != std::ffi::OsStr::new("target") && !file_name.to_string_lossy().starts_with('.')
+}
+
+/// 受扫文件判据（纯函数）：只扫 `.rs` 常规文件。
+pub fn is_rust_source(is_file: bool, extension: Option<&std::ffi::OsStr>) -> bool {
+    is_file && extension.is_some_and(|e| e == std::ffi::OsStr::new("rs"))
 }
 
 fn fs_read(p: &Path) -> Result<String> {
