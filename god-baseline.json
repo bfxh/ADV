@@ -450,7 +450,7 @@
   "max_type_members": 0
  },
  "crates/adv-index/src/bin/incremental_cost.rs": {
-  "file_lines": 131,
+  "file_lines": 277,
   "max_fn_lines": 65,
   "max_type_members": 0
  },

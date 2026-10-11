@@ -3562,3 +3562,44 @@ adv-rules 4 / adv-sca 4 / adv-secrets 4 / adv-core 2。与 DD-0018 登记的"44 
 纯逻辑候选 22、仅 IO/时间 7。按验证成本排：adv-index（只依赖 adv-core，20 条）→ adv-parse /
 adv-rules（tree-sitter，中）→ adv-cli / adv-secrets（经 noseyparker→vectorscan，一轮 scratch 实测
 17GB ⇒ 走手动打变异 + 增量测试，不开整批）。
+
+## DD-0018 产品面第三格 adv-index/incremental_cost（2026-10-11 22:10，测量脚手架 bin）
+
+**先量**：`cargo mutants --file crates/adv-index/src/bin/incremental_cost.rs -j 1` ⇒
+**20 变异：20 存活 / 0 捕获**（42 秒）。这个 bin 此前**一条测试都没有**，所以整文件零观察面——
+不是"某几条分支没测"，是全盘没测。轻包（adv-index 只依赖 adv-core + serde）单文件跑得起。
+
+**读码后的分档**（不是按"是不是 bin"一刀切）：`timed`/`median_ms`/`decode_doc_lines` 是纯计算，
+`parity_of`/`self_check_passed` 是**这条测量结论成立的判据本身**，`read_docs`/`run`/`main` 是
+stdin 与编排接线。
+
+**击杀 13 条**（同一把尺复跑：**29 变异 7 存活 / 22 捕获**，63 秒）：
+- `timed` ×2：样本数必须等于 reps、被测体恰好跑 reps 次（采样数写错 = 中位建立在错误样本量上）。
+  另加 `reps=0 ⇒ 零样本`（不许偷偷跑一次）。
+- `median_ms` ×5：奇数长度取正中、**偶数长度取上中位**（`len/2` 写成 `len%2` 只在偶数上露馅）、
+  单元素、秒→毫秒必须乘 1000（`*`→`+`/`/` 差几个数量级）。
+- `read_docs` 的解析面抽成 `decode_doc_lines(lines)`：合法 doc 行按字段映射、非 `doc` 的 `type`
+  判错、坏 JSON 判错、空输入 ⇒ 空集（fail-closed 那半也在）。
+- `apply_round` ×1 + `parity_of`：空店不该等于全量重建；回放一轮后该等；**只喂半份文档必须判不等**
+  （否则自检永远为真、失去分辨力）。顺带证实了这条 bench 的核心断言成立（两轮回放 == 全量重建）。
+- `self_check_passed` 真值表：`parity && tokens == expected` —— `&&`→`||` 会让"热轮仍在大面积重切词"
+  这一半单独决定通过 ⇒ 测出来的"增量复用有效"就是假的。
+
+**接受 7 条（接线壳，逐键写明为什么观察不到）**：`read_docs` ×5（抽走解析后它只剩
+`decode_doc_lines(stdin.lock().lines())` 一行接线，单测换不掉进程 stdin；解析语义已在
+`decode_doc_lines` 钉死）、`run` ×1（stdin + stdout + 计时的编排体）、`main` ×1（分发壳）。
+**没有**为了让这 7 条消失而去删函数或改结构 —— 面缩小不等于覆盖变好。
+
+**键账**：adv-index 6 个 DD-0018 键里 **3 键全清**（`timed`/`median_ms`/`apply_round`），
+**3 键转成已披露的接受债**（`read_docs`/`run`/`main`，留基线）。
+
+**门账**：god 基线 `904 → 913`（新增 9 / 移除 0 / 变大 1）；python god 同轮重录。
+`cargo test -p adv-index` 全绿（含 bin 的 5 条新测）、clippy 零告警、fmt、`gate`/`mir`/`god` 全绿。
+
+**踩到并当场删掉的一条假断言**：我给 `timed` 加了"每个样本时长非零"，实测 `[0ns, 0ns, 100ns]`
+直接红——空闭包在快时钟上本来就能测出 0，`timed` 不承诺非零。那是我多加的性质，不是被测代码的错，
+按"断言要锚真判据"删掉。
+
+**余下产品面 23 键**：adv-parse 10 / adv-cli 5 / adv-rules 4 / adv-secrets 4。
+成本档：adv-parse 与 adv-rules 走 tree-sitter（中，仍可单文件真跑）；
+adv-cli 与 adv-secrets 经 noseyparker→vectorscan（重，一轮 scratch 实测 17GB ⇒ 手动打变异 + 增量测试）。
