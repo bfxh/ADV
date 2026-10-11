@@ -3484,3 +3484,41 @@ god 的 collect_workspace_entries 另一半 `&&`→`||` ×1；maturity 的 patte
   无宿主限定，同文件同名默认方法互相覆盖（insert 后写胜出）——改键形是冻结契约变更，须随重录披露；
   ② 嵌套 fn 整体不计量（god.rs:105 既定口径，与 trait 洞同类），是否关洞一并裁定。
   ③ 测试语料 argv 内嵌本机绝对路径 + `counted()` 依赖 JSON 缩进排版——重切语料时一并处理。
+
+## DD-0018 产品面·第一格 adv-core（2026-10-11 20:40，最小规格执行）
+
+**先量（零编译）**：35 个产品面新键直接从游标历史版本取（`git show 4d4853d0:tools/baselines/mutants-rotation.json`
+的 `missed_keys` 减存量基线 15）——**不起任何编译**。按包：adv-parse 10 / adv-index 6 / adv-cli 5 /
+adv-rules 4 / adv-sca 4 / adv-secrets 4 / adv-core 2。与 DD-0018 登记的"44 键"口径一致
+（44 = 35 新 + 9 存量产品基线键）。
+
+**改（最小格）**：只做 adv-core 的 `civil` + `today` 两键。
+- `civil`：既有测试只锚 day 0 与 day 20730 两点，闰年/世纪/纪元前三条分支零观察面。
+  补 10 个边界日，**期望值全部取自 CPython `date(1970,1,1)+timedelta(days=n)` 反算**
+  （独立实现，不由本算法自证）：1969-12-31 / 1900-02-28·03-01（1900 不闰）/
+  2000-02-28·29·03-01（400 年闰）/ 2100-02-28·03-01（世纪不闰，相邻两天）/ 2026-12-31·2027-01-01。
+- `today`：env 读取留在调用点、判定抽成纯函数 `today_from(raw, secs)`（同 `pinned_tmp`/`min_free_gib`
+  的既有写法；本工作区 `unsafe_code = "deny"` ⇒ 不能用 `set_var` 测 env 分支，只能这样拆）。
+  钉四形：非空覆盖原样返回 / 空串落系统算法 / 一天内任意秒同一天 + 跨天换日（钉 `86_400` 除数）/
+  负秒走欧氏除法；另加一条 `today()` 真取系统时钟的 ISO 形状断言（杀"整体换成空串/常量"）。
+
+**后量（同一把尺，单文件）**：`cargo mutants --file crates/adv-core/src/lib.rs -j 1 --timeout 120`
+⇒ **69 变异：68 捕获 / 0 存活 / 1 unviable**（2 分钟，零依赖包）。两键清零。
+
+**门账**：god 基线 `896 → 900`（有意识重录：新增 4 个测试/纯函数面、移除 0、变大 1 =
+`file:crates/adv-core/src/lib.rs` 57 → 124）；python god 基线同轮重录（508 文件）。
+`xtask gate` / `mir` / `cargo clippy -p adv-core --all-targets` / `cargo fmt` 全绿。
+
+**资源实测（决定后续格次的跑法，用户指令「以后都用最小来搞」）**：
+- 本机物理内存 15.4GB，实测只剩 1.3–1.8GB（88–91% 占用）；
+- **生效的 pagefile 在 `F:\pagefile.sys`（26GB 分配）而 F: 是 WD HDD 机械盘**，且注册表
+  `Session Manager\Environment\PagingFiles` 值**不存在**、`Win32_PageFileSetting` 为空 ⇒
+  2026-10-07 那次"pagefile 改到 E: NVMe"的配置**没有留下来**，系统回到自动管理并把 pagefile
+  放在剩余空间最大的盘上。这就是"太卡"的机制：内存一逼近上限就换页到机械盘。
+  修需要管理员改配置 + 重启（配置脚本已备 `pagefile-fix.ps1`，UAC 未确认故未落地）。
+- 盘：D: 常年 99% 满（实测仅剩 ~4.4GB），**装不下产品面一轮 scratch**（adv-secrets 那类经
+  noseyparker→vectorscan 包，一轮 scratch 实测 **17GB**）；E: 是 NVMe、97GB 空闲 ⇒
+  变异门 scratch 一律指 `E:\tmp\adv-mut`（`ADV_MUTANTS_TMP`/`TMP`/`TEMP`）。
+- 后续格次改法：**轻包（adv-core 这类零依赖）用 `cargo mutants --file` 单文件真跑**；
+  **重包（adv-secrets/adv-cli 等走 vectorscan 的）用手动打变异 + `cargo test -p <pkg>` 增量验证**，
+  不开整批门跑。并发一律 `-j 1`。

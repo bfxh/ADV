@@ -440,8 +440,8 @@
   "max_type_members": 0
  },
  "crates/adv-core/src/lib.rs": {
-  "file_lines": 58,
-  "max_fn_lines": 13,
+  "file_lines": 125,
+  "max_fn_lines": 21,
   "max_type_members": 0
  },
  "crates/adv-index/src/bin/bm25_retrieval.rs": {
