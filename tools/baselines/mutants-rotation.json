@@ -40,7 +40,7 @@
     ],
     [
       "crates/adv-cli/src/snapshot.rs",
-      11
+      15
     ],
     [
       "crates/adv-cli/src/wrapper.rs",
@@ -48,7 +48,7 @@
     ],
     [
       "crates/adv-core/src/lib.rs",
-      68
+      69
     ],
     [
       "crates/adv-index/src/bin/bm25_retrieval.rs",
@@ -56,7 +56,7 @@
     ],
     [
       "crates/adv-index/src/bin/incremental_cost.rs",
-      20
+      29
     ],
     [
       "crates/adv-index/src/bm25.rs",
@@ -144,7 +144,7 @@
     ],
     [
       "crates/adv-sca/src/rustsec.rs",
-      15
+      17
     ],
     [
       "crates/adv-sca/src/snapshot.rs",
@@ -152,7 +152,7 @@
     ],
     [
       "crates/adv-secrets/src/lib.rs",
-      22
+      24
     ],
     [
       "crates/adv-server/src/lib.rs",
@@ -172,7 +172,7 @@
     ],
     [
       "xtask/src/lockstep.rs",
-      30
+      33
     ],
     [
       "xtask/src/main.rs",
@@ -188,25 +188,61 @@
     ],
     [
       "xtask/src/mutants.rs",
-      154
+      159
     ],
     [
       "xtask/src/rotation.rs",
-      131
+      136
     ],
     [
       "xtask/src/suppress.rs",
-      16
+      20
     ],
     [
       "xtask/src/verdict.rs",
       11
     ]
   ],
-  "covered_files": [],
-  "covered_keys": [],
+  "covered_files": [
+    "crates/adv-ast-rust/src/driver_probe.rs",
+    "crates/adv-ast-rust/src/main.rs",
+    "crates/adv-ast-rust/src/spec.rs",
+    "crates/adv-ast-rust/src/taint_reach.rs",
+    "crates/adv-ast-rust/src/wrapper.rs",
+    "crates/adv-bin/src/lib.rs"
+  ],
+  "covered_keys": [
+    "crates/adv-ast-rust/src/driver_probe.rs::find_driver_artifact",
+    "crates/adv-ast-rust/src/driver_probe.rs::is_driver_artifact",
+    "crates/adv-ast-rust/src/driver_probe.rs::missing_message",
+    "crates/adv-ast-rust/src/main.rs::MirProbe::harvest",
+    "crates/adv-ast-rust/src/main.rs::call_sites",
+    "crates/adv-ast-rust/src/main.rs::callee_path",
+    "crates/adv-ast-rust/src/main.rs::emit",
+    "crates/adv-ast-rust/src/main.rs::emit_wrapper",
+    "crates/adv-ast-rust/src/main.rs::finding_json",
+    "crates/adv-ast-rust/src/main.rs::main",
+    "crates/adv-ast-rust/src/main.rs::operand_name",
+    "crates/adv-ast-rust/src/main.rs::parse_args",
+    "crates/adv-ast-rust/src/spec.rs::callee_matches",
+    "crates/adv-ast-rust/src/spec.rs::spec_of",
+    "crates/adv-ast-rust/src/spec.rs::specs_from_rules",
+    "crates/adv-ast-rust/src/taint_reach.rs::<impl Analysis<'tcx> for Reach<'a>>::apply_primary_statement_effect",
+    "crates/adv-ast-rust/src/taint_reach.rs::<impl Analysis<'tcx> for Reach<'a>>::apply_primary_terminator_effect",
+    "crates/adv-ast-rust/src/taint_reach.rs::Reach<'_>::all_propagators",
+    "crates/adv-ast-rust/src/taint_reach.rs::Reach<'_>::all_sanitizers",
+    "crates/adv-ast-rust/src/taint_reach.rs::Reach<'_>::all_sources",
+    "crates/adv-ast-rust/src/taint_reach.rs::analyze",
+    "crates/adv-ast-rust/src/taint_reach.rs::flat_pats",
+    "crates/adv-ast-rust/src/taint_reach.rs::span_file",
+    "crates/adv-ast-rust/src/taint_reach.rs::tainted_operand",
+    "crates/adv-ast-rust/src/wrapper.rs::crate_output_name",
+    "crates/adv-ast-rust/src/wrapper.rs::forwarded_args",
+    "crates/adv-ast-rust/src/wrapper.rs::is_wrapper",
+    "crates/adv-bin/src/lib.rs::version"
+  ],
   "missed_keys": [],
-  "rounds": 0,
+  "rounds": 1,
   "key_gap_rounds": 0,
   "resource_rounds": 0,
   "completed_laps": 1
