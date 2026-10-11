@@ -344,7 +344,7 @@ msvc 档能编并跑通深轨相关测试，此前已由 `5f5c7b0`/`8adf1c6` 两
 | 判据 | 位置 | 语义 |
 |------|------|------|
 | 盘量预检 | `xtask/src/mutants.rs::precheck_scratch` | 实测 TMP 所在盘余量 < 下限 ⇒ 红 + 一行照抄修法；**查不到余量只播"未知"，不判红**（不拿"查不到"当"没空间"） |
-| 盘满正判据 | `xtask/src/mutants.rs::unviable_disk_failures` | Unviable 条目的日志含 `No space left on device`/`final link failed`/`os error 112` 等签名 ⇒ 点名判红（这才是判据，预检只是提前拦） |
+| 盘满正判据 | `xtask/src/mutants.rs::unviable_resource_failures` | Unviable 条目的日志含 `No space left on device`/`final link failed`/`os error 112` 等签名 ⇒ 点名判红（这才是判据，预检只是提前拦） |
 | 重录拒绝对缺测放行 | 同 `run` 的 `--update` 分支 | 本轮存在盘满缺测 ⇒ **不写基线**并返回红。否则一次盘满就能把 9 条债"重录"成 4 条 |
 
 `DISK_FAILURE_SIGNATURES` 里的原话有账：`eval/FP-LEDGER-m2s4.md` 片A4 节记录的

@@ -654,8 +654,8 @@ pub fn write_baseline(path: &Path, missed: &[String], resource: &[String]) -> Re
     Ok(vec![])
 }
 
-/// patch 是否无差异（`skip` 判定用）。提取为纯函数：分诊发现 `delete !` 突变会让门在
-/// **有** diff 时报 skip（假绿面），纯函数化后两个方向都被断言钉死。
+/// patch 是否无差异（`skip` 判定用）。提取为具名纯函数：skip 是"门在此档视为通过"
+/// 的判定分支，具名后两向（空/非空）都有断言锚点，不靠调用点的内联表达式碰运气。
 pub fn patch_is_empty(patch_text: &str) -> bool {
     patch_text.trim().is_empty()
 }
@@ -706,7 +706,7 @@ pub fn run(
 /// 本轮变异面计数：总/捕获/未捕获/unviable。
 ///
 /// 打印用（把"unviable 增多"摆到明面上），不参与判红；判盘满缺测的是
-/// [`unviable_disk_failures`]。`outcomes` 畸形时返回全 0——真正的畸形由 `keys_by_summary`
+/// [`unviable_resource_failures`]。`outcomes` 畸形时返回全 0——真正的畸形由 `keys_by_summary`
 /// 先判红，这里不重复定罪。
 pub fn tally(parsed: &serde_json::Value) -> [usize; 4] {
     let outcomes: &[serde_json::Value] = parsed["outcomes"]
