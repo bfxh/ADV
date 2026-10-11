@@ -505,7 +505,7 @@
   "max_type_members": 0
  },
  "crates/adv-parse/src/mapper.rs": {
-  "file_lines": 172,
+  "file_lines": 176,
   "max_fn_lines": 33,
   "max_type_members": 1
  },
@@ -522,6 +522,11 @@
  "crates/adv-parse/tests/ast_snap.rs": {
   "file_lines": 20,
   "max_fn_lines": 4,
+  "max_type_members": 0
+ },
+ "crates/adv-parse/tests/mapper_arms.rs": {
+  "file_lines": 295,
+  "max_fn_lines": 62,
   "max_type_members": 0
  },
  "crates/adv-rules/src/lib.rs": {

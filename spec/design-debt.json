@@ -33,6 +33,17 @@
       "since": "4d4853d0",
       "due_after_tasks": 10,
       "guards": "分诊三清单（能杀 / 等价 / 接受）逐键落账；补的断言要与被变异代码**同包**（跨包不算覆盖，mutation-gate 语义）；等价键入基线必须带等价论证（M4-2 先例）；分诊改动会改面 ⇒ 圈作废重开，关账轮以干净圈（resource_rounds=0）+ --update 重录基线才销本条。"
+    },
+    {
+      "id": "DD-0019",
+      "surface": "adv-parse 归一 AST 的三条映射语义：rust 块注释采集（mapper.rs::collect_comments 的 comment_kind 入参）、python from 导入的绑定集（python.rs::import_kind 的 name/dotted_name 臂）、rust 通配 use 的路径前缀（rust_lang.rs::use_tree_paths 的 use_wildcard 支路）与残缺语法计数的双记账（mapper.rs::Builder::note_error 的自增）",
+      "kind": "defect",
+      "defect": "DD-0018 的 adv-parse 格补断言时坐实三条语义缺陷，实测证据（2026-10-11，crates/adv-parse/tests/mapper_arms.rs）：① `parse_source(Rust, \"// r 一行\nfn main() {}\n\n/* 块四行 */\n\")` 的 comments 只有 [(1,\"// r 一行\")]——块注释**不记账**。采集侧 mapper.rs 每语言只传单个 COMMENT_KIND（rust_lang.rs:7 = \"line_comment\"），而同文件 :8 的 COMMENT_KINDS 有两种、消费侧（walk 的孩子过滤、dotted_callee :166/:111/:119）都按两种排除 ⇒ 采集与消费口径不一致。后果：写在 /* */ 里的 ruleid 标记对规则测试门禁完全隐形（漏挂标记 = 该测的规则没测）。② `from os import *` 的 names = [(\"os\",\"os\"),(\"*\",\"*\")]——模块名经 child_by_field_name(\"module_name\") 已单独取到 module，又作为 named_child 撞上 `\"name\"|\"dotted_name\" if is_from` 臂再进一次 names。`from os import X` 并不绑定 os ⇒ 导入映射被污染，下游按名解析可能把 os 当成已绑定符号。③ `use m::n::*;` 的 names = [(\"::*\",\"*\")]——函数文档写的是 (\"路径::*\",\"*\")，实际前缀 m::n 整个丢失 ⇒ 通配导入\"来自哪个模块\"的信息没了。 ③ 的普遍性（同日实测）：不止 `use m::n::*`——`use q::*;` 同样得 (`::*`,`*`)，即**每一条**通配 use 都丢前缀，是类缺陷不是孤例。 ④ **`Builder::note_error` 是死代码**：它在 walk 期间对 `ast.parse_errors` 做 `+= 1`，而 `mapper.rs:66` 在 walk **之后**执行 `ast.parse_errors = count_broken(tree.root_node())` 直接赋值覆盖 ⇒ 自增全部作废（实测证据：把 note_error 整体换成空操作，`parse_errors > 0` 的断言照样通过，3 条 note_error 变异无人可杀）。这不是\"断言弱\"也不是等价，而是**没有观察面的死记账**；两条计数路径并存且一条静默胜出，本身就会骗读代码的人（他会以为 note_error 在起作用）。",
+      "why_from_design": "三条同源：归一 AST 的『一个形状一条路径』没被显式约束——注释种类是集合却按单值传参、from 语句的模块角色与绑定角色没分离、use 树前缀靠隐式 prefix 传递。M1 片1/片3 当时只按最简夹具（import os / use std::env）自证，快照测试不区分这些形状，所以口径漂移从未被判红。修法必须先定口径再改：① 采集侧接受 kinds 集合（纯增量：只多记账不会少，但会让 ruleid 门禁开始看到此前隐形的标记，可能把已有规则测试从过变成命中）；②③ 会**改变导入映射内容**（少一条假绑定 / 多一条真通配路径）⇒ 影响 rules/taint 的按名解析与既有金样，属冻结契约变更，须随 insta 快照重审与下游 FP 复算一起做，不能塞进清覆盖的批次。",
+      "origin": "0fd48fbd",
+      "since": "ce1adec1",
+      "due_after_tasks": 10,
+      "guards": "①②③ 各有一条**有意钉住当前行为**的断言在 crates/adv-parse/tests/mapper_arms.rs（带 DD-0019 号与「修好时删本断言」的话）：修对它们会红，改断言与改实现必须同批。验收判据：① rust 块注释进 comments 且行号 1-based；② from 导入的 names 只含被绑定名（模块名不再漏进）；③ use m::n::* 记成 (\"m::n::*\",\"*\")。三条都要重审 insta 快照（ast_snap.rs）并复跑 adv-parse 变异门 + 下游规则面的 FP 会计，缺一项不算修完。 ④ 的处置必须二选一并在同批做完：删掉 note_error 及其两处调用（计数只留 count_broken），或反过来让 note_error 成为唯一计数源并删 count_broken——**不许两条都留着**。验收：处置后 `replace note_error with ()` 一类变异要么不存在、要么能被判红。"
     }
   ],
   "retired_fields": [

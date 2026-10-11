@@ -11,7 +11,7 @@ mod python;
 mod rust_lang;
 
 pub use generic::{AstId, AstKind, AstNode, GenericAst, LiteralKind, Span};
-pub use mapper::{Language, parse_source};
+pub use mapper::{Language, ParseError, parse_source};
 
 /// 域版本（与工作区同源）。
 pub fn version() -> &'static str {

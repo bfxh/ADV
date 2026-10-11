@@ -3603,3 +3603,63 @@ stdin 与编排接线。
 **余下产品面 23 键**：adv-parse 10 / adv-cli 5 / adv-rules 4 / adv-secrets 4。
 成本档：adv-parse 与 adv-rules 走 tree-sitter（中，仍可单文件真跑）；
 adv-cli 与 adv-secrets 经 noseyparker→vectorscan（重，一轮 scratch 实测 17GB ⇒ 手动打变异 + 增量测试）。
+
+## DD-0018 产品面第四格 adv-parse（2026-10-11 23:20，补断言过程中坐实 4 条映射器缺陷 → DD-0019）
+
+**先量**：`cargo mutants --file generic.rs --file mapper.rs --file python.rs --file rust_lang.rs -j 1`
+⇒ **97 变异：32 存活 / 51 捕获 / 14 unviable**（4 分钟，一次跑四文件比拆四次省——每次都要重付 scratch 建树）。
+既有覆盖只有 `ast_snap.rs` 的 insta 快照，夹具只喂 `import os` / `use std::env` 这一类最简形 ⇒
+`import_kind` / `use_tree_paths` / `dotted_callee` 的多数 match 臂与三处记账面**零观察**。
+
+**改**：新增 `crates/adv-parse/tests/mapper_arms.rs`（9 条），全部走 `parse_source` 真解析，不 mock、
+不注入。按"每个臂至少一个真形状"补：rust `Vec` 花括号/嵌套花括号/顶层 `::` 花括号、python 别名/
+通配/裸多段/from、注释 1-based 行号（双语）、残缺计数两向、`GenericAst::string` 取回驻留文本、
+`ParseError` 的 Display。
+
+**后量**：97 变异 **9 存活 / 74 捕获** ⇒ **击杀 23 条**，0 新增。
+
+### 坐实的 4 条产品缺陷（登记 **DD-0019**，用户裁定本批不动语义）
+
+按"补断言 → 断言红 → 查根因"的顺序抓到，每条都有实测值：
+
+| # | 实测 | 根因 |
+|---|---|---|
+| ① | Rust `/* 块四行 */` 不进 comments（只得 `[(1,"// r 一行")]`） | 采集侧 `mapper.rs` 每语言只传单个 `COMMENT_KIND`（rust=`line_comment`），而消费侧 `rust_lang.rs` 按 `COMMENT_KINDS` **两种**排除 ⇒ 口径不一致；写在块注释里的 `ruleid` 标记对规则门禁隐形 |
+| ② | `from os import *` 的 names 多出 `("os","os")` | 模块名既经 `module_name` 字段取到 module，又作为 named_child 撞 `"name" if is_from` 臂再进一次 ⇒ 把**没被绑定**的模块名写进导入映射，污染下游按名解析 |
+| ③ | `use m::n::*` 得 `("::*","*")`，且 `use q::*` 同样 ⇒ **每条**通配都丢前缀（类缺陷，非孤例） | `use_wildcard` 支路没带上 prefix，与函数文档口径 `("路径::*","*")` 相反 |
+| ④ | **`Builder::note_error` 是死代码**：整体换成空操作，`parse_errors > 0` 断言**照样通过** | walk 期间它 `parse_errors += 1`，而 `mapper.rs:66` 在 walk **之后**用 `count_broken(root)` **赋值覆盖**同一字段 ⇒ 自增全废。两条计数并存且一条静默胜出，会骗读代码的人 |
+
+①②③ 各有一条**有意钉住当前行为**的断言（带 DD-0019 号 + "修好时删本断言"的话）：改对了它们会红，
+这是有意的绊线，不是给错行为背书。④ 的处置在债里写死为二选一（删 note_error 或删 count_broken），
+不许两条都留着。
+
+### 余下 9 条存活的归因（不再追，逐键披露）
+
+- `note_error` ×3（整体换空、`||`→`&&`、`+=`→`*=`）= **④ 死代码的直接后果**，不是断言弱：
+  没有任何输入能让它可见。随 DD-0019④ 处置一起清。
+- `dotted_callee` 的 `"identifier"`（python/rust）、`"attribute"`（python）臂删除 ×4 = **结构性等价**：
+  这些节点的文本与专用臂的返回值同一（回退臂 `_ => b.text(n)`），递归拼出的点分路径也与原文等长；
+  有区分度的只有泛型段那一形（已被 `Vec::<u32>::new` 夹具杀掉 `scoped_identifier` 臂与过滤器）。
+  ⇒ 这 4 个臂是**冗余分支**，可选清理项（删了不改行为），已随 ④ 一并记进 DD-0019 的处置面。
+- `import_kind` 的 `is_from`→`true` 守卫 ×1 = **不可达**：该臂之前的 `"name"|"dotted_name" if !is_from`
+  已把非 from 的同 kind 孩子全部吃掉，翻转守卫观察不到。
+- `use_tree_paths` 的 `"use_list"` 独立臂 ×1 = **未找到能走到它的真形状**（顶层 `::` 花括号实测走的是
+  `scoped_use_list` 支路）。留键不硬造夹具——按纪律"能观察才钉"，不为凑数编一个假形状。
+
+### 门账与自我更正
+
+- god 基线 `913 → 927`（新增 13 + 1、变大若干，两份基线同轮重录）；`xtask gate` / `mir` / `god` 全绿；
+  adv-parse 测试 15 绿；本包 clippy/fmt 干净（仅剩 vendored noseyparker 的既有 1 条告警）。
+- 公共 API 缺陷一处顺带修：`parse_source` 是 pub 且返回 `Result<_, ParseError>`，但 `ParseError`
+  此前**没被导出**（调用方连名字都拿不到）⇒ 补 `pub use` + 文档注释（`missing_docs` 随之消）。
+- 踩坑两条记档：① 断言消息里写 `` `::{…}` `` 会被 Rust 当格式串（花括号版的老坑），编译直接红；
+  ② 我的补丁脚本锚点被 `cargo fmt` 重排过 ⇒ 锚点失配，改回 Edit 逐处插；探针文件用完即删，不留在仓里。
+### 键账（按存活清单逐键核，不靠减法估算）
+
+adv-parse 的 10 个 DD-0018 键里：**5 键清零**（`collect_comments`、`ParseError::fmt`、`note_comment`、
+`GenericAst::string`、`use_list_items`）；**5 键仍有存活**且全部已逐键归因披露
+（`note_error`=④死代码、python/rust `dotted_callee`=结构性等价冗余臂、`import_kind` 的 `is_from`
+守卫=不可达、`use_tree_paths` 的 `use_list` 臂=未找到能走到的真形状），随 DD-0019 处置一起收。
+
+**未动过的产品面还剩 13 键**：adv-cli 5 / adv-rules 4 / adv-secrets 4。
+（对账：35 新键 − adv-core 2 − adv-sca 4 − adv-index 6 − adv-parse 10 = 13 ✓）

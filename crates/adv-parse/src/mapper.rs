@@ -12,6 +12,10 @@ pub enum Language {
     Rust,
 }
 
+/// `parse_source` 的失败类型：tree-sitter 自身拒设语言/解析超时等**内部**错误。
+///
+/// 语法残缺不算失败（残缺照常产 AST，计数在 `GenericAst::parse_errors`，见 RESEARCH 01
+/// 零失败纪律）。本类型随 `parse_source` 的公开签名一起导出——否则调用方连名字都拿不到。
 #[derive(Debug)]
 pub enum ParseError {
     /// tree-sitter 拒绝设置语言/超时等内部错误（解析本身零失败，见 GenericAst::parse_errors）。
