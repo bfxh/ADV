@@ -3487,8 +3487,10 @@ god 的 collect_workspace_entries 另一半 `&&`→`||` ×1；maturity 的 patte
 
 ## DD-0018 产品面·第一格 adv-core（2026-10-11 20:40，最小规格执行）
 
-**先量（零编译）**：35 个产品面新键直接从游标历史版本取（`git show 4d4853d0:tools/baselines/mutants-rotation.json`
-的 `missed_keys` 减存量基线 15）——**不起任何编译**。按包：adv-parse 10 / adv-index 6 / adv-cli 5 /
+**先量（零编译）**：35 个产品面新键直接从游标历史版本取——`git show 4d4853d0:tools/baselines/mutants-rotation.json`
+的 `missed_keys` 是 **78** 个键，减去存量基线里已经认过的 **15** 个 ⇒ **63 个新键**，再扣掉 xtask 那 **28** 个
+才得产品面 **35**（`78 − 15 = 63`、`63 − 28 = 35`，两步都要写出来，之前只写"减存量基线 15"是含糊的）
+——**不起任何编译**。按包：adv-parse 10 / adv-index 6 / adv-cli 5 /
 adv-rules 4 / adv-sca 4 / adv-secrets 4 / adv-core 2。与 DD-0018 登记的"44 键"口径一致
 （44 = 35 新 + 9 存量产品基线键）。
 
@@ -3904,11 +3906,21 @@ python `512 → 512`（变大 6）；`xtask gate`/`mir` 绿；claim-gate 0 失�
 ### 被实测推翻的旧断言（原文留着不删，在这里更正）
 
 本文件 adv-secrets 格与 adv-cli 格都写过"门线只余既有 `debt-gate` 红（DD-0005 超期 110 个 commit，
-非本批账）"。10-12 实跑 `scripts/debt_gate.py`：**两处红**——
-`DD-0005 1fc62d3..HEAD = 112/10`，以及 **`DD-0018 4d4853d0..HEAD = 11/10`**。
+非本批账）"。10-12 02:10 在 `HEAD=57b7ce5b` 实跑 `scripts/debt_gate.py`：**两处红**——
+`DD-0005`（`git rev-list --count 1fc62d3..HEAD` = **114**，限期 10）、
+以及 **`DD-0018` 自己**（`git rev-list --count 4d4853d0..HEAD` = **13**，限期 10）。
 后者是这 7 个分诊提交**自己把限期拖过的** ⇒ "非本批账"这句不再成立，DD-0018 现在既是待关账也是超期账。
+（这两个数每加一个 commit 就自己涨，别抄这里的现值，复算口径就是上面两条命令。）
 出路只有两条：把关账圈跑完销账；或按登记纪律重谈限期（动 `since` 属冻结契约，且"禁止为刷新计时而
 重开同一条债"，须用户点头）。
+
+**补两处当年没记全的账（用 git 历史复算，不是回忆）**：
+- python god 链条逐格复算（`git show <格提交>:god-baseline.json` 的键数）：
+  `adv-sca 508 → adv-index 508 → adv-parse 509 → adv-rules 510 → adv-secrets 511 → adv-cli 512`；
+  rust 侧同一批锚点为 `904 → 913 → 927 → 937 → 946 → 970`。前三格当时只披露了 rust、漏了 python，
+  现补齐口径来源（谁再对账直接从 git 取，不必信正文里的手抄数）。
+- "adv-cli 全包 **51 条 / 12 个目标 / 39 秒**"：`advcli-suite.log` 里只有各目标自报时间（合计约 11 秒），
+  **39 秒是当场墙钟实测、未落盘** ⇒ 要复算这条得重放，别把它当日志可核的数字。
 
 ### 评审顺带扩了一处缺陷登记（本批唯一的"新发现"）
 
