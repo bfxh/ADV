@@ -559,6 +559,11 @@
   "max_fn_lines": 24,
   "max_type_members": 0
  },
+ "crates/adv-rules/tests/annotation_gate.rs": {
+  "file_lines": 171,
+  "max_fn_lines": 47,
+  "max_type_members": 0
+ },
  "crates/adv-rules/tests/golden.rs": {
   "file_lines": 51,
   "max_fn_lines": 17,

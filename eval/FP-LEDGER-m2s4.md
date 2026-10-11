@@ -3663,3 +3663,41 @@ adv-parse 的 10 个 DD-0018 键里：**5 键清零**（`collect_comments`、`Pa
 
 **未动过的产品面还剩 13 键**：adv-cli 5 / adv-rules 4 / adv-secrets 4。
 （对账：35 新键 − adv-core 2 − adv-sca 4 − adv-index 6 − adv-parse 10 = 13 ✓）
+
+## DD-0018 产品面第五格 adv-rules（2026-10-11 23:55，规则注解门）
+
+**先量**：`cargo mutants --file testing.rs --file suppression.rs --file rule.rs -j 1`
+⇒ **63 变异：12 存活 / 46 捕获 / 5 unviable**（3 分钟）。
+
+**最要紧的一条**：`check_fixture` 整体换成 `Ok(())` 竟然存活——而 `check_fixture` 正是
+"注了必须报、没注不许报"的规则注解门。根因很直白：`m1s2`/`m2s2`/`ruleid` 里所有调用都是
+`.unwrap()`，**只测"该过能过"，从不测"不该过会拦"**。新增 `tests/annotation_gate.rs`（7 条）
+补上失败侧（漏报 / 误报两侧）、`annotated_lines` 的精确行集、文档注释四前缀的跳过、
+`adv:allow-file` 的粒度、`load_rules` 的两种扩展名。
+
+**后量**：testing.rs 单独复跑 **11 变异 11 捕获 0 存活**；三文件合计 **63 变异 2 存活 / 56 捕获**
+⇒ 击杀 10 条，0 新增存活。
+
+**余 2 条的归因（逐键，不硬凑）**：
+- `suppression.rs:57` `||`→`&&`（`/*!` 前缀那一支）= **当前不可达**：`/**`、`/*!` 都是块注释，
+  而 rust 的块注释根本不进 `ast.comments`（**DD-0019①** 的下游）。要等 ① 修好才可杀——
+  这条给 ① 补了一个"为什么不修不只是难看"的理由。测试文件里已在对应位置写明。
+- `suppression.rs:93` 守卫 `!v.trim().is_empty()`→true = **等价**：有无守卫最终 `reason` 都是空串，
+  而 `collect` 后面 `if reason.is_empty() { bad.push(Malformed "缺 reason") }` 同样触发 ⇒ 两条路径
+  观察不到差别（判据来自代码路径本身，不是"我试不出来"）。
+
+**断言锚点的一处自我更正（重要）**：我第一版误报侧写成 `err.contains("PY-EVAL-USE")`，
+而错误文案末尾还有一行"实际: […]"，规则号在那里也出现 ⇒ **锚错了位置，偶然通过**。
+表现就是复跑后 `delete !` 仍存活。改成按行取"误报（没注却报）"那一段再断言，随即杀掉。
+漏报侧那条经复跑证明本来就有区分度，不顺手扩改。
+
+**门账**：god 基线 `927 → 937 → 937`（新增 10 个测试面、变大 2 为加行）；adv-rules 全测试绿、
+fmt/clippy 干净、`gate`/`mir` 全绿。踩坑记档：`Rule` 只有 `Deserialize` 没有 `Serialize`，
+测试里别想把结构回写成 YAML；给本包测试引入 `walkdir` 也不行（不是它的依赖），
+用 std `read_dir` 自己递归。
+
+**产品面余 9 键未动**：adv-cli 5 + adv-secrets 4。对账：35 新键 − adv-core 2 − adv-sca 4
+− adv-index 6 − adv-parse 10 − adv-rules 4 = **9** ✓。adv-rules 的 4 键里 2 键全清
+（`check_fixture`/`annotated_lines` 所在的 testing.rs 11/11 全杀；`load_rules` 1 条已杀）、
+2 键仍有存活但均已归因（`collect` 的 1 条不可达随 DD-0019①、1 条等价），随该债处置一起收。
+余下两包都经 noseyparker→vectorscan（一轮 scratch 实测 17GB）⇒ 走手动打变异 + 增量 `cargo test -p`。
