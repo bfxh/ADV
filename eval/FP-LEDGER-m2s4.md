@@ -3462,3 +3462,25 @@ god 的 collect_workspace_entries 另一半 `&&`→`||` ×1；maturity 的 patte
 - **debt-gate 双红（本地+CI）= DD-0005 超期 102 commit**（全仓云端安全扫描，四轮扫描全被取消的
   既有债，since=1fc62d3）。CI 最近 5 次 run 的 core job 全红在这一步、其余步骤与 coverage job
   全绿——本批推送后 CI 仍会红在这一步。处置权在该债的归属线，本批不动它。
+
+### L3 提交级评审与收尾核验（2026-10-11 17:40–18:10，本会话独立复跑）
+
+- 收尾重放在提交后的 HEAD（`a15988fb`）复跑：`local_gate.py --line adv-m2` ⇒ 17 OK / 3 SKIP /
+  唯一红 = debt-gate 的 DD-0005（设计要它红）；`xtask gate`（棘轮本轮 632>631 一度真红，
+  系接管会话 17:32 最后一笔 canary.rs 改动晚于基线——对方会话提交时已随 637 重录消化）/
+  `xtask mir` / xtask clippy / fmt-workspace ⇒ 全绿。`cargo fmt --all --check` 对
+  third_party/noseyparker 的 41 处 diff 是裸 fmt 的已知坑（vendored 依赖），以 fmt-workspace 为准。
+- 四路只读深审（mutants/rotation、god/suppress/lockstep、测试面、账目）无阻断无重要：
+  - 五处纯函数提取全部真提取、生产真调用、逐行等价；50 条击杀的断言期望值硬编码或锚独立解析器，
+    两向覆盖抽查属实；语料确已入库（非 *.log 坑）。
+  - **trait 递归修复不重复计量**（确定结论）：syn visit 对 trait 项单路径分发 + `record_fn` 为
+    BTreeMap 覆盖式 insert；M0 确无该行（0f53a99d 实证）。
+  - god 基线独立复算：861→896｜新增 35｜移除 0｜变大 8｜变小 4，与提交信息一致（账本 3445 行的
+    "变大 9"是第一轮过程值，3446 行净账已写 8，无矛盾）。
+- 评审两处事实修正已落 `80af9ba8`：`patch_is_empty` 注释锚定的 `delete !` 变异位点不存在
+  （真面在 run 的 684 预检闸、已按接受披露）；`tally` 文档内链与账本判据表把函数名写成
+  `unviable_disk_failures`（实际 `unviable_resource_failures`）。
+- **裁定级遗留（记入 DD-0018 余下分诊，本批不动）**：① god 键 `fn:{rel}::{name}` 对 trait 默认方法
+  无宿主限定，同文件同名默认方法互相覆盖（insert 后写胜出）——改键形是冻结契约变更，须随重录披露；
+  ② 嵌套 fn 整体不计量（god.rs:105 既定口径，与 trait 洞同类），是否关洞一并裁定。
+  ③ 测试语料 argv 内嵌本机绝对路径 + `counted()` 依赖 JSON 缩进排版——重切语料时一并处理。
