@@ -281,8 +281,9 @@ patched = []
 
         let e = git(None, &["--definitely-not-a-git-flag"]).expect_err("非零退出必须判错");
         assert!(
-            e.contains("--definitely-not-a-git-flag"),
-            "报错要带上是哪条命令失败了：{e}"
+            e.starts_with("git --definitely-not-a-git-flag 失败"),
+            "报错必须点名是哪条 git 命令失败——本机 git 自己的 stderr 里也带这串旗标，\
+             只写 contains 会被它顺带满足（生产把 `git {{命令}} 失败：` 前缀拿掉也不会红）：{e}"
         );
     }
 

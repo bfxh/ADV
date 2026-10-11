@@ -252,8 +252,8 @@ fn budget_and_scratch_projection_fail_the_way_they_should() {
 
 #[test]
 fn cursor_round_trips_and_keeps_closed_laps() {
-    let root =
-        std::env::temp_dir().join(format!("adv-rotation-{}-{}", std::process::id(), file!()));
+    // 同 canary.rs：目录名不放 file!()，否则 Windows 下展开成多级目录、只删得掉叶子。
+    let root = std::env::temp_dir().join(format!("adv-rotation-{}-cursor", std::process::id()));
     std::fs::create_dir_all(&root).expect("建临时根");
     let path = root.join("mutants-rotation.json");
     let face = vec![("a.rs".to_string(), 10usize), ("b.rs".to_string(), 5usize)];

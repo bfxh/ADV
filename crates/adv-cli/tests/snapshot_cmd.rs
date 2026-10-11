@@ -23,7 +23,16 @@ fn adv(args: &[&str]) -> (i32, String, String) {
 /// `crates/adv-cli/one/` 落下 8.7 MB 上游 advisory。用法错的判据因此不止是退出码：
 /// **它必须根本没开始同步**。
 fn outside(tag: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("adv-snapshot-usage-{tag}-{}", std::process::id()))
+    // 名字带纳秒：Windows 的 PID 会复用，只用 PID 时上一趟崩溃留下的同名目录会让"目录没被建出来"
+    // 那条断言假红（本轮先量尺就见过落进 crate 目录的 8.7 MB 上游 advisory）。
+    let nano = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    std::env::temp_dir().join(format!(
+        "adv-snapshot-usage-{tag}-{}-{nano}",
+        std::process::id()
+    ))
 }
 
 #[test]

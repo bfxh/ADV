@@ -176,10 +176,19 @@ fn python_import_kind_covers_alias_wildcard_dotted_and_from() {
 
     // `from a.b import c, d as e` ⇒ 两种名字形状同时在场
     let ast = parse_source(Language::Python, "from a.b import c, d as e\n").expect("from 导入");
-    assert!(
-        has_names(&ast, &[("c", "c"), ("d", "e")]),
-        "from 导入的普通名与别名都要展开，实得：{:?}",
-        all_import_names(&ast)
+    // ⚠ **DD-0019②（这一条把它从"通配专属"扩到"所有 from 导入"）**：实测 names 全集是
+    // `[("a.b","a.b"), ("c","c"), ("d","e")]`——模块名 `a.b` 被当成一条**绑定**记进 names，
+    // 而 `from a.b import c` 根本不绑定 `a.b`。所以这条泄漏不只在 `from os import *` 形状上，
+    // 任何 from 导入都中招（登记原文只写了通配形）。② 修好时 `("a.b","a.b")` 必须消失，
+    // 期望改成 `[("c","c"), ("d","e")]` 并删掉本注释——用精确等值而不是子集，正是为了让它红得起来。
+    assert_eq!(
+        all_import_names(&ast),
+        vec![
+            ("a.b".to_string(), "a.b".to_string()),
+            ("c".to_string(), "c".to_string()),
+            ("d".to_string(), "e".to_string())
+        ],
+        "from 导入当前的 names 全集（含 DD-0019② 的模块名泄漏）"
     );
     assert_eq!(imports(&ast)[0].0, "a.b", "多段模块名要完整落在 module 上");
 }
@@ -256,12 +265,19 @@ fn rust_use_tree_expands_paths_alias_braces_and_wildcard() {
         "花括号里的每一项都要带全路径前缀，别名走 alias"
     );
 
-    // use_wildcard 臂必须被走到（记成 路径::* 且绑定 `*`）
-    let ast = parse_source(Language::Rust, "use m::n::*;\n").expect("解析通配 use");
+    // use_wildcard 臂必须被走到。⚠ **DD-0019③**：这里**有意钉住当前的错误行为**——
+    // 前缀 `m::n` 整个丢失，只剩 `("::*","*")`（函数文档口径是 `("m::n::*","*")`）。
+    // ③ 修好时这条会红，正确处置是把期望改成 ("m::n::*","*")，不是删断言绕过去。
+    let wildcard = parse_source(Language::Rust, "use m::n::*;\n").expect("解析通配 use");
+    assert_eq!(
+        all_import_names(&wildcard),
+        vec![("::*".to_string(), "*".to_string())],
+        "通配 use 当前的记账形状（精确钉住：多一条、少一条、前缀保住都会在这里红）"
+    );
     assert!(
-        has_names(&ast, &[("::*", "*")]),
+        has_names(&wildcard, &[("::*", "*")]),
         "use_wildcard 臂没走到的话这里会空，实得：{:?}",
-        all_import_names(&ast)
+        all_import_names(&wildcard)
     );
     // 独立的 `use_list` 臂（顶层 `use ::{root_item};` 这种花括号）也要走到
     let ast = parse_source(Language::Rust, "use ::{root_item};\n").expect("解析顶层花括号");

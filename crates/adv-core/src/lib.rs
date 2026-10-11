@@ -24,7 +24,8 @@ pub fn today() -> String {
 /// [`today`] 的可测形态：env 覆盖优先，空串算未设（落系统日期），否则按 UTC 天算。
 /// 拆分理由同 `xtask::mutants::pinned_tmp`——env 读取留在调用点，判据本身喂参数就能钉死，
 /// 不靠改进程环境（本工作区 `unsafe_code = "deny"`，`set_var` 用不了）。
-pub fn today_from(raw: Option<String>, secs: i64) -> String {
+/// 可见性停在 `pub(crate)`：全仓唯一的使用者是本文件的 `today` 与其测试，测试缝不该升格成公共契约。
+pub(crate) fn today_from(raw: Option<String>, secs: i64) -> String {
     if let Some(d) = raw.filter(|s| !s.is_empty()) {
         return d;
     }

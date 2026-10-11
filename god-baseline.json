@@ -335,7 +335,7 @@
   "max_type_members": 0
  },
  "crates/adv-cli/src/wrapper.rs": {
-  "file_lines": 240,
+  "file_lines": 243,
   "max_fn_lines": 55,
   "max_type_members": 0
  },
@@ -435,7 +435,7 @@
   "max_type_members": 0
  },
  "crates/adv-cli/tests/snapshot_cmd.rs": {
-  "file_lines": 64,
+  "file_lines": 73,
   "max_fn_lines": 12,
   "max_type_members": 0
  },
@@ -445,7 +445,7 @@
   "max_type_members": 0
  },
  "crates/adv-core/src/lib.rs": {
-  "file_lines": 125,
+  "file_lines": 126,
   "max_fn_lines": 21,
   "max_type_members": 0
  },
@@ -530,8 +530,8 @@
   "max_type_members": 0
  },
  "crates/adv-parse/tests/mapper_arms.rs": {
-  "file_lines": 295,
-  "max_fn_lines": 62,
+  "file_lines": 311,
+  "max_fn_lines": 69,
   "max_type_members": 0
  },
  "crates/adv-rules/src/lib.rs": {
@@ -625,7 +625,7 @@
   "max_type_members": 4
  },
  "crates/adv-sca/src/rustsec.rs": {
-  "file_lines": 309,
+  "file_lines": 310,
   "max_fn_lines": 32,
   "max_type_members": 6
  },
@@ -2530,7 +2530,7 @@
   "max_type_members": 0
  },
  "xtask/tests/canary.rs": {
-  "file_lines": 638,
+  "file_lines": 640,
   "max_fn_lines": 44,
   "max_type_members": 0
  },

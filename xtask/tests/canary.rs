@@ -393,7 +393,9 @@ trait T {
 /// 会走进计量，`target/` 里的生成物就会变成承重面（且体积巨大 ⇒ 硬阈误报）。
 #[test]
 fn canary_workspace_scan_skips_target_and_dot_directories() {
-    let root = std::env::temp_dir().join(format!("adv-scan-{}-{}", std::process::id(), file!()));
+    // 目录名里不要放 file!()：Windows 会把里面的 `/` 当分隔符展开成多级目录，
+    // 收尾只删得掉叶子，祖先 `Temp\xtask\tests\canary.rs` 一路泄漏累积。
+    let root = std::env::temp_dir().join(format!("adv-scan-{}-canary", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     for dir in MEMBER_DIRS {
         std::fs::create_dir_all(root.join(dir)).expect("建成员目录");

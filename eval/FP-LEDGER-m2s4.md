@@ -3717,7 +3717,10 @@ fmt/clippy 干净、`gate`/`mir` 全绿。踩坑记档：`Rule` 只有 `Deserial
 
 ⇒ 击杀 12 条、**0 新增存活**；`RESTORE_OK`（24 次改完全部逐字节还原，工作树只剩预期的 17/5 行）。
 
-**12 条存活逐键归因（四条都是"面缺失"，不是"断言写弱"）**：
+**12 条存活逐键归因（都是"面缺失"，不是"断言写弱"）**。先说清这 12 条的归属，免得把账算歪：
+**DD-0018 的 secrets 4 键内 7 条**（`scan_paths` 2 + `enumerate_skip` 2 + `enumerate_files` 2 + `scan_one` 1）、
+**常数面 2 条**（`MAX_FILE_BYTES` 的两个 `*`）、**本轮新抽出的留痕闸 3 条**（`skip_notice`，抽出前它根本不是一个键）。
+
 - `scan_paths`（`lib.rs:64` `>`→`==`、`>`→`>=`）：金丝雀那份大文件夹具是
   `vec![b'x'; MAX_FILE_BYTES + 1]`——**跟着常数一起变**，于是"恰好等于上限"与"超一个字节"
   两侧从来没被分开过。现用 20 KiB / 2 MiB / 恰好 8 MiB / 8 MiB+1 四份夹具把两侧钉死。
@@ -3772,7 +3775,10 @@ fmt 一格（`fmt_workspace.py`）才是全工作区的。
 | 后量（新测试） | 26 | 24 | **2** | 0 | 1 | 1 |
 
 ⇒ **12 条不可观察（9 存活 + 3 挂死）清到 2 条**，两把尺都活的那 2 条按结构性理由接受（见下）。
-26 轮改动全部 `RESTORE_OK`。
+**还原账要打折说**：后量尺 26 轮与先量尺的续跑段各自末尾都打 `RESTORE_OK`；但先量尺的**前 19 轮**是在
+我给驱动加 240 s 超时而中途停掉的，那一趟**没有** `RESTORE_OK`，停时 `main.rs` 上带着一个在飞的变异体，
+是靠"文件比 HEAD 多一行"发现、手工从 HEAD 备份还原的 ⇒ 逐字节还原的凭据是"每趟前后各对 HEAD/备份比一遍"，
+不是脚本自己那行 `RESTORE_OK`（这条已写进 memory）。
 
 **12 条逐键归因（全是"没有面"）**：
 - `main.rs::report`（`272 engine != Ast`、`278 engine == Both`）：摘要里"深轨：N 个文件跑失败"与
@@ -3795,9 +3801,11 @@ fmt 一格（`fmt_workspace.py`）才是全工作区的。
   （`rustc_driver_*.dll` / `rustc_driver_config.txt` / `libgdiagnostics.dll` / `notes.md` 四类邻居）
   并断言 wrapper 目录里的文件名**逐名相等**，只许有驱动副本 + 那一份 dll。
 
-**3 条"挂死"不是击杀也不是存活**（这一类必须单列）：`!=`→`==`、`!unknown.is_empty()`、
-`!a.starts_with("--")` 三条变异把"用法错"洗成"照单收下"，`snapshot_cmd` 的三条用例于是**真的去跑
+**3 条"挂死"不是击杀也不是存活**（这一类必须单列，账从 `advcli-before.log` 第 20/21/23 行复算）：
+`56:55 a.as_str() != "--with-rustsec"` → `==`、`58:8 delete !`（`!unknown.is_empty()`）、
+`66:20 paths.len() != 1` → `==` 三条变异把"用法错"洗成"照单收下"，`snapshot_cmd` 的三条用例于是**真的去跑
 上游同步**：240 s 超时不返回，并且在 crate 目录里落下 `one/`、`dir/`（实测 8.7–16 MB 的 OSV advisory）。
+（对照：`63:21 delete !` 那条路径侧滤是**存活**不是挂死，别记混。）
 仓里早有这条风险的记载（`snapshot_cmd.rs` 尾部"刻意不测 `--with-rustsec`：实测一条用例跑了 345 秒、
 还在仓里建了个目录"），本轮把它量化了。处置：那三条用例的目录参数改成**仓外绝对路径**，并加
 `assert!(!dir.exists())`——用法错的判据因此不止是退出码，**它必须根本没开始同步**（不参与上面的击杀数）。
@@ -3829,3 +3837,87 @@ fmt 一格（`fmt_workspace.py`）才是全工作区的。
 （游标 `git show 4d4853d0:tools/baselines/mutants-rotation.json` 的 `missed_keys` 35 新键，逐格对过）。
 **还不能销账**：分诊改动改了面 ⇒ 圈作废重开，要一圈干净圈（`resource_rounds=0`）+ 变异基线 `--update`
 重录才销；那一圈要整批门（17 GB scratch）⇒ 待盘位或改在 CI 档跑。另 `DD-0019①②③④` 是独立一批（改语义）。
+
+
+## 补刀：不改语义的边缘改动做 L3 三路只读评审（2026-10-12）
+
+用户指令「先审那些不改语义的边缘改动」⇒ 对 `a15988fb..65a4d744`（7 格批次的全部改动，
+14 个生产文件 + 11 个测试/语料文件）派三路只读评审（等价性 / 断言区分度 / 账目），
+**只读、不跑 cargo**（当时后台有变异门在跑，叠加编译会把 15.4GB 的机器压死）。
+
+**先撤回我自己的一处错判**：评审报 `rustsec.rs` 的 git 用例"needle 被 git 自己的 stderr 顺带满足"时，
+我口头回了一句"有一条是评审说反了"，理由是"git 报未知选项时不带前导 `--`"。实测打回来：
+`git --definitely-not-a-git-flag` 的 stderr 第一行是 `unknown option: --definitely-not-a-git-flag`
+（**带**双横线）⇒ 评审的判据成立，我说反了，该条按"应修"处理。纪律还是那条：
+结论要锚在实测上，不能锚在"我记得上游怎么打印"。
+
+**评审成立并修掉的 6 处**（全部测试面/可见性，生产语义零改动）：
+
+| 级别 | 位置 | 问题 | 处置 |
+|---|---|---|---|
+| 阻断 | `adv-parse/tests/mapper_arms.rs:288` | **DD-0019③ 钉在错误夹具上**：`ast` 被第 275 行的"嵌套花括号"夹具遮蔽，断言查的是 `m::n` 前缀，对着一份里根本没有 `m::n` 的 AST ⇒ 当前恒真、③ 修好后仍恒真，既没钉住缺陷又违背本文件头部"改对了会红"的口径（正是"把没覆盖洗成已覆盖"） | 通配夹具改名 `wildcard`，并用**精确等值**钉当前错误形状 `[("::*","*")]`（③ 修好⇒这条立刻红，符合"删断言要同批改期望"） |
+| 应修 | `adv-sca/src/rustsec.rs:282` | `e.contains("--definitely-not-a-git-flag")` 会被 git 自身 stderr 满足 ⇒ "生产不再点名是哪条命令"的变异杀不掉 | 改成锚生产前缀 `e.starts_with("git --definitely-not-a-git-flag 失败")` |
+| 应修 | `adv-cli/src/wrapper.rs:156` | 既有用例的 scratch 开局不清残留；Windows PID 复用 ⇒ 上一趟崩溃留下的第二份 DLL 会让"只有一份 rustc_driver DLL"假红 | 补 `let _ = remove_dir_all(&scratch);`（与我新加那条口径对齐） |
+| 应修 | `adv-core/src/lib.rs:27` | `today_from` 是全仓只被同文件用到的**测试缝**，却被升格成 `pub` 公共契约（grep 全仓：外部零使用者） | 降回 `pub(crate)`，并把理由写进注释 |
+| 可选 | `adv-cli/tests/snapshot_cmd.rs:26` | 临时目录名只含 PID，PID 复用时"目录没被建出来"那条新断言会假红 | 名字加纳秒段 |
+| 可选 | `xtask/tests/canary.rs:396`、`canary_rotation.rs:256` | 把 `file!()` 拼进临时目录名，Windows 下 `/` 被当分隔符展开成多级目录，收尾只删得掉叶子、祖先一路泄漏 | 换成静态短标签，并写明为什么不能放 `file!()` |
+
+**评审提出但**不**改的（如实留档，不顺手扩改）**：`today()` 只钉日期形状、注释里"换成常量会红"说得偏满；
+`incremental_cost.rs` 的 `parity_ok && self_check` 存在一个 `&&`→`||` 的观测盲区（合成 parity 数组不可达）；
+`god.rs` 补递归后 trait 默认方法的键没有宿主限定，与同文件同名顶层 `fn` 同键（`0e8f8d00` 已登记该遗留）；
+`adv-cli` 的 `#[cfg(all(test, windows))]` 模块在非 Windows 主机整块静默跳过（本仓 CI 就是 windows host）。
+
+**三路评审的等价性结论**（逐条比对过才写的，不是"看起来没问题"）：
+`skip_notice` 新旧输出逐字节等价（含条数行与每条前的 `\n  - `）、`skipped` 为空时仍然零输出；
+`snapshot_args` 两条错误文案逐字不变、"未知旗标优先于目录数"的判定次序不变、`exit(2)` 条件不变；
+`fresh_clone_for`/`parse_outcomes`/`closing_note`/`walk_keep`/`is_rust_source`/`parse_tag_list` 均为原表达式搬移，
+其中 `is_rust_source` 恰是旧条件的德摩根取反（跳过集合相同）；`incremental_cost` 的 stdout 段与退出侧未动。
+
+**本轮的机器事实（与"卡死"直接相关，写下来免得下次重新猜）**：关账圈第二窗在 01:11 起跑，
+机器 **01:24:59 被硬重启**（黑匣子记 `# GAP 338s` 起连打四条），窗口随重启一起死；
+`D:` 当时只剩 **0.9 GB**，清掉两个死透的 cargo-mutants scratch（`D:\tmp\adv-mut` 2.2 GB、最后写于 10-11 19:06；
+`D:\tmp\adv-mut-long` 414 MB、10-10 16:21）后回到 **3.5 GB**。
+`Win32_PageFileUsage` 又回到 `F:\pagefile.sys`（`AutomaticManagedPagefile=True`）⇒ **10-11 18:10 那次重启生效的 E: 设置，
+在 10-12 01:25 这次重启后再次被冲掉**（这是第二次复现"配置留不下来"）。
+
+**门账**：`cargo test -p adv-core -p adv-sca -p adv-parse`、`-p adv-cli`（bin 23 + snapshot_cmd 3）、
+`-p xtask`（canary 23 + canary_rotation 21）全绿；`cargo clippy --all-targets -- -D warnings` 零告警；
+god 基线 rust `970 → 970`（新增 0、移除 0、**变大 11**：都是加注释/加行的文件与函数）、
+python `512 → 512`（变大 6）；`xtask gate`/`mir` 绿；claim-gate 0 失配。
+变异面（rotation face）**不受影响**：cargo-mutants 不进 `#[cfg(test)]` 块与 `tests/` 目录，
+所以关账圈第一窗已判的 6 文件 / 28 键 / 0 存活仍然有效，游标随本提交进仓（可续跑）。
+
+### 第三路（账目复算）的结论，与我自己的两处点名错
+
+- **数字对得上**（逐行点日志复算）：secrets 先量 11/12/1、后量 23/0/1；cli 先量真跑 22 = 10+9+3、
+  后量真跑 26 = 24+2；收账 35（游标 `4d4853d0` 的 78 个 missed 键 − 存量基线里那 9 个产品键 = 35，
+  与"63 新键 = xtask 28 + 产品 35"两路都对）；god 970 / 512；adv-cli 全包 51 条 / 12 个目标。
+- **我点名点错了两处，按日志改回**：3 条挂死是 `56:55`、`58:8`、**`66:20 paths.len() != 1 → ==`**
+  —— 原文把 `63:21 delete !` 记成挂死，它其实是**存活**；"26 轮全部 `RESTORE_OK`"要打折——先量尺的
+  前 19 轮是我为了加 240 s 超时**中途停掉**的，那一趟没有 `RESTORE_OK`，`main.rs` 上带着一个在飞的
+  变异体，靠"比 HEAD 多一行"发现后手工还原。逐字节还原的凭据是"每趟前后各对 HEAD/备份比一遍"。
+- secrets 那 12 条的归属也补清：**4 键内 7 条 + 常数面 2 条 + 本轮新抽的留痕闸 3 条**
+  （原文"四条都是面缺失"把 5 个函数名混在一起，容易把 4 键的账读成 12 条都在 4 键里）。
+- "adv-cli 全包 39 秒"这句：`advcli-suite.log` 里只有各目标自报时间，**整条墙钟不可复算** ⇒ 只能标
+  "当场重放所得"。
+
+### 被实测推翻的旧断言（原文留着不删，在这里更正）
+
+本文件 adv-secrets 格与 adv-cli 格都写过"门线只余既有 `debt-gate` 红（DD-0005 超期 110 个 commit，
+非本批账）"。10-12 实跑 `scripts/debt_gate.py`：**两处红**——
+`DD-0005 1fc62d3..HEAD = 112/10`，以及 **`DD-0018 4d4853d0..HEAD = 11/10`**。
+后者是这 7 个分诊提交**自己把限期拖过的** ⇒ "非本批账"这句不再成立，DD-0018 现在既是待关账也是超期账。
+出路只有两条：把关账圈跑完销账；或按登记纪律重谈限期（动 `since` 属冻结契约，且"禁止为刷新计时而
+重开同一条债"，须用户点头）。
+
+### 评审顺带扩了一处缺陷登记（本批唯一的"新发现"）
+
+DD-0019② 的模块名泄漏**不限于通配形**：实测 `from a.b import c, d as e` 的 names 全集是
+`[("a.b","a.b"), ("c","c"), ("d","e")]` —— 普通 from 导入照样把模块名当绑定。已写进
+`spec/design-debt.json` 的 `defect`；同时把 ②③ 两条绊线从**子集断言**改成**精确等值钉全集**
+（评审指出子集写法在缺陷修好后不会变红，等于白钉）。
+
+**门账（评审修复这一批）**：`mapper_arms` 9 条全绿；`cargo clippy -p adv-parse --all-targets -- -D warnings`
+零告警；god rust `970 → 970`（变大 2：`mapper_arms.rs` 301→310 及相关函数）、python `512 → 512`（变大 1）；
+claim-gate 0 失配；debt-gate 2 处红（见上）。变异面不受影响（cargo-mutants 不进 `#[cfg(test)]` 与 `tests/`），
+关账圈第 1 窗已判的 6 文件 / 28 键 / 0 存活仍然有效。

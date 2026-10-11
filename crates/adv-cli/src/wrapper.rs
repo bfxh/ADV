@@ -154,6 +154,9 @@ mod tests {
     fn wrapper_copy_contains_driver_and_driver_dll() {
         let bin_dir = toolchain_bin().expect("rustc-dev 工具链应可用");
         let scratch = std::env::temp_dir().join(format!("adv-wrapper-test-{}", std::process::id()));
+        // 开局先清残留：Windows 的 PID 会复用，上一趟崩溃留下的 wrapper 目录会让"只有一份 DLL"
+        // 那条精确断言假红（本文件下面那条新用例同理，两边口径要对齐）。
+        let _ = std::fs::remove_dir_all(&scratch);
         let driver = scratch.join("source").join("driver.exe");
         std::fs::create_dir_all(driver.parent().expect("driver parent")).expect("建驱动源目录");
         std::fs::write(&driver, b"driver").expect("写假驱动");
