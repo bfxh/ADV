@@ -136,3 +136,90 @@ pub(crate) fn reconcile_report(snapshot_dir: &std::path::Path) -> usize {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{PathBuf, parse};
+
+    fn args(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn positionals_are_paths_in_order_and_defaults_are_off() {
+        let p = parse(&args(&["Cargo.lock", "../其他/Cargo.toml"])).expect("路径该收");
+        assert_eq!(
+            p.paths,
+            vec![
+                PathBuf::from("Cargo.lock"),
+                PathBuf::from("../其他/Cargo.toml")
+            ],
+            "位置参数按顺序进 paths：{:?}",
+            p.paths
+        );
+        assert!(p.snapshot.is_none(), "没给 --snapshot 不该有快照目录");
+        assert!(!p.reconcile, "没给 --reconcile 不该开对账");
+    }
+
+    #[test]
+    fn snapshot_takes_the_next_argument_as_its_value() {
+        let p = parse(&args(&["锁", "--snapshot", "快照目录"])).expect("--snapshot 是认得的旗标");
+        assert_eq!(
+            p.snapshot,
+            Some(PathBuf::from("快照目录")),
+            "{:?}",
+            p.snapshot
+        );
+        assert_eq!(
+            p.paths,
+            vec![PathBuf::from("锁")],
+            "快照的值不许混进路径：{:?}",
+            p.paths
+        );
+    }
+
+    #[test]
+    fn reconcile_is_a_flag_and_can_follow_the_snapshot_value() {
+        let p = parse(&args(&["--snapshot", "s", "--reconcile", "锁"])).expect("两个旗标都认得");
+        assert!(
+            p.reconcile,
+            "--reconcile 没被认出来（它会掉进未知旗标那条 Err）"
+        );
+        assert_eq!(p.snapshot, Some(PathBuf::from("s")));
+        assert_eq!(p.paths, vec![PathBuf::from("锁")]);
+    }
+
+    #[test]
+    fn a_snapshot_flag_without_a_value_is_refused_by_name() {
+        let err = parse(&args(&["锁", "--snapshot"]))
+            .err()
+            .unwrap_or_else(|| panic!("后面没值必须判红"));
+        assert!(
+            err.contains("--snapshot") && err.contains("快照目录"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn unknown_long_flags_are_refused_instead_of_becoming_paths() {
+        // 这条是「守卫 `other.starts_with("--")` 恒 false」的判据：守卫一倒，--wat 就被当路径收下。
+        let err = parse(&args(&["--wat"]))
+            .err()
+            .unwrap_or_else(|| panic!("未知旗标不许被当成锁文件"));
+        assert_eq!(err, "sca 不认得参数 --wat");
+    }
+
+    #[test]
+    fn a_dash_flag_is_a_path_but_a_double_dash_is_a_flag() {
+        // 判据锚在"只认 `--` 前缀"这条已定口径上：`-j` 不是 sca 的旗标，它是路径。
+        let p = parse(&args(&["-j"])).expect("-j 该被当路径");
+        assert_eq!(p.paths, vec![PathBuf::from("-j")], "{:?}", p.paths);
+    }
+
+    #[test]
+    fn no_arguments_parses_fine_and_leaves_the_path_list_empty() {
+        // 空路径的拒绝在 run（退出码 2），不在 parse——这里钉住分工，别让 parse 提前判红。
+        let p = parse(&args(&[])).expect("空参数不是用法错");
+        assert!(p.paths.is_empty() && p.snapshot.is_none() && !p.reconcile);
+    }
+}

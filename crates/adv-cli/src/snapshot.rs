@@ -11,24 +11,13 @@ use adv_sca::snapshot::sync;
 
 /// `adv snapshot <目录>`：列目录 + 逐对象条件 GET + ETag/MD5 记账。
 pub(crate) fn run(args: &[String]) {
-    let with_rustsec = args.iter().any(|a| a == "--with-rustsec");
-    let unknown: Vec<&String> = args
-        .iter()
-        .filter(|a| a.starts_with("--") && a.as_str() != "--with-rustsec")
-        .collect();
-    if !unknown.is_empty() {
-        eprintln!("snapshot 不认得参数 {}", unknown[0]);
-        std::process::exit(2);
-    }
-    let paths: Vec<PathBuf> = args
-        .iter()
-        .filter(|a| !a.starts_with("--"))
-        .map(PathBuf::from)
-        .collect();
-    if paths.len() != 1 {
-        eprintln!("用法：adv snapshot <快照目录> [--with-rustsec]（只收一个目录参数）");
-        std::process::exit(2);
-    }
+    let (paths, with_rustsec) = match snapshot_args(args) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(2);
+        }
+    };
     if with_rustsec {
         sync_rustsec(&paths[0]);
     }
@@ -52,6 +41,34 @@ pub(crate) fn run(args: &[String]) {
             std::process::exit(3);
         }
     }
+}
+
+/// 参数分诊（纯函数）：`Ok((目录参数, 是否带 --with-rustsec))`，用法错出 `Err(要打印的那句话)`。
+///
+/// 抽出来的理由：原来这六条判据（哪个是旗标、哪个是目录、`--with-rustsec` 不算未知旗标、
+/// 只收一个目录）全焊在 `run` 里，而 `run` 往下就走网络同步 ⇒ 离线测试只能碰到"缺目录/多目录/
+/// 未知旗标"三条用法错，`!unknown.is_empty()`、`!a.starts_with("--")` 与 `any(== "--with-rustsec")`
+/// 这些取反/换向的变异没有任何面能看见（DD-0018 实测：`snapshot.rs::run` 键整片存活）。
+pub(crate) fn snapshot_args(args: &[String]) -> Result<(Vec<PathBuf>, bool), String> {
+    let with_rustsec = args.iter().any(|a| a == "--with-rustsec");
+    let unknown: Vec<&String> = args
+        .iter()
+        .filter(|a| a.starts_with("--") && a.as_str() != "--with-rustsec")
+        .collect();
+    if !unknown.is_empty() {
+        return Err(format!("snapshot 不认得参数 {}", unknown[0]));
+    }
+    let paths: Vec<PathBuf> = args
+        .iter()
+        .filter(|a| !a.starts_with("--"))
+        .map(PathBuf::from)
+        .collect();
+    if paths.len() != 1 {
+        return Err(
+            "用法：adv snapshot <快照目录> [--with-rustsec]（只收一个目录参数）".to_string(),
+        );
+    }
+    Ok((paths, with_rustsec))
 }
 
 /// 匹配面：读快照 → 逐锁匹配 → 打 JSONL。返回它贡献的判红数（判不了直接 exit 3）。
@@ -133,6 +150,65 @@ fn sync_rustsec(root: &std::path::Path) {
         Err(e) => {
             eprintln!("adv snapshot：RustSec 同步失败（不折算为成功）：{e:#}");
             std::process::exit(3);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::snapshot_args;
+    use std::path::PathBuf;
+
+    fn args(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn a_single_directory_is_accepted_without_the_rustsec_flag() {
+        let (paths, with_rustsec) = snapshot_args(&args(&["快照"])).expect("一个目录就该收");
+        assert_eq!(
+            paths,
+            vec![PathBuf::from("快照")],
+            "目录参数要原样留下：{paths:?}"
+        );
+        assert!(!with_rustsec, "没给 --with-rustsec 不许当给了");
+    }
+
+    #[test]
+    fn the_rustsec_flag_is_a_flag_not_a_directory() {
+        let (paths, with_rustsec) =
+            snapshot_args(&args(&["快照", "--with-rustsec"])).expect("旗标可带可不带");
+        assert!(
+            with_rustsec,
+            "认不出 --with-rustsec 就等于永远走不到 RustSec 路"
+        );
+        assert_eq!(
+            paths,
+            vec![PathBuf::from("快照")],
+            "旗标不许混进目录参数：{paths:?}"
+        );
+    }
+
+    #[test]
+    fn a_bare_rustsec_flag_is_still_a_missing_directory() {
+        let err = snapshot_args(&args(&["--with-rustsec"])).expect_err("只给旗标等于没有目录");
+        assert!(err.contains("只收一个目录参数"), "{err}");
+    }
+
+    #[test]
+    fn unknown_flags_are_refused_by_name_and_take_precedence() {
+        let err = snapshot_args(&args(&["--wat", "快照"])).expect_err("未知旗标必须判红");
+        assert_eq!(err, "snapshot 不认得参数 --wat");
+        // 顺序也要钉住：未知旗标优先于目录数报出（否则"给了 3 个参数"会把拼错的旗标盖掉）。
+        let err = snapshot_args(&args(&["--wat", "a", "b"])).expect_err("同上");
+        assert!(err.contains("不认得参数 --wat"), "{err}");
+    }
+
+    #[test]
+    fn zero_or_two_directories_are_usage_errors() {
+        for bad in [vec![], vec!["a", "b"], vec!["a", "b", "c"]] {
+            let err = snapshot_args(&args(&bad)).expect_err("目录数不是 1 就该用法错");
+            assert!(err.contains("用法：adv snapshot"), "{err}");
         }
     }
 }

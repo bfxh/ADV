@@ -325,17 +325,17 @@
   "max_type_members": 0
  },
  "crates/adv-cli/src/sca.rs": {
-  "file_lines": 139,
+  "file_lines": 226,
   "max_fn_lines": 61,
   "max_type_members": 3
  },
  "crates/adv-cli/src/snapshot.rs": {
-  "file_lines": 139,
+  "file_lines": 215,
   "max_fn_lines": 48,
   "max_type_members": 0
  },
  "crates/adv-cli/src/wrapper.rs": {
-  "file_lines": 196,
+  "file_lines": 240,
   "max_fn_lines": 55,
   "max_type_members": 0
  },
@@ -409,6 +409,11 @@
   "max_fn_lines": 30,
   "max_type_members": 0
  },
+ "crates/adv-cli/tests/report_engine_lines.rs": {
+  "file_lines": 93,
+  "max_fn_lines": 17,
+  "max_type_members": 0
+ },
  "crates/adv-cli/tests/sca_advisories.rs": {
   "file_lines": 69,
   "max_fn_lines": 20,
@@ -430,8 +435,8 @@
   "max_type_members": 0
  },
  "crates/adv-cli/tests/snapshot_cmd.rs": {
-  "file_lines": 41,
-  "max_fn_lines": 11,
+  "file_lines": 64,
+  "max_fn_lines": 12,
   "max_type_members": 0
  },
  "crates/adv-cli/tests/three_way_ledger.rs": {

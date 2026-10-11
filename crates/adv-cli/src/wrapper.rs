@@ -192,4 +192,48 @@ mod tests {
         assert!(no_dll.contains("rustc_driver"), "{no_dll}");
         let _ = std::fs::remove_dir_all(&scratch);
     }
+
+    /// DLL 的认法必须是「前缀 **且** 后缀」——`&&`→`||` 会把同名邻居一起复制进 wrapper 目录，
+    /// 而复制错 DLL 的表现是 wrapper 起来就崩（`-1073741511`），比"没复制"更难查。
+    #[test]
+    fn only_names_that_are_both_prefixed_and_suffixed_get_copied() {
+        let scratch = std::env::temp_dir().join(format!("adv-wrapper-arms-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        let bin_dir = scratch.join("fake-bin");
+        std::fs::create_dir_all(&bin_dir).expect("建假 bin 目录");
+        // 四类邻居：唯一该来的、前缀对而后缀错的、后缀对而前缀错的、两头都不对的。
+        for name in [
+            "rustc_driver_deadbeef.dll",
+            "rustc_driver_config.txt",
+            "libgdiagnostics.dll",
+            "notes.md",
+        ] {
+            std::fs::write(bin_dir.join(name), name).expect("写假 bin 内容");
+        }
+        let driver = scratch.join("driver.exe");
+        std::fs::write(&driver, b"driver").expect("写假驱动");
+
+        let wrapper = wrapper_with_dlls(&driver, &bin_dir, &scratch).expect("建 wrapper 副本");
+        let dir = wrapper.parent().expect("wrapper 目录").to_path_buf();
+        let mut names: Vec<String> = std::fs::read_dir(&dir)
+            .expect("读 wrapper 目录")
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(
+            names,
+            vec![
+                "driver.exe".to_string(),
+                "rustc_driver_deadbeef.dll".to_string()
+            ],
+            "wrapper 目录只该有驱动本体 + 那一份 rustc_driver DLL（多出来的就是 &&→|| 放进来的邻居）"
+        );
+        assert_eq!(
+            std::fs::read(dir.join("rustc_driver_deadbeef.dll")).expect("读副本 DLL"),
+            b"rustc_driver_deadbeef.dll",
+            "复制的必须是真命中的那一份"
+        );
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
 }

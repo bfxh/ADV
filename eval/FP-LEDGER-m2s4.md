@@ -3758,3 +3758,74 @@ fmt 一格（`fmt_workspace.py`）才是全工作区的。
 − secrets 4 = **5** ✓，全在 adv-cli（同样经 noseyparker→vectorscan，继续手动打变异法）：
 `main.rs::report`、`sca.rs::parse`、`snapshot.rs::run`、`snapshot.rs::sync_rustsec`、
 `wrapper.rs::wrapper_with_dlls`。
+
+## 第七格：adv-cli（DD-0018 产品面最后 5 键，2026-10-11/12）
+
+**方法**：与上一格同（本包也经 noseyparker→vectorscan，整批门一轮 scratch 实测 17 GB 且 E 盘那份正被
+别的会话占着）⇒ **手动逐条打变异 + 定向 `cargo test -p adv-cli` + 逐字节还原**，同一张表跑两把尺：
+先量尺 = HEAD 的原树（新测试移开、四个源文件回退到 HEAD），后量尺 = 加了测试与抽函数的树。
+锚点表 28 条，两把尺各自只跑当前面里存在的条目（落空的如实记 SKIP，不当击杀）。
+
+| 尺 | 真跑 | 击杀 | 存活 | 挂死 | 编不过 | 锚点落空 |
+|---|---|---|---|---|---|---|
+| 先量（HEAD） | 22 | 10 | **9** | **3** | 1 | 5 |
+| 后量（新测试） | 26 | 24 | **2** | 0 | 1 | 1 |
+
+⇒ **12 条不可观察（9 存活 + 3 挂死）清到 2 条**，两把尺都活的那 2 条按结构性理由接受（见下）。
+26 轮改动全部 `RESTORE_OK`。
+
+**12 条逐键归因（全是"没有面"）**：
+- `main.rs::report`（`272 engine != Ast`、`278 engine == Both`）：摘要里"深轨：N 个文件跑失败"与
+  三方账这两行**只在非 ast 档被真跑过，从没在 ast 档断言过"不该出现"** ⇒ 把两行的出现条件整体反向，
+  两档的测试各自还是绿的。新增 `tests/report_engine_lines.rs`（2 条）把两侧一起钉住
+  （ast 档 `!contains("个文件跑失败")` 且 `!contains("三方账")`，both 档两条都必须出现）。
+  同文件另 4 条（`replace report with ()`、per_rule 的 `==`/`+=`）先量尺里就已被杀（`report_counts.rs`）。
+- `sca.rs::parse`（守卫 `other.starts_with("--") → false`）：守卫一倒，`--wat` 被当锁文件收下；
+  而现有 sca 用例全都只给真路径，**没有一条给未知旗标**（对照 snapshot 那边是有这条用例的）。
+  同文件另外 4 条（`26/30 delete match arm`、`31:22 → true`、`18:5 → Ok(Default)` 编不过）先量尺里
+  就已被现有用例杀掉或本来就 unviable。新增 `sca.rs` 的 7 条单测把整张真值表补齐
+  （位置参数顺序、`--snapshot` 的值不许混进 paths、`--reconcile` 可跟在值后面、缺值点名、空参数不是用法错）。
+- `snapshot.rs::run`（6 条判据 + 4 条新增面）：这一段焊在 `run` 里，而 `run` 往下就是**唯一的联网入口**
+  ⇒ 离线测试只能碰到"缺目录/多目录/未知旗标"三条用法错，`!unknown.is_empty()`、
+  `!a.starts_with("--")`、`any(a == "--with-rustsec")` 这些取反/换向全没有面。抽成
+  `pub(crate) fn snapshot_args(&[String]) -> Result<(Vec<PathBuf>, bool), String>` 后 5 条真值表单测直接覆盖，
+  连带的 4 条"整个函数换成常量"的新面同轮即杀。
+- `wrapper.rs::wrapper_with_dlls`（`34:45 && → ||`）：现有用例用的是**真 toolchain bin 目录**，
+  里面没有"名字像但不是 dll"的邻居 ⇒ `&&` 换成 `||` 观察不到。新增一条合成 `bin_dir`
+  （`rustc_driver_*.dll` / `rustc_driver_config.txt` / `libgdiagnostics.dll` / `notes.md` 四类邻居）
+  并断言 wrapper 目录里的文件名**逐名相等**，只许有驱动副本 + 那一份 dll。
+
+**3 条"挂死"不是击杀也不是存活**（这一类必须单列）：`!=`→`==`、`!unknown.is_empty()`、
+`!a.starts_with("--")` 三条变异把"用法错"洗成"照单收下"，`snapshot_cmd` 的三条用例于是**真的去跑
+上游同步**：240 s 超时不返回，并且在 crate 目录里落下 `one/`、`dir/`（实测 8.7–16 MB 的 OSV advisory）。
+仓里早有这条风险的记载（`snapshot_cmd.rs` 尾部"刻意不测 `--with-rustsec`：实测一条用例跑了 345 秒、
+还在仓里建了个目录"），本轮把它量化了。处置：那三条用例的目录参数改成**仓外绝对路径**，并加
+`assert!(!dir.exists())`——用法错的判据因此不止是退出码，**它必须根本没开始同步**（不参与上面的击杀数）。
+
+**余 2 条接受（逐键，两把尺都存活）**：
+- `snapshot.rs::sync_rustsec`（整体换成 `()`）：唯一效果是"少一次 `git clone` RustSec 上游库 + 少写一次
+  manifest 记账"，没有注入点（URL 是常量）⇒ 离线不可观察。与 adv-sca 那格 2 条联网壳类同口径。
+- `wrapper.rs` 的 `#[cfg(not(windows))]` 档（`58:5` 换成 `Ok(Default::default())`）：本机与 CI 都是
+  windows host，该 cfg 块**根本不参与编译**（连类型检查都不做）⇒ 任何断言都观察不到它。
+
+**面变化披露**：`snapshot.rs::run` 的 6 条判据搬进新函数 `snapshot_args`（键名随之变），
+`adv-secrets` 的 `scan_paths` 里那条留痕闸抽成 `skip_notice`——两处的账都要随 DD-0018 收口时的
+变异基线重录一起更新，不在这里偷偷改口径。
+
+**门账**：god 基线 rust `946 → 970`（新增 24、移除 0、变大 6）、python `511 → 512`（新增 1、移除 0、
+行数变大 4），两份同轮重录；`cargo test -p adv-cli` 全包 **51 条 / 12 个目标 / 39 秒全绿**
+（本轮新增 15 条：sca 7、snapshot 5、wrapper 1、report_engine_lines 2）；
+`cargo clippy -p adv-cli --all-targets -- -D warnings` 零告警；`xtask gate`/`xtask mir` 绿；
+门线 `local_gate --line adv-m2` 17 步只余既有 `debt-gate` 红（DD-0005 超期 110 个 commit，非本批账）。
+
+**脚本纪律的一条自身教训**（记进 memory，别再犯）：手动打变异脚本若崩在 `finally` 之前，
+**变异会留在工作树里**。本轮踩两次——① 备份路径拼成 `BAKDIR+相对路径`（第一次跑就崩，main.rs 带着
+变异体留在树里，是"行数比 HEAD 多一行"暴露的）；② 强杀挂死的驱动进程（`sca.rs` 带着 `delete match arm`
+被留下）。⇒ 每趟跑之前先把四个待改文件对 HEAD 比一遍，跑完再对备份比一遍，只看 `RESTORE_OK` 不够。
+
+## DD-0018 产品面收账（35 键七格全落）
+
+`adv-core 2 + adv-sca 4 + adv-index 6 + adv-parse 10 + adv-rules 4 + adv-secrets 4 + adv-cli 5 = 35` ✓
+（游标 `git show 4d4853d0:tools/baselines/mutants-rotation.json` 的 `missed_keys` 35 新键，逐格对过）。
+**还不能销账**：分诊改动改了面 ⇒ 圈作废重开，要一圈干净圈（`resource_rounds=0`）+ 变异基线 `--update`
+重录才销；那一圈要整批门（17 GB scratch）⇒ 待盘位或改在 CI 档跑。另 `DD-0019①②③④` 是独立一批（改语义）。

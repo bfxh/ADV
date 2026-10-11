@@ -2,6 +2,7 @@
 //! 因为只有"真跑一次同步"才会走到它，而真跑要网络。这里把不需要网络的那几条分支钉住：
 //! 未知参数、缺目录、多目录都必须是用法错（exit 2），且**不许**悄悄退 0。
 
+use std::path::PathBuf;
 use std::process::Command;
 
 fn adv(args: &[&str]) -> (i32, String, String) {
@@ -16,6 +17,15 @@ fn adv(args: &[&str]) -> (i32, String, String) {
     )
 }
 
+/// 用法错用例的目录参数一律给**仓外绝对路径**，且用完即验"没被建出来"：
+/// 变异门实测（2026-10-11 DD-0018 adv-cli 格）把 `paths.len() != 1` 反过来以后，
+/// `adv snapshot one two` 会真的走进同步——集成测试的 CWD 是 crate 目录，相对路径当场在
+/// `crates/adv-cli/one/` 落下 8.7 MB 上游 advisory。用法错的判据因此不止是退出码：
+/// **它必须根本没开始同步**。
+fn outside(tag: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("adv-snapshot-usage-{tag}-{}", std::process::id()))
+}
+
 #[test]
 fn no_directory_is_a_usage_error() {
     let (code, _out, stderr) = adv(&["snapshot"]);
@@ -25,15 +35,28 @@ fn no_directory_is_a_usage_error() {
 
 #[test]
 fn two_directories_is_a_usage_error() {
-    let (code, _out, stderr) = adv(&["snapshot", "one", "two"]);
+    let one = outside("one");
+    let two = outside("two");
+    let (code, _out, stderr) = adv(&["snapshot", &one.to_string_lossy(), &two.to_string_lossy()]);
     assert_eq!(code, 2, "只收一个目录：{stderr}");
+    for d in [&one, &two] {
+        assert!(
+            !d.exists(),
+            "两个目录就该在用法层拦掉，不许真的开始同步（同步会在 {d:?} 落上游数据）"
+        );
+    }
 }
 
 #[test]
 fn an_unknown_flag_is_refused_by_name() {
-    let (code, _out, stderr) = adv(&["snapshot", "--wat", "dir"]);
+    let dir = outside("wat");
+    let (code, _out, stderr) = adv(&["snapshot", "--wat", &dir.to_string_lossy()]);
     assert_eq!(code, 2, "不认得的参数要判 2 并点名：{stderr}");
     assert!(stderr.contains("--wat"), "报错要点名那个参数：{stderr}");
+    assert!(
+        !dir.exists(),
+        "未知旗标必须被拦住，不许顺着往下同步（同步会在 {dir:?} 落上游数据）"
+    );
 }
 // 刻意**不测** `--with-rustsec` 的 happy path：它会真去 `git clone` 上游库（实测一条用例跑了
 // 345 秒、还在仓里建了个目录）。那条路径的背书是账本里那次真桶同步（`adv snapshot` 实跑），
