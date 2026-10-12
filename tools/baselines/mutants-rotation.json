@@ -247,7 +247,9 @@
     "xtask/src/gate.rs",
     "xtask/src/god.rs",
     "xtask/src/lockstep.rs",
-    "xtask/src/main.rs"
+    "xtask/src/main.rs",
+    "xtask/src/maturity.rs",
+    "xtask/src/mir.rs"
   ],
   "covered_keys": [
     "crates/adv-ast-rust/src/driver_probe.rs::find_driver_artifact",
@@ -492,7 +494,12 @@
     "xtask/src/main.rs::emit",
     "xtask/src/main.rs::main",
     "xtask/src/main.rs::mutants_gate",
-    "xtask/src/main.rs::workspace_root"
+    "xtask/src/main.rs::workspace_root",
+    "xtask/src/maturity.rs::experimental_patterns",
+    "xtask/src/maturity.rs::pattern_matches",
+    "xtask/src/maturity.rs::seg_eq",
+    "xtask/src/mir.rs::run",
+    "xtask/src/mir.rs::rustc_print"
   ],
   "missed_keys": [
     "crates/adv-cli/src/snapshot.rs::sync_rustsec",
@@ -519,9 +526,12 @@
     "crates/adv-sca/src/snapshot.rs::sync",
     "xtask/src/lockstep.rs::git_tags",
     "xtask/src/lockstep.rs::run",
-    "xtask/src/main.rs::main"
+    "xtask/src/main.rs::main",
+    "xtask/src/maturity.rs::seg_eq",
+    "xtask/src/mir.rs::run",
+    "xtask/src/mir.rs::rustc_print"
   ],
-  "rounds": 9,
+  "rounds": 10,
   "key_gap_rounds": 0,
   "resource_rounds": 0,
   "completed_laps": 1
