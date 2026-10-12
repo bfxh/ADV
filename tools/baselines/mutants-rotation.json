@@ -226,7 +226,10 @@
     "crates/adv-parse/src/mapper.rs",
     "crates/adv-parse/src/python.rs",
     "crates/adv-parse/src/rust_lang.rs",
-    "crates/adv-rules/src/lib.rs"
+    "crates/adv-rules/src/lib.rs",
+    "crates/adv-rules/src/matcher.rs",
+    "crates/adv-rules/src/rule.rs",
+    "crates/adv-rules/src/suppression.rs"
   ],
   "covered_keys": [
     "crates/adv-ast-rust/src/driver_probe.rs::find_driver_artifact",
@@ -342,7 +345,25 @@
     "crates/adv-parse/src/rust_lang.rs::use_tree_paths",
     "crates/adv-parse/src/rust_lang.rs::walk",
     "crates/adv-parse/src/rust_lang.rs::walk_call",
-    "crates/adv-rules/src/lib.rs::version"
+    "crates/adv-rules/src/lib.rs::version",
+    "crates/adv-rules/src/matcher.rs::Finding::to_jsonl",
+    "crates/adv-rules/src/matcher.rs::call_findings",
+    "crates/adv-rules/src/matcher.rs::callee_matches",
+    "crates/adv-rules/src/matcher.rs::import_map",
+    "crates/adv-rules/src/matcher.rs::kwargs_satisfied",
+    "crates/adv-rules/src/matcher.rs::resolve_callee",
+    "crates/adv-rules/src/matcher.rs::run_matchers",
+    "crates/adv-rules/src/matcher.rs::severity_name",
+    "crates/adv-rules/src/matcher.rs::split_path",
+    "crates/adv-rules/src/rule.rs::Match::validate",
+    "crates/adv-rules/src/rule.rs::OneOrMany::to_vec",
+    "crates/adv-rules/src/rule.rs::load_rules",
+    "crates/adv-rules/src/rule.rs::rule_language",
+    "crates/adv-rules/src/suppression.rs::active",
+    "crates/adv-rules/src/suppression.rs::collect",
+    "crates/adv-rules/src/suppression.rs::expired",
+    "crates/adv-rules/src/suppression.rs::marker_len",
+    "crates/adv-rules/src/suppression.rs::valid_date"
   ],
   "missed_keys": [
     "crates/adv-cli/src/snapshot.rs::sync_rustsec",
@@ -359,9 +380,10 @@
     "crates/adv-parse/src/python.rs::dotted_callee",
     "crates/adv-parse/src/python.rs::import_kind",
     "crates/adv-parse/src/rust_lang.rs::dotted_callee",
-    "crates/adv-parse/src/rust_lang.rs::use_tree_paths"
+    "crates/adv-parse/src/rust_lang.rs::use_tree_paths",
+    "crates/adv-rules/src/suppression.rs::collect"
   ],
-  "rounds": 5,
+  "rounds": 6,
   "key_gap_rounds": 0,
   "resource_rounds": 0,
   "completed_laps": 1
