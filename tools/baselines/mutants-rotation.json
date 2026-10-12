@@ -217,7 +217,8 @@
     "crates/adv-cli/src/wrapper.rs",
     "crates/adv-core/src/lib.rs",
     "crates/adv-index/src/bin/bm25_retrieval.rs",
-    "crates/adv-index/src/bin/incremental_cost.rs"
+    "crates/adv-index/src/bin/incremental_cost.rs",
+    "crates/adv-index/src/bm25.rs"
   ],
   "covered_keys": [
     "crates/adv-ast-rust/src/driver_probe.rs::find_driver_artifact",
@@ -293,16 +294,30 @@
     "crates/adv-index/src/bin/incremental_cost.rs::read_docs",
     "crates/adv-index/src/bin/incremental_cost.rs::run",
     "crates/adv-index/src/bin/incremental_cost.rs::self_check_passed",
-    "crates/adv-index/src/bin/incremental_cost.rs::timed"
+    "crates/adv-index/src/bin/incremental_cost.rs::timed",
+    "crates/adv-index/src/bm25.rs::SearchIndex::build",
+    "crates/adv-index/src/bm25.rs::SearchIndex::build_from_stats",
+    "crates/adv-index/src/bm25.rs::SearchIndex::search",
+    "crates/adv-index/src/bm25.rs::lower_word_end",
+    "crates/adv-index/src/bm25.rs::push_token",
+    "crates/adv-index/src/bm25.rs::scoring_terms",
+    "crates/adv-index/src/bm25.rs::split_alphanumeric",
+    "crates/adv-index/src/bm25.rs::split_identifier",
+    "crates/adv-index/src/bm25.rs::tokenize"
   ],
   "missed_keys": [
     "crates/adv-cli/src/snapshot.rs::sync_rustsec",
     "crates/adv-cli/src/wrapper.rs::wrapper_with_dlls",
     "crates/adv-index/src/bin/incremental_cost.rs::main",
     "crates/adv-index/src/bin/incremental_cost.rs::read_docs",
-    "crates/adv-index/src/bin/incremental_cost.rs::run"
+    "crates/adv-index/src/bin/incremental_cost.rs::run",
+    "crates/adv-index/src/bm25.rs::SearchIndex::search",
+    "crates/adv-index/src/bm25.rs::push_token",
+    "crates/adv-index/src/bm25.rs::split_alphanumeric",
+    "crates/adv-index/src/bm25.rs::split_identifier",
+    "crates/adv-index/src/bm25.rs::tokenize"
   ],
-  "rounds": 3,
+  "rounds": 4,
   "key_gap_rounds": 0,
   "resource_rounds": 0,
   "completed_laps": 1
