@@ -4027,3 +4027,59 @@ rust god 未变（这批没动 `.rs`）；`local_gate --line adv-m2` 17 步只�
 只改 `spec/*.json`、`scripts/*.py`、`tests/*.py` ⇒ cargo-mutants 的 rust 面**一个字节都没变**，
 关账圈游标（14/50 文件、74 键、`resource_rounds=0`）继续有效。门目前**停在人工叫停状态**：
 第 4 窗被手动中断，未计入。
+
+> **更正（2026-10-13 01:00，实测推翻本行）**：第 4 窗**不是**手动中断，是**我自己的哨兵把它杀了**；
+> 而"60s 测试超时导致本轮 abort"也是错的——见下一节的复算。真相：游标未落账 ⇒ 未计入这一半是对的。
+
+## 第 4 窗死因复盘：杀门的不是超时，是哨兵的尺子
+
+### 时间线（三份日志对齐）
+- `00:51:50` 静默自起判定"机器空闲"（`lap-when-idle.log`：构建进程数=0 连续静默=1）⇒ 起哨兵 + 续跑。
+- 本窗 `crates/adv-index/src/bm25.rs` **141 条变异**（预算 150），门日志 `rotate-auto-1.log`：
+  baseline `19s build + 7s test` 过，随后 `TIMEOUT bm25.rs:25:19: replace += with -= in 2s build + 65s test`。
+- `00:54:19` **哨兵日志**（`gate-watchdog.log`）：`free=0MB under floor 3 times -> KILL gate`，`00:54:23 kill sent`。
+- cargo-mutants 自己的 `target/mutants-out/mutants.out/debug.log`：**TIMEOUT 之后它并没有退**——
+  `146.12s` 还在 `Apply mutant … replace += with *= in tokenize` 并给下一个 worker 起
+  `cargo test --no-run --package=adv-index@0.1.0`。`outcomes.json` 停在 11 条（9 Caught + 1 baseline + 1 Timeout）、
+  `missed.txt` 空、`timeout.txt` 有那一条 ⇒ 是**外部 `taskkill` 打断了整个进程树**，exit `Some(1)`。
+- 门于是报"判不了"（正确行为：本轮没出判定就别拿别的数当结论），xtask rc=1；
+  `lap-auto.sh` 走进"rc≠0 就提交游标"的分支，可这窗**没落游标**，于是 `git commit` 先白跑一遍
+  pre-commit 门线（`LOCAL-GATE OK steps=16 total=53.3s`）再报 `nothing to commit`，脚本以
+  `!! 游标提交失败，停止` 收场。
+
+### 撤两条我自己写下的错判
+1. 上一节原文"第 4 窗被手动中断"——**错**，我没中断它；是哨兵按旧尺子杀的。
+2. 中断后我提的下一步假设"`bm25.rs::tokenize +=→-=` 撞 60s 测试超时 ⇒ 抬 `ADV_MUTANTS_TIMEOUT`"——**也错**：
+   debug.log 的时间线证明 cargo-mutants 记完 Timeout 就继续跑下一条；而且 xtask 早把 Timeout
+   计成"可验证"键（`xtask/src/mutants.rs:34` `VERIFIABLE_SUMMARIES = ["CaughtMutant","MissedMutant","Timeout"]`，
+   另有 `timeout_note` 点名），`DEFAULT_TIMEOUT_SECS=60` 是 2026-10-06 以来历史轮次的口径锚点
+   （`mutants.rs:570-573` 明写"默认值一变，历史轮次的判定语义就不可比"）⇒ **这个旋钮不动**。
+
+### 哨兵的尺子错在哪（这才是真因）
+Windows 本来就会把 available 物理内存压到接近 0 来换缓存，`FreePhysicalMemory` 低**不是**死机前兆；
+真正的硬死前兆是 **commit 头寸（页文件余量）耗尽**。旧规则是 `free < 1200MB 连续 3 次就杀`，
+在一台 15.4GB、门正在真跑（`ADV_MUTANTS_JOBS=1` + `CARGO_BUILD_JOBS=1` 都已生效）的机器上，
+这条规则**必然**在每一窗里误杀。另外它只记 `free` 一个数，所以 00:54 那次的 commit 头寸还剩多少
+**没留档**——尺子不完整还不可复盘，这本身就是缺陷。
+（历史两次硬死的成因不否掉：那阵子页文件在 F: 机械盘上；现已是 `E:\pagefile.sys 16384 32768`，NVMe。）
+
+### 改后的哨兵（`E:\tmp\gate-watchdog.ps1`）
+杀的条件从"物理余量单尺"改成**两把尺同时不到位、且连续 6 次**：
+`FreePhysicalMemory < 250MB` **且** `FreeVirtualMemory`（= commit 头寸）`< 1500MB`，两个数**每 tick 都进日志**。
+实测当值（01:01，机器闲置）：`freePhys=5536MB commit_free=8827MB commit_limit=36409MB`。
+
+### 脚本侧另外两处
+- `lap-auto.sh`：rc≠0 时先 `git diff --quiet -- tools/baselines/mutants-rotation.json`，游标没动就直接
+  报"本窗没落账（判不了或被杀），停止等人工"，不再走空 commit ⇒ 省掉一趟 53 秒的 pre-commit 门线误烧。
+- `lap-when-idle.sh`：静默等待从 120 次（约 60 分钟）放宽到 400 次（约 3.3 小时）。原因不是"想多等"，
+  是 01:01 实测到并发会话在真跑构建：`bash(30488) → rustup(36944) → cargo.exe(38096)`，
+  命令行 `cargo test -- --ignored --test-threads=1`，工作目录 `…/2026-10-10/a96da148/wt-fix-tests`
+  （`CARGO_TARGET_DIR=E:/cargo-target/steamworks`），外层还是 `for i in 1 2` 连跑两轮——
+  **不是我的进程，不杀、只让**。
+
+### 账
+游标仍是 **14/50 文件、74 键、`resource_rounds=0`**（第 4 窗未计入，与上一节一致）；
+剩余 36 文件的续跑已重新挂在静默自起上。`--update` 仍属冻结基线，**没跑、也不会在自动续跑里跑**
+（脚本注释与 `refuse_partial_update` 都钉着），等关账那一轮人工点头。
+
+
