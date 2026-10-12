@@ -405,6 +405,16 @@ pub fn closing_note(key_gap_rounds: u32) -> String {
     }
 }
 
+/// 资源缺测的披露句（纯函数）：0 窗 = `None`；有 = 点名几窗因盘满/内存没出判定。
+/// 关账行与 `--update` 的拒绝理由**共用这一句**，两处各写一份会漂移。
+/// 实测动因：2026-10-13 关账圈第 8 窗有 2 条 `No space left on device` 缺测，而当时
+/// 这个数只在 `--update` 分支里用得到 ⇒ 关账行报得干净，缺测没人说。
+pub fn resource_gap_note(resource_rounds: u32) -> Option<String> {
+    (resource_rounds > 0).then(|| {
+        format!("本圈 {resource_rounds} 窗出现资源缺测（盘满/内存）：缺测不能当成已清，基线不动")
+    })
+}
+
 /// 关账那一轮的固定动作：点名 ⇒ 有资格才重录基线 ⇒ 开新圈（覆盖清零、圈数保留、面原样带走）。
 pub fn close_lap(
     lap: &mut Lap,
@@ -415,22 +425,20 @@ pub fn close_lap(
     update: bool,
     violations: &mut Vec<String>,
 ) -> Result<()> {
+    let resource_note = resource_gap_note(lap.resource_rounds);
     println!(
-        "本圈关账：{} 窗覆盖全档面 {} 条变异 / {} 文件，基线 {baseline_keys} 键全部判过 ⇒ 这一圈顶一轮全档{}",
+        "本圈关账：{} 窗覆盖全档面 {} 条变异 / {} 文件，基线 {baseline_keys} 键全部判过 ⇒ 这一圈顶一轮全档{}{}",
         lap.rounds,
         face_total(&lap.face),
         lap.face.len(),
-        closing_note(lap.key_gap_rounds)
+        closing_note(lap.key_gap_rounds),
+        match &resource_note {
+            Some(note) => format!("；⚠ {note}"),
+            None => String::new(),
+        }
     );
     if update {
-        let resource = if lap.resource_rounds > 0 {
-            vec![format!(
-                "本圈 {} 窗出现资源缺测（盘满/内存）：缺测不能当成已清，基线不动",
-                lap.resource_rounds
-            )]
-        } else {
-            Vec::new()
-        };
+        let resource: Vec<String> = resource_note.into_iter().collect();
         violations.extend(mutants::write_baseline(
             baseline_path,
             &lap.missed_keys,

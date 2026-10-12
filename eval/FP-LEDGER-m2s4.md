@@ -4082,4 +4082,73 @@ Windows 本来就会把 available 物理内存压到接近 0 来换缓存，`Fre
 剩余 36 文件的续跑已重新挂在静默自起上。`--update` 仍属冻结基线，**没跑、也不会在自动续跑里跑**
 （脚本注释与 `refuse_partial_update` 都钉着），等关账那一轮人工点头。
 
+## 关账圈第 2 圈真跑完（2026-10-13 01:04 → 03:57）：10 窗 10 提交、圈已关账、18 个新键待分诊
+
+修好哨兵尺子后续跑一次成：`lap-when-idle.sh` 01:04 等到机器静默 ⇒ 起改后的哨兵 ⇒ `lap-auto.sh`
+连跑 **10 窗**（第 1~10 趟日志 `rotate-auto-1..10.log`），每窗都落了游标提交并推送
+（`24506cc1`→`4dd58ca0` 十个提交）。**哨兵一次没再触发**（`gate-watchdog.log` 里 `KILL gate`
+只有 00:54 那一条旧记录）。
+
+- 关账行（第 10 窗）：`本圈关账：13 窗覆盖全档面 1483 条变异 / 50 文件，基线 15 键全部判过 ⇒ 这一圈顶一轮全档`。
+  13 窗 = 本圈此前已计的 3 窗 + 这次 10 窗。游标现在 `completed_laps=2`、`covered_files=0`、
+  `missed_keys=0`、`rounds=0`、`resource_rounds=0`（关账即开新圈，面原样带走）。
+- 每窗读数（总/捕获/未捕获/unviable）：
+  1 窗 142/116/8/2、2 窗 141/116/9/15、3 窗 98/87/2/8、4 窗 142/120/5/16、5 窗 137/114/2/20、
+  6 窗 143/132/6/4、7 窗 47/38/6/0、8 窗 160/146/4/9、9 窗 137/113/16/7、10 窗 32/26/5/0。
+  判绿（无新键点名）的是 1、4、7 三窗。
+
+### 本圈照出的 18 个新未捕获键（按家族归堆，尚未分诊）
+- **adv-parse 5**：`mapper.rs::Builder<'a>::note_error`（**就是 DD-0019④ 那条死代码**，门现在独立点名）、
+  `python.rs::dotted_callee`、`python.rs::import_kind`、`rust_lang.rs::dotted_callee`、
+  `rust_lang.rs::use_tree_paths`（后 4 条落在 DD-0019①②③ 的同一片语义区）
+- **adv-rules 1**：`suppression.rs::collect`
+- **adv-sca 2**：`rustsec.rs::sync`、`snapshot.rs::sync`（起外部 git 的薄壳，与前批"接线壳接受"同族）
+- **xtask 10**：`lockstep.rs::git_tags`、`lockstep.rs::run`、`mutants.rs::ensure_scratch`、
+  `mutants.rs::git_diff_patch`、`mutants.rs::write_baseline`、`rotation.rs::list_face`、
+  `rotation.rs::preflight`、`rotation.rs::run`、`suppress.rs::fs_read`、`suppress.rs::run`
+- 取证口径提醒：per-window 的**变异级明细只有第 10 窗还留在盘上**（`target/mutants-out/mutants.out/missed.txt`
+  5 行），前 9 窗被后一窗覆写 ⇒ 分诊要按键名重新取变异面（`--file` 定点），别拿"门给过名字"当"给过行号"。
+
+### 复算"关账"这句话时查出门自己的漏报（已修）
+第 8 窗日志有两条明晃晃的缺测：
+`unviable 是盘满造成的缺测（日志含 "No space left on device"）：xtask/src/mutants.rs::resource_signature`
+（两条，日志 `xtask__src__mutants.rs_line_258_col_5_001/002.log`）。`rotation::record` 确实把它记进了
+`lap.resource_rounds`（`rotation.rs:272-274`），**但这个数当时只有 `--update` 分支用得到**
+（原 `close_lap` 里 `if update { let resource = if lap.resource_rounds > 0 … }`）⇒ 我们这次不跑 `--update`，
+于是关账行照报"这一圈顶一轮全档"，缺测一个字没提；紧接着 `open_lap` 把 `resource_rounds` 清 0，
+这圈的缺测证据就只剩当窗日志。**"覆盖全档面"这种话不许藏着缺测说**——已按仓内既有做法（把观测不到的
+`println` 分支提成纯函数）改掉：
+- `rotation::resource_gap_note(resource_rounds) -> Option<String>` 新增；关账行与 `--update` 的拒绝理由
+  **共用这一句**（两处各写一份会漂移，与 DD-0019④"两条计数不许并存"同一条纪律）。
+- 金丝雀 `canary_resource_gap_note_discloses_missing_windows_at_closure`（`xtask/tests/canary_rotation.rs`）
+  **整串比对**，不用 `contains`：`resource_gap_note` 这五个字在源码里出现两次（函数 doc + 格式串），
+  `contains` 会被文档行蒙过去。两面各钉一次：0 窗 ⇒ `None`（不许凭空喊缺测）、2 窗 ⇒ 全文。
+- 手动打变异证明断言有判决性（不是"补个测试凑数"）：`(resource_rounds > 0).then` 改 `==` ⇒ RED，
+  改 `<` ⇒ RED，两次都点名本测试，还原后逐字节比对 `restored byte-exact: True`。
+- `cargo fmt`/`clippy -p xtask --all-targets` 静默、`cargo test -p xtask` 全绿（含 canary 22 条）。
+
+### 这一改对变异面的影响（自证）
+新增 `resource_gap_note` 与关账行多一个格式参数 ⇒ `xtask/src/rotation.rs` 的变异条数会变
+（游标快照里记的是 136）。下一窗 `face_drift` 会点名，属预期漂移，**不是**基线被悄悄改宽。
+
+### 顺带查出续跑脚本自己的洞
+`lap-auto.sh` 的"关账即 `break`"写在 `git push` **之前** ⇒ 关账那一窗的游标提交只落在本地：
+实测远端停在第 9 窗 `4bb521e5`，本地第 10 窗 `4dd58ca0` 一直没推出去（我提交这笔账时才被
+`git push` 拒绝暴露）。已把 push 提到关账判定之前，本圈的账随这笔提交补齐推送。
+
+### god 棘轮的处置（本次披露：一把尺两个写点）
+`god` 这条棘轮在本仓有**两把尺、两份基线文件**，只重录一边会一边绿一边红：
+- Rust 侧 `cargo run -p xtask -- god` ↔ `tools/baselines/god-baseline.json`（键名 `file:`/`fn:`，
+  行数按 `\n` 计）：`rotation.rs 652 → 660`、`canary_rotation.rs 657 → 675`，
+  另登记两个新面（`resource_gap_note` 5 行、金丝雀 12 行），基线 **970 → 972 项**。
+- Python 侧 `python -X utf8 scripts/god_gate.py --root . --write-baseline` ↔ 仓根 `god-baseline.json`
+  （行数 `src.count("\n") + 1`，**恒比 Rust 侧多 1**）：键数 **512 → 512**（新增 0、移除 0、
+  行数变大 2 处 = 同两个文件）。
+第一次只跑了 Rust 侧 `--write`，`local_gate --only god-gate` 仍报 `653 → 661（不许变胖）`——
+那 1 行差不是漂移，是两把尺的计数口径差（`+1`）。**处置**：两边各 `--write` 一次并各自披露，
+走的是门自己给的口径（"新面：--write 登记并披露"），不是把棘轮放松。
+
+
+
+
 

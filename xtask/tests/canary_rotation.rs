@@ -428,6 +428,24 @@ fn canary_closing_note_names_the_key_gap_windows_only_when_there_are_some() {
     );
 }
 
+/// 实测动因（2026-10-13 关账圈）：第 8 窗有 2 条 `No space left on device` 缺测，`record` 把
+/// `resource_rounds` 记进了游标，但当时只有 `--update` 分支用得到这个数 ⇒ 关账行照样报"这一圈
+/// 顶一轮全档"，缺测一个字不提。断言钉两件事：**0 窗不许凭空报缺测**（否则 `>0` 反过来也绿），
+/// **有缺测要把窗数与"基线不动"的处置说死**（整串比对，别拿 `contains` 让文档行蒙过去）。
+#[test]
+fn canary_resource_gap_note_discloses_missing_windows_at_closure() {
+    assert_eq!(
+        rotation::resource_gap_note(0),
+        None,
+        "没有资源缺测就不许凭空喊缺测"
+    );
+    assert_eq!(
+        rotation::resource_gap_note(2).as_deref(),
+        Some("本圈 2 窗出现资源缺测（盘满/内存）：缺测不能当成已清，基线不动"),
+        "有缺测要点名窗数，并说清基线不许重录"
+    );
+}
+
 /// `progress_line` 的 `==` 反过来时分子分母对调：全判齐的那一圈会显示成"已判 0/2"。
 #[test]
 fn canary_progress_line_counts_all_judged_keys_when_the_lap_is_complete() {
