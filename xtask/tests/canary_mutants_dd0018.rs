@@ -2,7 +2,9 @@
 //! `--update` 重录通道、档名。跑门时整片判定都在不可 mock 的子进程壳里，
 //! 所以把读数/判定面抽成同包纯函数后在这里钉住。
 
-use xtask::mutants::{parse_outcomes, patch_is_empty, tier_label, write_baseline};
+use xtask::mutants::{
+    dropped_keys_note, parse_outcomes, patch_is_empty, resource_refusal, tier_label, write_baseline,
+};
 
 /// DD-0018 分诊：三个生产闭包原本零覆盖（测试直接调 `keys_by_summary`，生产侧那三个闭包
 /// 没人跑过）⇒ `parse_outcomes` 用**真语料**把读数、unviable 提示、超时点名三面都钉住。
@@ -194,4 +196,24 @@ fn canary_tier_label_names_both_tiers() {
     // 档名混进裁决行是"绿在名字里带着档位"的唯一载体；写成空串就看不出是哪一档绿的。
     assert_eq!(tier_label(None), "全档");
     assert_eq!(tier_label(Some("abc1234")), "增量");
+}
+
+/// DD-0018 第 2 圈把 `mutants.rs::write_baseline` 又点出来：两条存活都卡在"披露只走
+/// `println!`/`eprintln!`，测试截不到"。按 `skip_notice`/`resource_gap_note` 的既有配方提成纯函数后，
+/// 这里用**整串比对**钉两面（不用 `contains`：函数 doc 与实现里都有同一句话，`contains` 会被蒙过去）。
+/// `delete !` 翻任一道守卫都会让这两条断言当场红。
+#[test]
+fn canary_baseline_disclosure_notes_are_two_sided() {
+    assert_eq!(resource_refusal(&[]), None, "没有资源缺测就不许喊拒绝重录");
+    assert_eq!(
+        resource_refusal(&["本圈 1 窗出现资源缺测".to_string()]).as_deref(),
+        Some("基线未改动：本轮有资源缺测（盘满/内存），重录会把缺测当成已清带下去"),
+        "拒绝理由要把处置说死：基线不动"
+    );
+    assert_eq!(dropped_keys_note(&[]), None, "没有离账键就不许喊移除");
+    assert_eq!(
+        dropped_keys_note(&["a::b".to_string(), "c::d".to_string()]).as_deref(),
+        Some("注意：本次重录从基线移除了 2 个键（要么真被杀掉了，要么本轮不可验证）："),
+        "移除要点名个数——写死成 1 或漏掉计数都会在这里红"
+    );
 }

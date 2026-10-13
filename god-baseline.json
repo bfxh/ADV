@@ -530,8 +530,8 @@
   "max_type_members": 0
  },
  "crates/adv-parse/tests/mapper_arms.rs": {
-  "file_lines": 311,
-  "max_fn_lines": 69,
+  "file_lines": 314,
+  "max_fn_lines": 72,
   "max_type_members": 0
  },
  "crates/adv-rules/src/lib.rs": {
@@ -2510,7 +2510,7 @@
   "max_type_members": 0
  },
  "xtask/src/mutants.rs": {
-  "file_lines": 752,
+  "file_lines": 767,
   "max_fn_lines": 60,
   "max_type_members": 4
  },
@@ -2545,7 +2545,7 @@
   "max_type_members": 0
  },
  "xtask/tests/canary_mutants_dd0018.rs": {
-  "file_lines": 198,
+  "file_lines": 220,
   "max_fn_lines": 51,
   "max_type_members": 0
  },

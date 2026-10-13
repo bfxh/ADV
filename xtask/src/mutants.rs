@@ -629,8 +629,8 @@ pub fn ensure_scratch_at(pin: Option<&Path>) -> Result<()> {
 /// `resource` 非空 ⇒ 拒绝重录（本轮有盘满/内存缺测，重录会把缺测当成已清带下去）。
 /// 全档档喂当轮读数，轮转档喂"一圈累计并集"——同一支笔，两种来源，判据一致。
 pub fn write_baseline(path: &Path, missed: &[String], resource: &[String]) -> Result<Vec<String>> {
-    if !resource.is_empty() {
-        println!("基线未改动：本轮有资源缺测（盘满/内存），重录会把缺测当成已清带下去");
+    if let Some(note) = resource_refusal(resource) {
+        println!("{note}");
         return Ok(resource.to_vec());
     }
     let old = read_baseline(path).unwrap_or_else(|_| Baseline { missed: vec![] });
@@ -642,16 +642,31 @@ pub fn write_baseline(path: &Path, missed: &[String], resource: &[String]) -> Re
     println!("基线已写 {BASELINE_PATH}（missed {} 条）", missed.len());
     // 重录是整表替换：本轮没再产的旧键会离开债账，这里点名而不静默。
     let dropped = new_missed(&old.missed, missed);
-    if !dropped.is_empty() {
-        eprintln!(
-            "注意：本次重录从基线移除了 {} 个键（要么真被杀掉了，要么本轮不可验证）：",
-            dropped.len()
-        );
+    if let Some(note) = dropped_keys_note(&dropped) {
+        eprintln!("{note}");
         for k in dropped {
             eprintln!("  - {k}");
         }
     }
     Ok(vec![])
+}
+
+/// 资源缺测 ⇒ 拒绝重录的理由句（纯函数）。原本这行 `println!` 直接印在函数里，
+/// 测试截不到 stdout ⇒ `!resource.is_empty()` 的 `delete !` 翻转守卫无人判红。
+pub fn resource_refusal(resource: &[String]) -> Option<String> {
+    (!resource.is_empty())
+        .then(|| "基线未改动：本轮有资源缺测（盘满/内存），重录会把缺测当成已清带下去".to_string())
+}
+
+/// 整表替换后离账旧键的点名头（纯函数）。同上：`eprintln!` 在测试里截不到，
+/// 这条"披露门槛"当初就记成了壳类接受。
+pub fn dropped_keys_note(dropped: &[String]) -> Option<String> {
+    (!dropped.is_empty()).then(|| {
+        format!(
+            "注意：本次重录从基线移除了 {} 个键（要么真被杀掉了，要么本轮不可验证）：",
+            dropped.len()
+        )
+    })
 }
 
 /// patch 是否无差异（`skip` 判定用）。提取为具名纯函数：skip 是"门在此档视为通过"

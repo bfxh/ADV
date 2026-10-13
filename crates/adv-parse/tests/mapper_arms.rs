@@ -279,12 +279,15 @@ fn rust_use_tree_expands_paths_alias_braces_and_wildcard() {
         "use_wildcard 臂没走到的话这里会空，实得：{:?}",
         all_import_names(&wildcard)
     );
-    // 独立的 `use_list` 臂（顶层 `use ::{root_item};` 这种花括号）也要走到
+    // 顶层 `::` 加花括号：展开结果要逐个带上。⚠ 这条**不**钉"独立的 `use_list` 臂被走到"——
+    // 实测该形状走的是 `scoped_use_list` 支路，第 2 圈变异门把 `rust_lang.rs:218:9
+    // delete match arm "use_list"` 判成存活（删掉那条臂这条断言照样绿），说明没有合法
+    // Rust 形状能走到独立臂。留键不硬造夹具，处置随 DD-0019 的冗余臂面一起清。
     let ast = parse_source(Language::Rust, "use ::{root_item};\n").expect("解析顶层花括号");
     assert_eq!(
         all_import_names(&ast),
         vec![("root_item".to_string(), "root_item".to_string())],
-        "顶层 `::` 加花括号的每一项都要展开（删掉 use_list 臂则整条为空）"
+        "顶层 `::` 加花括号的每一项都要展开（只钉展开结果，独立臂的可达性见上方说明）"
     );
 
     // 嵌套花括号：前缀要一路带到底

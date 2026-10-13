@@ -4148,6 +4148,53 @@ Windows 本来就会把 available 物理内存压到接近 0 来换缓存，`Fre
 那 1 行差不是漂移，是两把尺的计数口径差（`+1`）。**处置**：两边各 `--write` 一次并各自披露，
 走的是门自己给的口径（"新面：--write 登记并披露"），不是把棘轮放松。
 
+## 第 2 圈 18 键分诊（2026-10-13 04:00–04:4x）：**0 个真新键**，18/18 全在旧游标已分诊集合里
+
+### 先做集合核对（零编译，决定性）
+取 `4d4853d0` 那一版游标的 `missed_keys`（**78 键**，= 存量基线 15 + DD-0018 的 63 新键）与 `covered_keys`（306），
+把本圈点名的 18 键逐个对：**18/18 命中 `missed_keys`，不在其中的 0 个**。
+⇒ 第 2 圈**没有**照出任何新面；重复点名的原因是 **`--update` 自始至终没跑过**——七格里"接受/等价"的键
+只有经 `--update` 才进基线，没进就每圈都被重新点一次。这句话现在是集合运算的结果，不是推测。
+
+### 同尺复测（三趟定点真跑，`-j 1`、TMP 与输出都指 E:，不动冻结基线）
+| 定点文件 | 面 | 存活明细 | 与旧账的关系 |
+|---|---|---|---|
+| `crates/adv-rules/src/suppression.rs` | 36 条 | `collect` 2 条：`57:13`（`/*!` 那一路 `||`→`&&`，独立臂不可达=DD-0019①）、`93:40`（`reason` 守卫→`true`，空值两条路径都得 `""` ⇒ 等价） | **与第 6 格"余 2 条"逐条对上**（那格只写了"余 2 条"没写键名，这次把键名补齐） |
+| `crates/adv-parse/src/rust_lang.rs` | 36 条 | `dotted_callee` `145:9`/`168:21`（`delete "identifier"` 臂 = 与回退臂 `_ => b.text(n)` 文本同一，**结构性等价**）；`use_tree_paths` `218:9`（`delete "use_list"` 独立臂 = **没有合法 Rust 形状走到**） | 前两条沿用第 5 格；第三条**推翻了我自己写的注释**，见下 |
+| `crates/adv-parse/src/python.rs` | 21 条 | `dotted_callee` `141:9`/`142:9`（`identifier`/`attribute` 臂删除，等价）；`import_kind` `194:39`（`is_from`→`true` 守卫不可达） | 与第 5 格"×4 臂等价 + 1 守卫不可达"对上（python 2 + rust 2 = 4） |
+
+外加 `mapper.rs::note_error` 3 条存活（第 5 格实测 = DD-0019④ 死代码后果）；`mapper.rs` 自那格 **0 笔改动** ⇒ 沿用。
+xtask 余 8 键（`lockstep::{git_tags,run}`、`mutants::{ensure_scratch,git_diff_patch}`、`rotation::{list_face,preflight,run}`、
+`suppress::{fs_read,run}`）与 adv-sca 2 键（`rustsec::sync`、`snapshot::sync`）沿用第 1/3 格的逐键披露；
+其中 `rustsec.rs` 自第 3 格只有 `0dd08c42` 一笔改动，**且只动 `#[cfg(test)]` 里的断言 needle** ⇒
+cargo-mutants 不进测试块，面未变，沿用成立（这条是按"面中性判据"核的，不是按文件名核的）。
+
+### 一处我自己的注释被实测推翻（就地改，不删原文）
+`crates/adv-parse/tests/mapper_arms.rs` 里对 `use ::{root_item};` 那条断言写了"**删掉 use_list 臂则整条为空**"。
+本圈 `218:9 delete match arm "use_list"` **存活**（删掉那条臂整包测试照样绿）⇒ 这句话是没验过的声称，
+把它写进断言消息里等于给一条不存在的能力背书。已改成：断言**只钉展开结果**，注释直书"该形状实测走
+`scoped_use_list`，独立臂不可达（`218:9` 变异存活为证）"。同时把 3 条 `rust_lang` 存活 + 2 条 python 等价臂
+记进 **`spec/design-debt.json` 的 DD-0019 新增第 ⑤ 项**（纯登记，不改语义），验收写死为
+"复跑同一命令存活 3→0，且该注释不得再声称能钉独立臂"。
+
+### 一处从"接受"转成"有面可断"
+`xtask/src/mutants.rs::write_baseline` 的两条披露原先记为壳类接受（"`!dropped.is_empty()` 门后是 eprintln，测试截不到"）。
+按本仓既有配方（`skip_notice`、今天的 `resource_gap_note`）提成两个纯函数：`resource_refusal` / `dropped_keys_note`，
+调用点只做打印。金丝雀 `canary_baseline_disclosure_notes_are_two_sided`（`xtask/tests/canary_mutants_dd0018.rs`）
+**整串比对**两面（`contains` 会被函数 doc 蒙过去）。手动打变异证明有判决性：
+`(!resource.is_empty())`→`(resource.is_empty())` ⇒ RED 且点名本测试；`(!dropped.is_empty())`→`(dropped.is_empty())` ⇒ 同；
+还原后逐字节比对一致。⇒ 这 2 条变异不再是"接受债"，第 3 圈不该再点它（若还点，就是新账）。
+
+### 本格账
+- 18 键 ⇒ **真新键 0**；逐键处置全部有实测出处（本圈三趟 + 旧格沿用且核过面中性）。
+- god 两把尺再重录：Rust 侧 `972 → 975` 项，python 侧 `512 → 512` 键（变大 3 处：
+  `mapper_arms.rs 310→313`、`mutants.rs 751→766`、`canary_mutants_dd0018.rs 197→219`）。
+- 面漂移预告：`xtask/src/mutants.rs` 新增两个函数 ⇒ 轮转面会变，第 3 圈门自己会报 `face_drift` 并重开圈——
+  这是预期，**不是**基线被放松。
+- 剩余两件事都等点头：**第 3 圈干净圈 + `--update` 重录**（本圈有资源缺测窗，`write_baseline` 会自己拒绝）；
+  以及 **DD-0019 ①–⑤ 的语义批**（会改导入映射与注释采集口径，影响 rules/taint 与 2 份 insta 快照）。
+
+
 
 
 
