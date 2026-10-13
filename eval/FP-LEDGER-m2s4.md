@@ -4194,6 +4194,14 @@ cargo-mutants 不进测试块，面未变，沿用成立（这条是按"面中�
 - 剩余两件事都等点头：**第 3 圈干净圈 + `--update` 重录**（本圈有资源缺测窗，`write_baseline` 会自己拒绝）；
   以及 **DD-0019 ①–⑤ 的语义批**（会改导入映射与注释采集口径，影响 rules/taint 与 2 份 insta 快照）。
 
+### 取证位置（第 3 圈会覆写同名日志，先把第 2 圈那批抄走）
+本节引用的 `rotate-auto-1..10.log`、`rotate-auto.summary`、`gate-watchdog.log`、`lap-when-idle.log`
+已于 2026-10-13 04:5x 复制到 **`E:\tmp\rotate-lap2-evidence\`**（13 件），`rotate-auto.summary` 另存一份
+`.lap2`。⇒ 以后对不上号先去那个目录取，别拿覆写后的当窗日志当第 2 圈的证据。
+第 3 圈已挂在 `E:\tmp\lap-when-idle.sh`（机器静默才起，双尺哨兵 + 两个并发上限），跑到关账即停，
+`--update` 不在自动路径里。
+
+
 
 
 
