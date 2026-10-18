@@ -1,0 +1,126 @@
+name: security-scan
+
+# 供应链安全扫描管道：把本地那套（trivy / grype / osv-scanner / syft / gitleaks / trufflehog）
+# 固化为 GitHub Actions，漏洞与密钥发现以 SARIF 形式上传统一进 code scanning。
+#
+# 与仓内 scan.yml 的关系：scan.yml 走的是「仓库自攻/污点/密钥」三道自研门（windows  runner、
+# 本仓脚本 ci_secrets_gate / attack_gate / taint_gate / vuln_hunt）；本管道补的是**标准开源工具**
+# 的 CVE / SBOM / 密钥第二意见层，二者互补不重叠。
+#
+# 设计纪律（与仓内各 workflow 同款最小权限 + action 按 commit SHA 固定）：
+#   - 漏洞类（trivy / grype / osv）对 HIGH,CRITICAL 直接红；
+#   - 密钥类（gitleaks / trufflehog verified）直接红；
+#   - syft 仅产 SBOM 产物（不阻断）。
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '41 4 * * 1'        # 每周一 04:41 UTC 周扫（与 scan.yml 错开分钟）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write        # SARIF 上传 code scanning
+  actions: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # ---- Trivy：文件系统漏洞扫描 ----
+      - name: Trivy 文件系统漏洞扫描（SARIF）
+        uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # v0.33.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: 上传 Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-fs
+
+      # ---- Grype：第二意见漏洞扫描（anchore） ----
+      - name: Grype 漏洞扫描（SARIF）
+        uses: anchore/scan-action@7c05671ae9be166aeb155bad2d7df9121823df32 # v6.1.0
+        with:
+          path: "."
+          output-format: sarif
+          output-file: grype.sarif
+          fail-build: true
+          severity-cutoff: high
+
+      - name: 上传 Grype SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: grype.sarif
+          category: grype
+
+      # ---- OSV-Scanner：开源漏洞数据库交叉验证 ----
+      - name: OSV-Scanner 漏洞扫描（SARIF）
+        uses: google/osv-scanner-action@90b209d0ea55cea1da9fc0c4e65782cc6acb6e2e # v2.2.2
+        with:
+          results-format: sarif
+          output-file: osv.sarif
+          scan-args: |-
+            -r
+            .
+        continue-on-error: true     # 无锁文件生态可能无结果为正常
+
+      - name: 上传 OSV SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: osv.sarif
+          category: osv-scanner
+
+      # ---- Syft：生成 SBOM（产物留存，不阻断） ----
+      - name: Syft 生成 SBOM
+        uses: anchore/sbom-action@cee1b8e05ae5b2593a75e197229729eabaa9f8ec # v0.20.2
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: 上传 SBOM 产物
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+      # ---- Gitleaks：密钥/凭据扫描 ----
+      - name: Gitleaks 密钥扫描（SARIF）
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        with:
+          report-format: sarif
+          report-path: gitleaks.sarif
+          exit-code: '1'
+
+      - name: 上传 Gitleaks SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+      # ---- TruffleHog：verified 密钥扫描（第二意见） ----
+      - name: TruffleHog 密钥扫描（verified）
+        uses: trufflesecurity/trufflehog@e76dff8a7e57d6df0c60ad8cbf5d5cba505a8fc9 # v3.99.2
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified --json
