@@ -1,0 +1,32 @@
+name: naming-gate
+
+# 命名纪律门（用户命名宪法：除主名外，一切命名必须专业）。
+#
+# 仓内 scripts/naming_gate.py 早已存在，但**此前没有 workflow 把它接进 CI**——
+# 本 PR 补齐这道门：占位词 / 杂物被跟踪 / 退役旧名三类判据落地为 PR 门。
+#
+# 关于旧名 unified-rx-mcp：main 仍有 6 个被跟踪文件含该字符串（tests/fixtures/*_golden.json
+# 等金标准夹具、spec 文档、test_cargoaudit.py）。其中金标准 JSON 是「被测目标名」的预期值，
+# 直接改名会破坏 golden 测试，故**本 PR 不强制 forbid**，避免误红；旧名回流清理作为独立 PR
+# 单独处理（给夹具加行级 naming:allow 或先迁移夹具）。门本身已对占位词/杂物生效。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  naming:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: 命名纪律门（占位词 / 杂物 / 退役旧名）
+        run: python -X utf8 scripts/naming_gate.py   # naming:allow（旧名回流清理见 PR 说明）
