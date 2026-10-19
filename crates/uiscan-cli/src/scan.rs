@@ -53,6 +53,13 @@ pub fn run(mut args: impl Iterator<Item = String>) {
         write_dump(path, &h);
     }
     report(&h);
+    // 空采集 ≠ 干净：页面没渲染/被拦/选错面都会得到 0 条，必须判"判不了"而不是报全绿。
+    if h.items.is_empty() {
+        bail(&format!(
+            "采集到 0 条：{} ⇒ 这不等于'没有缺陷'（页面没渲染、被风控/登录拦下、或选错了面）",
+            h.surface
+        ));
+    }
     let (faces, missing) = tofu::check(&h, &fonts, system).unwrap_or_else(|e| bail(&e));
     tofu::report(&h, faces, &missing);
     if !missing.is_empty() {

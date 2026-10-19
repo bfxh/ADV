@@ -97,3 +97,20 @@ uiscan scan --surface gui --title <子串> --depth 10 --system
 - `scan --surface web …i18n-pseudo.html --system` ⇒ 22 个码点 / 178 面 / **缺字=0**；
 - `scan --surface gui --title 任务栏 --system` ⇒ 80 个码点（含 U+200E）/ 178 面 / **缺字=0**；
 - `scan --surface tui --file …` 三条端到端契约：无字体退 2、只给 arial 判出 U+4FDD 退 1、`--system` 退 0。
+
+## 真实项目跑了一次（青简官网 + fmnr，2026-10-20 本机时钟）
+
+| 目标 | 面 | 结果 | 结论 |
+|---|---|---|---|
+| `https://qingjian.app`（真站点） | web(CDP) | 328 元素 / 93 DomText + 5 TitleAttr / **272 个非 ASCII 码点** / 178 字体面 / **缺字 0** | 站点中文全部有字形覆盖 |
+| 同一站点，只给 `arial.ttf` | web(CDP) | **缺字 264**，rc=1 | 判据在真实项目上真的会红 |
+| 本机 `fmnr`（egui 应用） | gui(UIA) | 只有窗口名 + 标题栏 4 个按钮（8 个码点），缺字 0 | **正文不在 UIA 树里**——这一面覆盖不到 egui 自绘内容，别把 0 当"没问题" |
+
+### 真跑照出的三个缺陷（都已修，且补了测试）
+1. **`about:blank` 抢先采**：Edge 起窗后先有一个 `about:blank` 的 page 目标，`readyState` 在它上面
+   已经是 `complete` ⇒ 采到空页（`href=about:blank`、elements=3）。修法：等 `location.href` 真到目标。
+2. **"必须 complete"在真实站点上站不住**：qingjian.app 卡在 `interactive` 30 秒（挂起的统计/长连接）。
+   修法：就绪判据改为"href 到目标 + `readyState` 不是 loading"，再给 500ms 沉降。
+3. **空采集被报成绿**：0 条时原来会打印"缺字=0、rc=0"——这正是假绿。修法：采集到 0 条一律 **退 2**
+   并把 title/href/elements/body_len 打进消息里，让人一眼看出是"没渲染/被拦/选错面"。
+4. 顺带补的：file:// 的 URL 比较要折叠 `/./`、`/../`（夹具路径带 `..` 时浏览器会归一化 href）。

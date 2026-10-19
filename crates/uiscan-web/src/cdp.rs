@@ -179,6 +179,21 @@ pub fn open(
     }
 }
 
+/// 折叠 `/./` 与 `/../`（只用于比较 URL 路径，不碰查询串）。
+fn collapse_dot_segments(s: &str) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    for seg in s.split('/') {
+        match seg {
+            "." => {}
+            ".." => {
+                out.pop();
+            }
+            x => out.push(x),
+        }
+    }
+    out.join("/")
+}
+
 fn tail_of(log: &Path) -> String {
     std::fs::read_to_string(log)
         .unwrap_or_default()
@@ -237,17 +252,39 @@ pub fn attach(port: u16, url: &str, wait: Duration) -> Result<EdgeSession, Strin
 }
 
 impl EdgeSession {
-    /// 等文档加载完再采。**实测教训**：CDP 的 page 目标在 DOM 还是空的时候就出现了，
-    /// 立刻 evaluate 会拿到 viewport 正常、items 为空的"假成功"（第一次端到端就是这样，0 条且 rc=0）。
-    pub fn wait_document_ready(&mut self, timeout: Duration) -> Result<(), String> {
+    /// 等**目标文档**就绪再采。两条实测教训叠加：
+    /// ① page 目标早于 DOM 出现，立刻采会得到"viewport 正常、items 空"的假成功；
+    /// ② Edge 起窗后先有一个 `about:blank` 的 page 目标，`readyState` 在它上面就已经是 `complete`
+    ///    ——2026-10-16 扫 qingjian.app 时就是这样采到空页（href=about:blank、elements=3）。
+    /// ③ 真实站点常常**永远到不了 `complete`**（挂起的统计/长连接）——2026-10-16 扫 qingjian.app
+    ///    就是 `interactive` 卡满 30s。所以判据是：`location.href` 已是目标 **且** `readyState`
+    ///    不是 `loading`（http(s) 允许多次跳转，只要求同源；file:// 要求完全相等），再给半秒沉降。
+    pub fn wait_document_ready(&mut self, url: &str, timeout: Duration) -> Result<(), String> {
         let deadline = Instant::now() + timeout;
         loop {
             let st = self.evaluate("() => document.readyState")?;
-            if st.as_str() == Some("complete") {
+            let href = self
+                .evaluate("() => location.href")?
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
+            let same_doc = if url.starts_with("file:") {
+                // 夹具路径常带 `..`，浏览器会把 href 归一化 ⇒ 两边都折叠点段后再比。
+                collapse_dot_segments(&href) == collapse_dot_segments(url)
+            } else {
+                let origin = url.split('/').take(3).collect::<Vec<_>>().join("/");
+                href.starts_with(&origin)
+            };
+            let settled = matches!(st.as_str(), Some("interactive") | Some("complete"));
+            if settled && href != "about:blank" && same_doc {
+                // 不要求 complete：真实站点的挂起请求会让它永不 complete。半秒沉降给 SPA 首屏渲染。
+                std::thread::sleep(Duration::from_millis(500));
                 return Ok(());
             }
             if Instant::now() > deadline {
-                return Err(format!("页面 {timeout:?} 内没到 complete（最后状态 {st}）"));
+                return Err(format!(
+                    "页面 {timeout:?} 内没就绪（readyState={st:?} href={href:?}，目标 {url:?}）"
+                ));
             }
             std::thread::sleep(Duration::from_millis(200));
         }

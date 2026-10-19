@@ -90,14 +90,17 @@ pub fn collect(o: &Opts) -> Result<(uiscan_core::Harvest, serde_json::Value), St
     }
     .map_err(|e| format!("CDP 通道没成：{e}"))?;
     session
-        .wait_document_ready(Duration::from_secs(20))
+        .wait_document_ready(&o.url, Duration::from_secs(30))
         .map_err(|e| format!("页面没就绪：{e}"))?;
     let payload = session
         .evaluate(uiscan_web::HARVEST_JS)
         .map_err(|e| format!("页面里采集失败：{e}"))?;
     let items = uiscan_web::harvest_payload_to_items(&payload);
     let h = uiscan_core::Harvest {
-        surface: format!("web:{} viewport={:?}", o.url, payload["viewport"]),
+        surface: format!(
+            "web:{} title={:?} href={:?} elements={} body_len={}",
+            o.url, payload["title"], payload["href"], payload["elements"], payload["body_len"]
+        ),
         items,
     };
     Ok((h, payload))

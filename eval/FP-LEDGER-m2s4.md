@@ -4332,3 +4332,23 @@ god 两把尺重录：rust `1118 → 1124` 项、python `532 → 537` 文件（�
 - 真跑：web 夹具 22 码点/178 面/缺字 0；gui「任务栏」80 码点（含 U+200E）/178 面/缺字 0；
   TUI 三条端到端契约（无字体退 2、arial 判出 U+4FDD 退 1、`--system` 退 0）写成
   `crates/uiscan-cli/tests/scan_tui.rs`（无字体时显式跳过并打印原因，不静默通过）。
+
+## 拿真实项目跑 uiscan（2026-10-20 本机时钟；官网 + fmnr）
+
+- **青简官网** `https://qingjian.app`（web/CDP 面）：328 元素、93 条 DomText + 5 条 TitleAttr、
+  **272 个非 ASCII 码点**、178 字体面 ⇒ **缺字 0、rc=0**。
+- **对照组**：同一站点只给 `arial.ttf` ⇒ **缺字 264、rc=1**（判据在真实项目上会红）。
+- **fmnr（egui，UIA 面）**：树里只有窗口名 + 标题栏四个按钮（8 个码点）、缺字 0 ⇒
+  再次坐实"egui 正文不在 UIA 里"；这一面的 0 不能当"没问题"。
+
+### 真跑照出的三个缺陷（已修 + 补测试）
+1. **about:blank 抢先采**：Edge 起窗先有一个 about:blank 的 page 目标，`readyState` 已是 complete ⇒
+   采到空页（href=about:blank、elements=3）。修法：等 `location.href` 真到目标（http(s) 要求同源，
+   file:// 要求相等且折叠点段）。
+2. **"必须 complete"过严**：qingjian.app 卡 `interactive` 30s（挂起请求）。修法：href 到目标 + 不是 loading，
+   再 500ms 沉降。
+3. **空采集假绿**：0 条时原来打印"缺字=0、rc=0"。修法：0 条一律 **退 2**，并把
+   title/href/elements/body_len 打进消息，指明"没渲染/被拦/选错面"。
+- 新增契约：`scan_tui.rs` 加"空采集退 2"；`scan_web_file.rs` 钉"采到的是真文档、不是 about:blank"。
+- ⚠ 时钟提示：本轮会话中机器钟从 2026-10-16 跳到 2026-10-20 03:17（休眠/校时），文档里的日期是
+  **当时机器钟显示值**；对时以 `date` 为准。

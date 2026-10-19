@@ -35,7 +35,14 @@ pub const HARVEST_JS: &str = r#"() => {
     push(l, 'PlaceholderAttr', el.getAttribute && el.getAttribute('placeholder') || '', rect);
     push(l, 'TitleAttr', el.getAttribute('title') || '', rect);
   }
-  return {viewport: [innerWidth, innerHeight, document.documentElement.clientWidth], items: out};
+  return {
+    viewport: [innerWidth, innerHeight, document.documentElement.clientWidth],
+    title: document.title,
+    href: location.href,
+    body_len: (document.body && document.body.innerText ? document.body.innerText.length : 0),
+    elements: document.querySelectorAll('*').length,
+    items: out
+  };
 }"#;
 
 #[derive(Deserialize)]

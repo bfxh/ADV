@@ -87,3 +87,24 @@ fn scan_with_system_fonts_is_green_for_the_same_capture() {
         "系统字体并集应全覆盖（同一份采集对照上一条）：{out:?}"
     );
 }
+
+#[test]
+fn empty_harvest_is_not_a_green_result() {
+    // 真实项目跑出来的教训：空页/被拦/选错面都会得到 0 条，若报"缺字=0、rc=0"就是假绿。
+    let p = std::env::temp_dir().join(format!("uiscan-empty-{}.bin", std::process::id()));
+    std::fs::write(&p, b"").expect("写空夹具");
+    let out = uiscan()
+        .args(["scan", "--surface", "tui", "--file"])
+        .arg(&p)
+        .args(["--rows", "6", "--cols", "40", "--system"])
+        .output()
+        .expect("跑 uiscan");
+    let _ = std::fs::remove_file(&p);
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "0 条必须退 2（判不了）：{out:?}"
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("采集到 0 条"), "要点名'采集到 0 条'：{err}");
+}
