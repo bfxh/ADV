@@ -57,3 +57,27 @@ cargo run --bin uiscan -- tui-feed --file <终端字节捕获> --rows 24 --cols 
 cargo test --workspace
 ```
 未知子命令、未接的面、缺参数一律 **退 2 并点名**，不返回空结果假装成功。
+
+## 豆腐块判据（`uiscan tofu`，2026-10-16）
+
+判据 = **码点在字体栈里有没有字形**（`ttf-parser` 读 `cmap` 的 `glyph_index`），不是 OCR、不是截图。
+
+```
+uiscan tui-feed --file cap.bin --rows 6 --cols 40 --json tui.json
+uiscan tofu --json tui.json --font C:\Windows\Fontsrial.ttf     # 只给拉丁字体
+uiscan tofu --json tui.json --font C:\Windows\Fonts\msyh.ttc      # 只给中文字体
+uiscan tofu --json tui.json --system                                # 全系统字体并集
+```
+
+退出码：**0 = 全有覆盖；1 = 发现缺字**（判据成立的样子，不是工具坏了）；2 = 用法/环境错。
+
+真跑读数（同一份 TUI 采集，21 个非 ASCII 码点）：
+
+| 字体栈 | 面数 | 缺字 | 说明 |
+|---|---|---|---|
+| `arial.ttf` | 1 | **19** | 汉字、`✓`/`✗` 全缺——这就是 fmnr 那类"拉丁字体栈下中文全豆腐块"的复现 |
+| `msyh.ttc` | 2 | **2** | 只剩 `✓`(U+2713) / `✗`(U+2717) |
+| `--system` | 178 | **0** | 系统字体并集能覆盖全部；155/156 个文件可解析 |
+
+**边界（必须传对字体栈）**：这是"字体能力"检查，不是像素验证。应用若只内嵌了某套字体、根本不做系统回退
+（egui 默认字体即如此），就必须把**它实际用的字体栈**传进来；传系统并集会得到"没问题"而屏幕上仍是方框。

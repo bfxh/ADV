@@ -210,6 +210,7 @@
         "uiscan-core.*"
       ],
       "import": [
+        "uiscan-font",
         "uiscan-tui",
         "uiscan-web",
         "uiscan-gui",
@@ -237,6 +238,7 @@
         "uiscan-tui.*"
       ],
       "import": [
+        "uiscan-font",
         "uiscan-web",
         "uiscan-gui",
         "uiscan-cli",
@@ -263,6 +265,7 @@
         "uiscan-web.*"
       ],
       "import": [
+        "uiscan-font",
         "uiscan-tui",
         "uiscan-gui",
         "uiscan-cli",
@@ -289,6 +292,7 @@
         "uiscan-gui.*"
       ],
       "import": [
+        "uiscan-font",
         "uiscan-tui",
         "uiscan-web",
         "uiscan-cli",
@@ -366,9 +370,37 @@
         "uiscan-tui",
         "uiscan-web",
         "uiscan-gui",
-        "uiscan-cli"
+        "uiscan-cli",
+        "uiscan-font"
       ],
       "why": "反向也禁：ADV 的任何 crate 与 xtask 不许 import uiscan-*。两仓若互相依赖，uiscan 的 src 会进 ADV 的变异面（每圈更慢、DD-0018 更难closure），而收益为零——实测两边依赖交集为空（vt100/tungstenite/windows 在 ADV 一个都没有）。"
+    },
+    {
+      "id": "rust-uiscan-font-only-core",
+      "from": [
+        "uiscan-font",
+        "uiscan-font.*"
+      ],
+      "import": [
+        "uiscan-tui",
+        "uiscan-web",
+        "uiscan-gui",
+        "uiscan-cli",
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-core",
+        "adv-index",
+        "adv-parse",
+        "adv-rules",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "字体覆盖判据是纯计算（ttf-parser 读 cmap），只许踩 uiscan-core。禁兄弟面/cli：它必须能在没有桌面、没有浏览器的机器上单独被测；禁 adv-*：两产品隔离。"
     }
   ]
 }

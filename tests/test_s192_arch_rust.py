@@ -220,6 +220,7 @@ UISCAN_IDS = {
     "rust-uiscan-web-only-core",
     "rust-uiscan-gui-only-core",
     "rust-uiscan-cli-not-into-adv",
+    "rust-uiscan-font-only-core",
     "rust-adv-no-uiscan-dep",
 }
 
@@ -227,7 +228,7 @@ UISCAN_IDS = {
 def _uiscan_ws(tmp_path: pathlib.Path) -> dict[str, pathlib.Path]:
     """伪造一个含五个 uiscan crate + adv-core 的工作区，返回各 crate 的 src 目录。"""
     srcs = {}
-    for c in ("uiscan-core", "uiscan-tui", "uiscan-web", "uiscan-gui", "uiscan-cli", "adv-core"):
+    for c in ("uiscan-core", "uiscan-tui", "uiscan-web", "uiscan-gui", "uiscan-cli", "uiscan-font", "adv-core"):
         d = tmp_path / "crates" / c
         (d / "src").mkdir(parents=True)
         (d / "Cargo.toml").write_text(

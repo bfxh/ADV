@@ -13,4 +13,5 @@ uiscan-core = { workspace = true }
 uiscan-tui = { workspace = true }
 uiscan-web = { workspace = true }
 uiscan-gui = { workspace = true }
+uiscan-font = { workspace = true }
 serde_json = { workspace = true }

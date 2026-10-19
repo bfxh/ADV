@@ -685,7 +685,7 @@
   "max_type_members": 0
  },
  "crates/uiscan-cli/src/main.rs": {
-  "file_lines": 261,
+  "file_lines": 343,
   "max_fn_lines": 84,
   "max_type_members": 0
  },
@@ -702,6 +702,21 @@
  "crates/uiscan-core/tests/checks.rs": {
   "file_lines": 126,
   "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "crates/uiscan-font/src/lib.rs": {
+  "file_lines": 106,
+  "max_fn_lines": 21,
+  "max_type_members": 5
+ },
+ "crates/uiscan-font/tests/aggregate.rs": {
+  "file_lines": 40,
+  "max_fn_lines": 9,
+  "max_type_members": 0
+ },
+ "crates/uiscan-font/tests/live_fonts.rs": {
+  "file_lines": 64,
+  "max_fn_lines": 43,
   "max_type_members": 0
  },
  "crates/uiscan-gui/src/lib.rs": {
@@ -1965,7 +1980,7 @@
   "max_type_members": 0
  },
  "tests/test_s192_arch_rust.py": {
-  "file_lines": 281,
+  "file_lines": 282,
   "max_fn_lines": 22,
   "max_type_members": 0
  },
@@ -2560,7 +2575,7 @@
   "max_type_members": 0
  },
  "xtask/src/god.rs": {
-  "file_lines": 370,
+  "file_lines": 371,
   "max_fn_lines": 53,
   "max_type_members": 4
  },

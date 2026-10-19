@@ -48,6 +48,7 @@ pub const MEMBER_DIRS: &[&str] = &[
     "crates/uiscan-web",
     "crates/uiscan-gui",
     "crates/uiscan-cli",
+    "crates/uiscan-font",
     "xtask",
 ];
 

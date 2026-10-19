@@ -4279,3 +4279,24 @@ god 却照出 16 个新文件。两把尺对同一棵树给出相反结论，这
 - **面漂移预告**：uiscan 的 src 现在属于工作区 ⇒ 下一轮 `mutants --rotate` 会报 face drift 并重开圈
   （第 3 圈本来也还没起跑）。这次合并不动任何产品语义。
 - 可见性：ADV 是 public，本次合并已获用户确认（私有仓 `bfxh/uiscan` 将归档）。
+
+## 豆腐块判据落地（2026-10-16，`crates/uiscan-font` + `uiscan tofu`）
+
+判据 = 码点 × 字体 `cmap` 覆盖（`ttf-parser`，纯 Rust、无 C、不需要把界面跑起来）。
+新增 crate `uiscan-font`（`FontSet::{add_file,covers,missing}`，`.ttc` 多面、坏字体当场报），
+CLI 加 `uiscan tofu --json <采集> (--font ... | --system)`，退出码 0=全覆盖 / 1=缺字 / 2=用法或环境错；
+`tui-feed` 也补了 `--json`（与 web/gui 共用同一个 dump 写出函数）。
+
+真跑（同一份 TUI 采集，21 个非 ASCII 码点）：
+- `arial.ttf`（1 面）⇒ **19 缺**（汉字 + ✓✗）——fmnr 那类"拉丁字体栈下中文全豆腐块"的复现；
+- `msyh.ttc`（2 面）⇒ **2 缺**（只剩 U+2713/U+2717）；
+- `--system`（155/156 文件可解析，178 面）⇒ **0 缺**。
+
+判据测试：`missing_where` 纯聚合 4 条（ASCII/控制符不进候选、排序去重、covered 不报、空输入）
++ 1 条 `#[ignore]` 真字体冒烟（arial 缺 保、msyh 有 保、U+10FFFF 谁都没有）。
+**冒烟抓到我一个猜出来的期望**：我以为 arial 不覆盖 `→`(U+2192)，实测它覆盖（CLI 缺字清单里没有箭头），
+已按实测改成只报 `保`——这类"按常识猜字体覆盖"正是最容易错的地方。
+
+架构：新增 `rust-uiscan-font-only-core`（第 7 条 uiscan 规则，总 17 条）；core/适配器/ADV 反依赖的
+import 清单同步加上 `uiscan-font`；arch_gate 17 规则/6243 边/0 违例，`test_s192_arch_rust.py` 12 条全绿。
+**边界**：覆盖 ≠ 渲染——应用只内嵌某套字体、不做系统回退时，必须传它**实际用的字体栈**，否则会假绿。

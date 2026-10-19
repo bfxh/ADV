@@ -21,6 +21,7 @@ members = [
     "crates/uiscan-web",
     "crates/uiscan-gui",
     "crates/uiscan-cli",
+    "crates/uiscan-font",
     "xtask",
 ]
 # 上游内化源码（third_party/**）刻意**不在**本 workspace 里：它就是"源码进仓但不算我们的面"。
@@ -54,6 +55,7 @@ uiscan-core = { path = "crates/uiscan-core" }
 uiscan-tui = { path = "crates/uiscan-tui" }
 uiscan-web = { path = "crates/uiscan-web" }
 uiscan-gui = { path = "crates/uiscan-gui" }
+uiscan-font = { path = "crates/uiscan-font" }
 vt100 = "0.16"
 tungstenite = "0.30"
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_Accessibility", "Win32_System_Com"] }

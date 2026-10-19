@@ -9,10 +9,11 @@ use std::process::exit;
 use std::time::Duration;
 
 const USAGE: &str = "用法：
-  uiscan tui-feed [--file <终端字节捕获，缺省读 stdin>] [--rows N=24] [--cols N=80]
+  uiscan tui-feed [--file <终端字节捕获，缺省读 stdin>] [--rows N=24] [--cols N=80] [--json <输出文件>]
   uiscan web <url|file:///路径> [--window 1280x900] [--wait-secs 25] [--profile <目录>] [--port N] [--json <输出文件>]
   uiscan gui --list
-  uiscan gui (--title <子串> | --pid N | --focused) [--depth 12] [--nodes 20000] [--json <输出文件>]";
+  uiscan gui (--title <子串> | --pid N | --focused) [--depth 12] [--nodes 20000] [--json <输出文件>]
+  uiscan tofu --json <采集输出文件> (--font <字体文件>... | --system)";
 
 fn bail(msg: &str) -> ! {
     eprintln!("{msg}\n{USAGE}");
@@ -28,6 +29,7 @@ fn main() {
         "tui-feed" => tui_feed(args),
         "web" => web(args),
         "gui" => gui(args),
+        "tofu" => tofu(args),
         other => bail(&format!("未接的面：{other}（GUI 的 UIA 适配器还没写）")),
     }
 }
@@ -36,6 +38,7 @@ fn tui_feed(mut args: impl Iterator<Item = String>) {
     let mut file: Option<String> = None;
     let mut rows: u16 = 24;
     let mut cols: u16 = 80;
+    let mut dump: Option<PathBuf> = None;
     while let Some(a) = args.next() {
         let mut num = |name: &str| -> u16 {
             args.next()
@@ -46,6 +49,11 @@ fn tui_feed(mut args: impl Iterator<Item = String>) {
             "--file" => file = Some(args.next().unwrap_or_else(|| bail("--file 后面缺值"))),
             "--rows" => rows = num("--rows"),
             "--cols" => cols = num("--cols"),
+            "--json" => {
+                dump = Some(PathBuf::from(
+                    args.next().unwrap_or_else(|| bail("--json 后面缺值")),
+                ))
+            }
             other => bail(&format!("不认得的参数：{other}")),
         }
     }
@@ -59,7 +67,11 @@ fn tui_feed(mut args: impl Iterator<Item = String>) {
             buf
         }
     };
-    report(&uiscan_tui::harvest(&bytes, rows, cols));
+    let h = uiscan_tui::harvest(&bytes, rows, cols);
+    if let Some(path) = dump {
+        write_dump(&path, &h);
+    }
+    report(&h);
 }
 
 fn web(mut args: impl Iterator<Item = String>) {
@@ -162,6 +174,75 @@ fn report(h: &uiscan_core::Harvest) {
     println!("非 ASCII 码点 {} 个：{:?}", cps.len(), cps);
 }
 
+/// 豆腐块判据：把采集结果里的可见文本，拿去和**调用方给的字体栈**比 cmap 覆盖。
+///
+/// 退出码：0 = 全有覆盖；1 = 发现缺字（这是判据成立的样子，不是工具坏了）；2 = 用法/环境错。
+fn tofu(mut args: impl Iterator<Item = String>) {
+    let mut dump: Option<PathBuf> = None;
+    let mut fonts: Vec<PathBuf> = Vec::new();
+    let mut system = false;
+    while let Some(a) = args.next() {
+        let mut val = |n: &str| {
+            args.next()
+                .unwrap_or_else(|| bail(&format!("{n} 后面缺值")))
+        };
+        match a.as_str() {
+            "--json" => dump = Some(PathBuf::from(val("--json"))),
+            "--font" => fonts.push(PathBuf::from(val("--font"))),
+            "--system" => system = true,
+            other => bail(&format!("不认得的参数：{other}")),
+        }
+    }
+    let dump = dump.unwrap_or_else(|| bail("tofu 需要 --json <采集输出文件>"));
+    let raw = std::fs::read_to_string(&dump)
+        .unwrap_or_else(|e| bail(&format!("读不了 {}：{e}", dump.display())));
+    let v: serde_json::Value =
+        serde_json::from_str(&raw).unwrap_or_else(|e| bail(&format!("不是 JSON：{e}")));
+    let items = v["items"]
+        .as_array()
+        .unwrap_or_else(|| bail("JSON 里没有 items 数组（先用 web/gui 的 --json 产出）"));
+    // 只看可见条目：不可见的文案不会有豆腐块，报它只会制造噪音。
+    let chars: Vec<char> = items
+        .iter()
+        .filter(|i| i["visible"].as_bool().unwrap_or(true))
+        .filter_map(|i| i["txt"].as_str())
+        .flat_map(|s| s.chars())
+        .collect();
+
+    let mut set = uiscan_font::FontSet::new();
+    for f in &fonts {
+        let n = set.add_file(f).unwrap_or_else(|e| bail(&e));
+        println!("字体 {}：{n} 个面", f.display());
+    }
+    if system {
+        let files = uiscan_font::system_font_files();
+        let mut ok = 0;
+        for f in &files {
+            if set.add_file(f).is_ok() {
+                ok += 1;
+            }
+        }
+        println!("系统字体：载入 {ok}/{} 个文件", files.len());
+    }
+    if set.face_count() == 0 {
+        bail("没有可用字体：给 --font <文件> 或 --system（工具不替你猜应用的字体栈）");
+    }
+
+    let missing = set.missing(chars);
+    println!(
+        "surface={} 字体面={} 缺字={}",
+        v["surface"].as_str().unwrap_or("(dump)"),
+        set.face_count(),
+        missing.len()
+    );
+    for c in &missing {
+        println!("  U+{:04X} {:?}", *c as u32, c);
+    }
+    if !missing.is_empty() {
+        exit(1);
+    }
+}
+
 fn gui(mut args: impl Iterator<Item = String>) {
     enum What {
         List,
@@ -220,28 +301,29 @@ fn gui(mut args: impl Iterator<Item = String>) {
     }
 }
 
+fn write_dump(path: &std::path::Path, h: &uiscan_core::Harvest) {
+    let items: Vec<serde_json::Value> = h
+        .items
+        .iter()
+        .map(|i| {
+            serde_json::json!({
+                "loc": i.loc, "ch": channel_name(i.channel), "txt": i.text,
+                "visible": i.visible,
+                "rect": i.rect.map(|r| serde_json::json!({"x": r.x, "y": r.y, "w": r.w, "h": r.h}))
+            })
+        })
+        .collect();
+    let doc = serde_json::json!({"surface": h.surface, "items": items});
+    if let Err(e) = std::fs::write(path, serde_json::to_string_pretty(&doc).unwrap_or_default()) {
+        bail(&format!("写不了 {}：{e}", path.display()));
+    }
+    println!("items 已写 {}", path.display());
+}
+
 fn finish(h: Result<uiscan_core::Harvest, String>, dump: Option<PathBuf>) {
     let h = h.unwrap_or_else(|e| bail(&format!("采集失败：{e}")));
     if let Some(path) = dump {
-        let items: Vec<serde_json::Value> = h
-            .items
-            .iter()
-            .map(|i| {
-                serde_json::json!({
-                    "loc": i.loc, "ch": channel_name(i.channel), "txt": i.text,
-                    "visible": i.visible,
-                    "rect": i.rect.map(|r| serde_json::json!({"x": r.x, "y": r.y, "w": r.w, "h": r.h}))
-                })
-            })
-            .collect();
-        let doc = serde_json::json!({"surface": h.surface, "items": items});
-        if let Err(e) = std::fs::write(
-            &path,
-            serde_json::to_string_pretty(&doc).unwrap_or_default(),
-        ) {
-            bail(&format!("写不了 {}：{e}", path.display()));
-        }
-        println!("items 已写 {}", path.display());
+        write_dump(&path, &h);
     }
     report(&h);
 }
