@@ -1,7 +1,7 @@
 use chrono::{DateTime, Duration, TimeDelta, TimeZone, Utc};
 use reqwest;
 use reqwest::header::HeaderValue;
-use reqwest::{StatusCode, Url, header};
+use reqwest::{header, StatusCode, Url};
 use secrecy::ExposeSecret;
 
 use super::models::{OrganizationShort, Page, RateLimitOverview, Repository, User};
@@ -69,12 +69,16 @@ impl Client {
     }
 
     pub async fn next_page<T>(&self, page: Page<T>) -> Result<Option<Page<T>>>
-    where T: serde::de::DeserializeOwned {
+    where
+        T: serde::de::DeserializeOwned,
+    {
         self.next_page_inner(page.links.next).await
     }
 
     async fn next_page_inner<T>(&self, next: Option<Url>) -> Result<Option<Page<T>>>
-    where T: serde::de::DeserializeOwned {
+    where
+        T: serde::de::DeserializeOwned,
+    {
         match next {
             Some(next) => {
                 let response = self.get_url(next).await?;
@@ -85,7 +89,9 @@ impl Client {
     }
 
     pub async fn get_all<T>(&self, page: Page<T>) -> Result<Vec<T>>
-    where T: serde::de::DeserializeOwned {
+    where
+        T: serde::de::DeserializeOwned,
+    {
         let mut results = Vec::new();
         let mut next_page = Some(page);
         while let Some(page) = next_page {
@@ -172,7 +178,11 @@ mod test {
     #[test]
     fn url_from_path_parts_and_params_3() {
         testcase_ok(
-            ("https://github.example.com/api/v3", &["SomeUser", "somerepo.git"], &[]),
+            (
+                "https://github.example.com/api/v3",
+                &["SomeUser", "somerepo.git"],
+                &[],
+            ),
             "https://github.example.com/api/v3/SomeUser/somerepo.git",
         );
     }
@@ -180,7 +190,11 @@ mod test {
     #[test]
     fn url_from_path_parts_and_params_4() {
         testcase_ok(
-            ("https://github.example.com/api/v3/", &["SomeUser", "somerepo.git"], &[]),
+            (
+                "https://github.example.com/api/v3/",
+                &["SomeUser", "somerepo.git"],
+                &[],
+            ),
             "https://github.example.com/api/v3/SomeUser/somerepo.git",
         );
     }
@@ -188,15 +202,22 @@ mod test {
     #[test]
     fn url_from_path_parts_and_params_5() {
         testcase_ok(
-            ("https://api.github.com", &["praetorian-inc", "noseyparker.git"], &[]),
+            (
+                "https://api.github.com",
+                &["praetorian-inc", "noseyparker.git"],
+                &[],
+            ),
             "https://api.github.com/praetorian-inc/noseyparker.git",
         );
     }
 
     #[test]
     fn url_from_path_parts_and_params_6() {
-        let res =
-            make_url("https://api.github.com", &["praetorian-inc", "some/bogus/path/part"], &[]);
+        let res = make_url(
+            "https://api.github.com",
+            &["praetorian-inc", "some/bogus/path/part"],
+            &[],
+        );
         // XXX have to resort to match here because `Error` doesn't have an Eq instance
         match res {
             Err(Error::UrlSlashError(p)) if p == "some/bogus/path/part" => (),

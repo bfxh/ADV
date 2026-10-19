@@ -90,7 +90,10 @@ fn serialize_bytes_string_base64<S: serde::Serializer>(
     s: S,
 ) -> Result<S::Ok, S::Error> {
     use base64::prelude::*;
-    s.collect_str(&base64::display::Base64Display::new(bytes, &BASE64_STANDARD))
+    s.collect_str(&base64::display::Base64Display::new(
+        bytes,
+        &BASE64_STANDARD,
+    ))
 }
 
 fn deserialize_bytes_string_base64<'de, D: serde::Deserializer<'de>>(

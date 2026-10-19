@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use noseyparker_rules::Rule;
 use regex::bytes::Regex;
 use tracing::{debug, debug_span};
@@ -31,7 +31,11 @@ impl RulesDatabase {
                 // reduce scan performance and increase memory use notably. So skip it!
                 //
                 // Pattern::new(r.syntax().pattern.clone().into_bytes(), Flag::default() | Flag::SOM_LEFTMOST, Some(id))
-                Pattern::new(r.syntax().pattern.clone().into_bytes(), Flag::default(), Some(id))
+                Pattern::new(
+                    r.syntax().pattern.clone().into_bytes(),
+                    Flag::default(),
+                    Some(id),
+                )
             })
             .collect::<Vec<Pattern>>();
 
@@ -46,7 +50,12 @@ impl RulesDatabase {
             .collect::<Result<Vec<Regex>>>()?;
         let d2 = t2.elapsed().as_secs_f64();
 
-        debug!("Compiled {} rules: vectorscan {}s; regex {}s", rules.len(), d1, d2);
+        debug!(
+            "Compiled {} rules: vectorscan {}s; regex {}s",
+            rules.len(),
+            d1,
+            d2
+        );
         Ok(RulesDatabase {
             rules,
             vsdb,
@@ -107,11 +116,14 @@ mod test {
         {
             let input = "GÜTEN TAG";
             let mut matches: Vec<(u64, u64)> = vec![];
-            scanner.scan(input.as_bytes(), |id: u32, from: u64, to: u64, _flags: u32| {
-                println!("found pattern #{} @ [{}, {})", id, from, to);
-                matches.push((from, to));
-                Scan::Continue
-            })?;
+            scanner.scan(
+                input.as_bytes(),
+                |id: u32, from: u64, to: u64, _flags: u32| {
+                    println!("found pattern #{} @ [{}, {})", id, from, to);
+                    matches.push((from, to));
+                    Scan::Continue
+                },
+            )?;
 
             assert_eq!(matches, vec![(0, 10)]);
         }
@@ -119,11 +131,14 @@ mod test {
         {
             let input = "güten tag";
             let mut matches: Vec<(u64, u64)> = vec![];
-            scanner.scan(input.as_bytes(), |id: u32, from: u64, to: u64, _flags: u32| {
-                println!("found pattern #{} @ [{}, {})", id, from, to);
-                matches.push((from, to));
-                Scan::Continue
-            })?;
+            scanner.scan(
+                input.as_bytes(),
+                |id: u32, from: u64, to: u64, _flags: u32| {
+                    println!("found pattern #{} @ [{}, {})", id, from, to);
+                    matches.push((from, to));
+                    Scan::Continue
+                },
+            )?;
 
             assert_eq!(matches, vec![(0, 10)]);
         }

@@ -684,6 +684,86 @@
   "max_fn_lines": 3,
   "max_type_members": 0
  },
+ "crates/uiscan-cli/src/main.rs": {
+  "file_lines": 261,
+  "max_fn_lines": 84,
+  "max_type_members": 0
+ },
+ "crates/uiscan-core/src/checks.rs": {
+  "file_lines": 91,
+  "max_fn_lines": 29,
+  "max_type_members": 0
+ },
+ "crates/uiscan-core/src/lib.rs": {
+  "file_lines": 100,
+  "max_fn_lines": 9,
+  "max_type_members": 5
+ },
+ "crates/uiscan-core/tests/checks.rs": {
+  "file_lines": 126,
+  "max_fn_lines": 27,
+  "max_type_members": 0
+ },
+ "crates/uiscan-gui/src/lib.rs": {
+  "file_lines": 33,
+  "max_fn_lines": 0,
+  "max_type_members": 5
+ },
+ "crates/uiscan-gui/src/pure.rs": {
+  "file_lines": 105,
+  "max_fn_lines": 45,
+  "max_type_members": 0
+ },
+ "crates/uiscan-gui/src/uia.rs": {
+  "file_lines": 232,
+  "max_fn_lines": 29,
+  "max_type_members": 6
+ },
+ "crates/uiscan-gui/src/unsupported.rs": {
+  "file_lines": 27,
+  "max_fn_lines": 3,
+  "max_type_members": 0
+ },
+ "crates/uiscan-gui/tests/live_uia.rs": {
+  "file_lines": 30,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "crates/uiscan-gui/tests/pure.rs": {
+  "file_lines": 182,
+  "max_fn_lines": 44,
+  "max_type_members": 0
+ },
+ "crates/uiscan-tui/src/lib.rs": {
+  "file_lines": 68,
+  "max_fn_lines": 49,
+  "max_type_members": 0
+ },
+ "crates/uiscan-tui/tests/harvest.rs": {
+  "file_lines": 92,
+  "max_fn_lines": 20,
+  "max_type_members": 0
+ },
+ "crates/uiscan-web/src/cdp.rs": {
+  "file_lines": 295,
+  "max_fn_lines": 66,
+  "max_type_members": 3
+ },
+ "crates/uiscan-web/src/lib.rs": {
+  "file_lines": 163,
+  "max_fn_lines": 40,
+  "max_type_members": 11
+ },
+ "crates/uiscan-web/tests/edge_payload.rs": {
+  "file_lines": 125,
+  "max_fn_lines": 22,
+  "max_type_members": 0
+ },
+ "crates/uiscan-web/tests/probe_parse.rs": {
+  "file_lines": 115,
+  "max_fn_lines": 24,
+  "max_type_members": 0
+ },
  "hub_auth.py": {
   "file_lines": 219,
   "max_fn_lines": 16,
@@ -2480,8 +2560,8 @@
   "max_type_members": 0
  },
  "xtask/src/god.rs": {
-  "file_lines": 353,
-  "max_fn_lines": 41,
+  "file_lines": 370,
+  "max_fn_lines": 53,
   "max_type_members": 4
  },
  "xtask/src/lib.rs": {
@@ -2537,6 +2617,11 @@
  "xtask/tests/canary_gate.rs": {
   "file_lines": 82,
   "max_fn_lines": 25,
+  "max_type_members": 0
+ },
+ "xtask/tests/canary_god_registration.rs": {
+  "file_lines": 33,
+  "max_fn_lines": 19,
   "max_type_members": 0
  },
  "xtask/tests/canary_mutants.rs": {

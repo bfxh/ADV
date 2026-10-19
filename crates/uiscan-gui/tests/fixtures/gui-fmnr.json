@@ -1,0 +1,77 @@
+{
+  "items": [
+    {
+      "ch": "UiaName",
+      "loc": "Window[0]#fmnr",
+      "rect": {
+        "h": 839,
+        "w": 1296,
+        "x": 104,
+        "y": 104
+      },
+      "txt": "fmnr",
+      "visible": true
+    },
+    {
+      "ch": "UiaName",
+      "loc": "Window[0]#fmnr/TitleBar[0]/Unknown(50010)[0]#系统",
+      "rect": {
+        "h": 22,
+        "w": 22,
+        "x": 112,
+        "y": 112
+      },
+      "txt": "系统",
+      "visible": true
+    },
+    {
+      "ch": "UiaName",
+      "loc": "Window[0]#fmnr/TitleBar[0]/Unknown(50010)[0]#系统/MenuItem[0]#系统",
+      "rect": {
+        "h": 22,
+        "w": 22,
+        "x": 112,
+        "y": 112
+      },
+      "txt": "系统",
+      "visible": true
+    },
+    {
+      "ch": "UiaName",
+      "loc": "Window[0]#fmnr/TitleBar[0]/Button[1]#最小化",
+      "rect": {
+        "h": 30,
+        "w": 47,
+        "x": 1253,
+        "y": 105
+      },
+      "txt": "最小化",
+      "visible": true
+    },
+    {
+      "ch": "UiaName",
+      "loc": "Window[0]#fmnr/TitleBar[0]/Button[2]#最大化",
+      "rect": {
+        "h": 30,
+        "w": 46,
+        "x": 1300,
+        "y": 105
+      },
+      "txt": "最大化",
+      "visible": true
+    },
+    {
+      "ch": "UiaName",
+      "loc": "Window[0]#fmnr/TitleBar[0]/Button[3]#关闭",
+      "rect": {
+        "h": 30,
+        "w": 47,
+        "x": 1346,
+        "y": 105
+      },
+      "txt": "关闭",
+      "visible": true
+    }
+  ],
+  "surface": "gui:uia title~\"fmnr\" target=\"fmnr\""
+}

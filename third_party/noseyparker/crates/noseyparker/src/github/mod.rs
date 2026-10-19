@@ -26,7 +26,7 @@ pub fn enumerate_repo_urls(
     ignore_certs: bool,
     progress: Option<&mut Progress>,
 ) -> anyhow::Result<Vec<String>> {
-    use anyhow::{Context, bail};
+    use anyhow::{bail, Context};
     use tracing::{debug, warn};
 
     let client = ClientBuilder::new()
@@ -69,7 +69,10 @@ pub fn enumerate_repo_urls(
                 } else {
                     "; consider supplying a GitHub personal access token through the NP_GITHUB_TOKEN environment variable"
                 };
-                warn!("Rate limit exceeded: must wait for {wait:?} before retrying{}", suggestion);
+                warn!(
+                    "Rate limit exceeded: must wait for {wait:?} before retrying{}",
+                    suggestion
+                );
             }
             bail!(err);
         }

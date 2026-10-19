@@ -1,0 +1,9 @@
+[package]
+name = "uiscan-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+uiscan-core = { workspace = true }
+vt100 = { workspace = true }

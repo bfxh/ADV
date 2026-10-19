@@ -1,0 +1,150 @@
+{
+  "_meta": {
+    "来源": "2026-10-16 真跑：Qoder 内置 webview（UA: Electron 43.1.1 / Chrome 150.0.7871.114）",
+    "页面": "file:///E:/tmp/i18n-pseudo.html（已收进 tests/fixtures/i18n-pseudo.html）",
+    "调用": "getComputedStyle(el,'::before'|'::after'|'::marker').content + innerText + getBoundingClientRect，选择器限定 [data-expected]",
+    "viewport_实测": [0, 0, 0],
+    "如实声明": [
+      "rows[0..9] 是第一次调用原样回传的字段；rows[10]（marker-li）来自第二次定点复测，那次没有取 rect，故 w/h 记 0（不编数）。",
+      "w 全 0 与 viewport 全 0 是这台机器上那个 webview 的几何不可信，不是页面缺陷；因此本语料里除 input.pl 外所有条目 usable_rect 判 false。",
+      "input.pl 的 CSS ::placeholder content 实测回来是 normal（值被忽略）——占位文案的真通道是 placeholder 属性。",
+      "counter 那一行实测回来是未解析令牌 'counter(i) \". \"'，不是 '1. '；expected 记的是人眼看到的。",
+      "第一次调用没覆盖 span.ti（它没带 data-expected），所以 title 通道在本语料里全空，属夹具缺口。"
+    ]
+  },
+  "viewport": [0, 0, 0],
+  "rows": [
+    {
+      "cls": "lit",
+      "expected": "字面量-前|字面量-后",
+      "before": "字面量-前",
+      "after": "字面量-后",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "宿主",
+      "title": "",
+      "w": 0,
+      "h": 240
+    },
+    {
+      "cls": "attr",
+      "expected": "attr-文案",
+      "before": "attr-文案",
+      "after": "",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "宿主",
+      "title": "",
+      "w": 0,
+      "h": 120
+    },
+    {
+      "cls": "multi",
+      "expected": "A · B",
+      "before": "",
+      "after": "A · B",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "宿主",
+      "title": "",
+      "w": 0,
+      "h": 120
+    },
+    {
+      "cls": "esc",
+      "expected": "纯字",
+      "before": "纯字",
+      "after": "",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "宿主",
+      "title": "",
+      "w": 0,
+      "h": 96
+    },
+    {
+      "cls": "var",
+      "expected": "变量-文案",
+      "before": "",
+      "after": "变量-文案",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "宿主",
+      "title": "",
+      "w": 0,
+      "h": 144
+    },
+    {
+      "cls": "li-counter-1",
+      "expected": "1. ",
+      "before": "counter(i) \". \"",
+      "after": "",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "一",
+      "title": "",
+      "w": 0,
+      "h": 48
+    },
+    {
+      "cls": "li-counter-2",
+      "expected": "2. ",
+      "before": "counter(i) \". \"",
+      "after": "",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "二",
+      "title": "",
+      "w": 0,
+      "h": 48
+    },
+    {
+      "cls": "hide",
+      "expected": "隐藏-前",
+      "before": "隐藏-前",
+      "after": "",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "宿主",
+      "title": "",
+      "w": 0,
+      "h": 0
+    },
+    {
+      "cls": "deco",
+      "expected": "",
+      "before": "",
+      "after": "",
+      "marker": "normal",
+      "placeholder": "",
+      "domText": "宿主",
+      "title": "",
+      "w": 0,
+      "h": 48
+    },
+    {
+      "cls": "pl",
+      "expected": "占位-文案",
+      "before": "",
+      "after": "",
+      "marker": "normal",
+      "placeholder": "normal",
+      "domText": "",
+      "title": "",
+      "w": 177,
+      "h": 21
+    },
+    {
+      "cls": "marker-li",
+      "expected": "标记-",
+      "before": "none",
+      "after": "",
+      "marker": "\"标记-\"",
+      "placeholder": "",
+      "domText": "甲",
+      "title": "",
+      "w": 0,
+      "h": 0
+    }
+  ]
+}

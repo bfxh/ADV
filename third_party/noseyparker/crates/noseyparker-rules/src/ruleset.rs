@@ -29,7 +29,11 @@ impl RulesetSyntax {
         let _span = debug_span!("Ruleset::from_yaml_file", "{}", path.display()).entered();
         let ruleset: Self = util::load_yaml_file(path)
             .with_context(|| format!("Failed to load ruleset YAML from {}", path.display()))?;
-        debug!("Loaded ruleset of {} rules from {}", ruleset.num_rules(), path.display());
+        debug!(
+            "Loaded ruleset of {} rules from {}",
+            ruleset.num_rules(),
+            path.display()
+        );
         Ok(ruleset)
     }
 

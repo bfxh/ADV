@@ -4226,6 +4226,17 @@ cargo-mutants 不进测试块，面未变，沿用成立（这条是按"面中�
 - **停在这里等口径决定**（`ADV_MUTANTS_TIMEOUT` 是门里现成的旋钮，但注释写明默认 60 是 2026-10-06
   以来各圈的判定锚点，用了就要按双向披露记成"这一窗与历史不同尺"）。
 
+### 定点测量把"超时"这件事量成了压线，不是挂死（2026-10-16 18:20 前后）
+一次性探针：`cargo mutants -j 1 --timeout 300 --file crates/adv-cli/src/sca.rs --output=E:/tmp/adv-direct/out4`
+（临时抬尺只为**测量**，没动 `DEFAULT_TIMEOUT_SECS=60`，也没走 `--update`）：
+- `ok Unmutated baseline in 667s build + 60s test` ⇒ **adv-cli 未变异基线的测试阶段实测 ≈60 秒**，
+  正好压在默认 60s 线上。于是第 2 窗的 `TIMEOUT … 60s test` 不是"跑不完"，是**压线抛硬币**：
+  同一片面第 2 圈过、第 3 圈没过，这本身就是门的一个不稳定源（判不了会以 rc=3 停下，不假绿，方向对）。
+- `15 mutants tested in 25m: 14 caught, 1 unviable`，**0 missed** ⇒ adv-cli 的 `sca.rs` 覆盖成立；
+  但**每条变异 ≈100 秒**（冷 scratch 下每条都要重链）⇒ 整片 adv-cli（131 条）单窗 ≈ **3.6 小时**。
+- 抬尺的语义方向要说清：`Timeout` 在本仓早计入可验证键（`VERIFIABLE_SUMMARIES`），所以抬到 120s
+  **不会**让"该杀的活下来"；反过来，一条本来 60–120 秒之间跑完且**判绿**的变异，原来会被误记成
+  Timeout(=算捕获)，抬尺后拿到真判定 ⇒ 有可能照出新的 missed。这是**更严**，不是放松，要按这个方向披露。
 
 
 
@@ -4233,3 +4244,38 @@ cargo-mutants 不进测试块，面未变，沿用成立（这条是按"面中�
 
 
 
+
+
+
+## uiscan 并入 ADV（2026-10-16）：3 面采集器成为工作区成员
+
+**并入内容**：`crates/uiscan-{core,tui,web,gui,cli}`（2024-10-16 在独立仓写完并真跑过）+ 4 份实测夹具
+（`i18n-pseudo.html` / `pseudo-chromium.json` / `payload-edge155.json` / `gui-fmnr.json`）+ `docs/uiscan.md`。
+合并后 **31 条测试在 ADV 里全绿**（core 9 / tui 5 / web 11 / gui 6），CLI 冒烟输出与独立仓一致（21 个非 ASCII 码点）。
+
+**依赖与元数据**：workspace.dependencies 新增 `uiscan-*`（path）与 `vt100 0.16` / `tungstenite 0.30` /
+`windows 0.62.2`（UIA 三个 feature）；五个 crate 的 version/edition/license 继承 ADV 的 workspace.package
+（edition 因此从 2021 变为 **2024**，全量测试照绿）。分层规则合并**之前**已落地（6 条 + 金丝雀，`4a9707d1`）。
+
+### 合并当场照出 god 门的一个真盲点（已修）
+`xtask/src/god.rs` 的注释写着"新 crate 落地即受门管（无需登记）"，但它实际用的是**写死的 `MEMBER_DIRS`**：
+uiscan 五个 crate 落进 `crates/` 后，rust 侧计量报"新增 0 项"——**它根本没扫新 crate**；同一次 python 侧
+god 却照出 16 个新文件。两把尺对同一棵树给出相反结论，这就是洞。
+- 修法：`collect_workspace_entries` 增加**反向对账**——`crates/` 下凡有 `Cargo.toml` 的目录不在
+  `MEMBER_DIRS` 里就 `bail`（"不登记 = god 门看不见它"）；金丝雀 `canary_god_registration.rs` 证明它会红。
+- rust 侧基线 975 → **1098 项**（+121 个 uiscan 面 +1 个新金丝雀 fn）；python 侧 512 → **529 文件**。
+  两份都按门给的口径 `--write` 重录，属单值披露，不是放松。
+
+### 一个我自己造的解析坑（已拆）
+新金丝雀最初塞在 `xtask/tests/canary.rs` 末尾，结果把 python god 的**大括号启发式**带偏：
+一个 fn 一路吞到文件尾，报 `max_fn_lines 456 > 硬阈 120`。修法不是抬阈值，而是把这条金丝雀
+**单列**成 `canary_god_registration.rs`（32 行），`canary.rs` 回到 639 行/23 条测试。
+
+### 门账
+- 权威线 `python -X utf8 scripts/local_gate.py --line pre-commit`：**16 步 OK**（26.1s）。
+- 默认全表 39 步另有红，均为既有/环境问题，不属本次合并：`secrets/secrets-history/stress/mcp-surface`
+  依赖未构建的 `rx-scan.exe`/`rx-sys.exe`；`naming-gate/typos-gate` 落在 `RESEARCH/` 既有文档；
+  `debt-gate` 是 DD-0005/0018/0019 三条在册超期；`pytest` 因缺上面那几个 exe 而失败。
+- **面漂移预告**：uiscan 的 src 现在属于工作区 ⇒ 下一轮 `mutants --rotate` 会报 face drift 并重开圈
+  （第 3 圈本来也还没起跑）。这次合并不动任何产品语义。
+- 可见性：ADV 是 public，本次合并已获用户确认（私有仓 `bfxh/uiscan` 将归档）。

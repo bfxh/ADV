@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use bstr::BString;
 use indoc::indoc;
 use noseyparker_rules::Rule;
@@ -61,7 +61,10 @@ impl Datastore {
     /// Create a new datastore at `root_dir` if one does not exist,
     /// or open an existing one if present.
     pub fn create_or_open(root_dir: &Path, cache_size: i64) -> Result<Self> {
-        debug!("Attempting to create or open an existing datastore at {}", root_dir.display());
+        debug!(
+            "Attempting to create or open an existing datastore at {}",
+            root_dir.display()
+        );
 
         Self::create(root_dir, cache_size).or_else(|e| {
             debug!(
@@ -73,14 +76,20 @@ impl Datastore {
 
     /// Open the existing datastore at `root_dir`.
     pub fn open(root_dir: &Path, cache_size: i64) -> Result<Self> {
-        debug!("Attempting to open existing datastore at {}", root_dir.display());
+        debug!(
+            "Attempting to open existing datastore at {}",
+            root_dir.display()
+        );
 
         let ds = Self::open_impl(root_dir, cache_size)?;
         ds.check_schema_version()?;
 
         let scratch_dir = ds.scratch_dir();
         std::fs::create_dir_all(&scratch_dir).with_context(|| {
-            format!("Failed to create scratch directory {}", scratch_dir.display(),)
+            format!(
+                "Failed to create scratch directory {}",
+                scratch_dir.display(),
+            )
         })?;
 
         let clones_dir = ds.clones_dir();
@@ -98,16 +107,25 @@ impl Datastore {
 
     /// Create a new datastore at `root_dir` and open it.
     pub fn create(root_dir: &Path, cache_size: i64) -> Result<Self> {
-        debug!("Attempting to create new datastore at {}", root_dir.display());
+        debug!(
+            "Attempting to create new datastore at {}",
+            root_dir.display()
+        );
 
         // Create datastore directory
         std::fs::create_dir(root_dir).with_context(|| {
-            format!("Failed to create datastore root directory at {}", root_dir.display())
+            format!(
+                "Failed to create datastore root directory at {}",
+                root_dir.display()
+            )
         })?;
 
         // Generate .gitignore file
         std::fs::write(root_dir.join(".gitignore"), "*\n").with_context(|| {
-            format!("Failed to write .gitignore to datastore at {}", root_dir.display())
+            format!(
+                "Failed to write .gitignore to datastore at {}",
+                root_dir.display()
+            )
         })?;
 
         let mut ds = Self::open_impl(root_dir, cache_size)?;
@@ -815,8 +833,12 @@ impl Datastore {
         &self,
         suppress_redundant_matches: bool,
     ) -> Result<Vec<FindingMetadata>> {
-        let _span =
-            debug_span!("Datastore::get_finding_metadata", "{}", self.root_dir.display()).entered();
+        let _span = debug_span!(
+            "Datastore::get_finding_metadata",
+            "{}",
+            self.root_dir.display()
+        )
+        .entered();
 
         let query_str = format!(
             indoc! {r#"
@@ -1190,7 +1212,9 @@ impl Datastore {
 // -------------------------------------------------------------------------------------------------
 
 fn collect<T, F>(rows: rusqlite::MappedRows<'_, F>) -> Result<Vec<T>>
-where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
     let mut entries = Vec::new();
     for row in rows {
         entries.push(row?);
@@ -1204,7 +1228,9 @@ where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
 /// doesn't allow defining TryFrom<&rusqlite::Row<'_>> for any T that implements rusqlite::types::FromSql.
 /// Without this function, you would have to use 1-tuples all over the place instead.
 fn val_from_row<T>(row: &rusqlite::Row<'_>) -> rusqlite::Result<T>
-where T: rusqlite::types::FromSql {
+where
+    T: rusqlite::types::FromSql,
+{
     row.get(0)
 }
 

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>伪元素文案夹具（采集通道的真值表）</title>
+<style>
+  /* 1 字面量：computed content 实测回来**不带引号** */
+  .lit::before { content: "字面量-前"; }
+  .lit::after  { content: "字面量-后"; }
+  /* 2 attr() 引用：实测回来是**已解析**的值 */
+  .attr::before { content: attr(data-tip); }
+  /* 3 多段拼接 */
+  .multi::after { content: "A" " · " "B"; }
+  /* 4 unicode 转义：实测回来是解码后的 纯字 */
+  .esc::before { content: "\7eaf\5b57"; }
+  /* 5 CSS 自定义属性塞文案：实测回来是已解析值 */
+  .var { --msg: "变量-文案"; }
+  .var::after { content: var(--msg); }
+  /* 6 counter：实测回来是**未解析令牌** 'counter(i) ". "' ⇒ 判据必须丢掉 */
+  ol.cnt { counter-reset: i; }
+  ol.cnt li::before { content: counter(i) ". "; counter-increment: i; }
+  /* 7 display:none 的宿主：computed content 照样给值 ⇒ 必须按几何过滤，否则误报 */
+  .hide { display: none; }
+  .hide::before { content: "隐藏-前"; }
+  /* 8 装饰性空 content（噪音，不该进结果） */
+  .deco::before { content: ""; position: absolute; width: 4px; height: 4px; background: #333; }
+  /* 9 ::marker 的 content：实测能读到，而且**带引号**（与 before/after 不对称） */
+  ul.mk li::marker { content: "标记-"; }
+</style>
+</head>
+<body>
+  <!-- 10 占位文案只走属性通道：CSS `::placeholder{content:…}` 实测被浏览器忽略（回来 normal）。
+       这条是 10-16 实测推翻原夹具写法后的更正。 -->
+  <input class="pl" placeholder="占位-文案" data-expected="占位-文案">
+  <!-- 11 title 通道（原夹具漏标 data-expected，导致第一次采集没覆盖到，现补） -->
+  <span class="ti" title="title-文案" data-expected="title-文案">宿主</span>
+  <p class="lit" data-expected="字面量-前|字面量-后">宿主</p>
+  <p class="attr" data-tip="attr-文案" data-expected="attr-文案">宿主</p>
+  <p class="multi" data-expected="A · B">宿主</p>
+  <p class="esc" data-expected="纯字">宿主</p>
+  <p class="var" data-expected="变量-文案">宿主</p>
+  <ol class="cnt"><li data-expected="1. ">一</li><li data-expected="2. ">二</li></ol>
+  <p class="hide" data-expected="隐藏-前">宿主</p>
+  <p class="deco" data-expected="">宿主</p>
+  <ul class="mk"><li data-expected="标记-">甲</li></ul>
+  <div class="plain">普通DOM文本</div>
+</body>
+</html>

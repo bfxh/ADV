@@ -170,8 +170,8 @@ impl ExtendedProvenance {
 // sql
 // -------------------------------------------------------------------------------------------------
 mod sql {
-    use rusqlite::Error::ToSqlConversionFailure;
     use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+    use rusqlite::Error::ToSqlConversionFailure;
 
     use super::*;
 

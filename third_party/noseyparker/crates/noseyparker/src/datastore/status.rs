@@ -28,8 +28,8 @@ pub struct Statuses(pub SmallVec<[Status; 16]>);
 // sql
 // -------------------------------------------------------------------------------------------------
 mod sql {
-    use rusqlite::Error::ToSqlConversionFailure;
     use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+    use rusqlite::Error::ToSqlConversionFailure;
 
     use super::*;
 

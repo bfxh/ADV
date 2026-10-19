@@ -1,0 +1,878 @@
+{
+  "items": [
+    {
+      "ch": "PseudoBefore",
+      "loc": "html",
+      "rect": {
+        "h": 425,
+        "w": 1256,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "html",
+      "rect": {
+        "h": 425,
+        "w": 1256,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "html",
+      "rect": {
+        "h": 425,
+        "w": 1256,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "head",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "head",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "head",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "meta",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "meta",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "meta",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "title",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "title",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "title",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "title",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "伪元素文案夹具（采集通道的真值表）"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "style",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "style",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "style",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "style",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "/* 1 字面量：computed content 实测回来**不带引号** */\n  .lit::before { content: \"字面量-前\"; }\n  .lit::after  { content: \"字面量-后\"; }\n  /* 2 attr() 引用：实测回来是**已解析**的值 */\n  .attr::before { content: attr(data-tip); }\n  /* 3 多段拼接 */\n  .multi::after { content: \"A\" \" · \" \"B\"; }\n  /* 4 unicode 转义：实测回来是解码后的 纯字 */\n  .esc::before { content: \"\\7eaf\\5b57\"; }\n  /* 5 CSS 自定义属性塞文案：实测回来是已解析值 */\n  .var { --msg: \"变量-文案\"; }\n  .var::after { content: var(--msg); }\n  /* 6 counter：实测回来是**未解析令牌** 'counter(i) \". \"' ⇒ 判据必须丢掉 */\n  ol.cnt { counter-reset: i; }\n  ol.cnt li::before { content: counter(i) \". \"; counter-increment: i; }\n  /* 7 display:none 的宿主：computed content 照样给值 ⇒ 必须按几何过滤，否则误报 */\n  .hide { display: none; }\n  .hide::before { content: \"隐藏-前\"; }\n  /* 8 装饰性空 content（噪音，不该进结果） */\n  .deco::before { content: \"\"; position: absolute; width: 4px; height: 4px; background: #333; }\n  /* 9 ::marker 的 content：实测能读到，而且**带引号**（与 before/after 不对称） */\n  ul.mk li::marker { content: \"标记-\"; }"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "body",
+      "rect": {
+        "h": 409,
+        "w": 1240,
+        "x": 8,
+        "y": 8
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "body",
+      "rect": {
+        "h": 409,
+        "w": 1240,
+        "x": 8,
+        "y": 8
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "body",
+      "rect": {
+        "h": 409,
+        "w": 1240,
+        "x": 8,
+        "y": 8
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "input.pl",
+      "rect": {
+        "h": 21,
+        "w": 177,
+        "x": 8,
+        "y": 12
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "input.pl",
+      "rect": {
+        "h": 21,
+        "w": 177,
+        "x": 8,
+        "y": 12
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "input.pl",
+      "rect": {
+        "h": 21,
+        "w": 177,
+        "x": 8,
+        "y": 12
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PlaceholderAttr",
+      "loc": "input.pl",
+      "rect": {
+        "h": 21,
+        "w": 177,
+        "x": 8,
+        "y": 12
+      },
+      "txt": "占位-文案"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "span.ti",
+      "rect": {
+        "h": 24,
+        "w": 32,
+        "x": 189,
+        "y": 8
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "span.ti",
+      "rect": {
+        "h": 24,
+        "w": 32,
+        "x": 189,
+        "y": 8
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "span.ti",
+      "rect": {
+        "h": 24,
+        "w": 32,
+        "x": 189,
+        "y": 8
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "span.ti",
+      "rect": {
+        "h": 24,
+        "w": 32,
+        "x": 189,
+        "y": 8
+      },
+      "txt": "宿主"
+    },
+    {
+      "ch": "TitleAttr",
+      "loc": "span.ti",
+      "rect": {
+        "h": 24,
+        "w": 32,
+        "x": 189,
+        "y": 8
+      },
+      "txt": "title-文案"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.lit",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 49
+      },
+      "txt": "\"字面量-前\""
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.lit",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 49
+      },
+      "txt": "\"字面量-后\""
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.lit",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 49
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "p.lit",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 49
+      },
+      "txt": "宿主"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.attr",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 89
+      },
+      "txt": "\"attr-文案\""
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.attr",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 89
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.attr",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 89
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "p.attr",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 89
+      },
+      "txt": "宿主"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.multi",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 129
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.multi",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 129
+      },
+      "txt": "\"A · B\""
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.multi",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 129
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "p.multi",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 129
+      },
+      "txt": "宿主"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.esc",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 169
+      },
+      "txt": "\"纯字\""
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.esc",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 169
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.esc",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 169
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "p.esc",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 169
+      },
+      "txt": "宿主"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.var",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 209
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.var",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 209
+      },
+      "txt": "\"变量-文案\""
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.var",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 209
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "p.var",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 209
+      },
+      "txt": "宿主"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "ol.cnt",
+      "rect": {
+        "h": 48,
+        "w": 1240,
+        "x": 8,
+        "y": 249
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "ol.cnt",
+      "rect": {
+        "h": 48,
+        "w": 1240,
+        "x": 8,
+        "y": 249
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "ol.cnt",
+      "rect": {
+        "h": 48,
+        "w": 1240,
+        "x": 8,
+        "y": 249
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 249
+      },
+      "txt": "counter(i) \". \""
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 249
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 249
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 249
+      },
+      "txt": "一"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 273
+      },
+      "txt": "counter(i) \". \""
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 273
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 273
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 273
+      },
+      "txt": "二"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.hide",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "\"隐藏-前\""
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.hide",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.hide",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "p.hide",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "宿主"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.deco",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 313
+      },
+      "txt": "\"\""
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.deco",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 313
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.deco",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 313
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "p.deco",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 313
+      },
+      "txt": "宿主"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "ul.mk",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 353
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "ul.mk",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 353
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "ul.mk",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 353
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 353
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 353
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 353
+      },
+      "txt": "\"标记-\""
+    },
+    {
+      "ch": "DomText",
+      "loc": "li",
+      "rect": {
+        "h": 24,
+        "w": 1200,
+        "x": 48,
+        "y": 353
+      },
+      "txt": "甲"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "div.plain",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 393
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "div.plain",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 393
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "div.plain",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 393
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "loc": "div.plain",
+      "rect": {
+        "h": 24,
+        "w": 1240,
+        "x": 8,
+        "y": 393
+      },
+      "txt": "普通DOM文本"
+    }
+  ],
+  "viewport": [
+    1256,
+    808,
+    1256
+  ]
+}

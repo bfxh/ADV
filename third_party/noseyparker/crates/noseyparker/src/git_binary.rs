@@ -61,7 +61,10 @@ impl Git {
 
     pub fn update_clone(&self, repo_url: &GitUrl, output_dir: &Path) -> Result<(), GitError> {
         let _span = debug_span!("git_update", "{repo_url} {}", output_dir.display()).entered();
-        debug!("Attempting to update clone of {repo_url} at {}", output_dir.display());
+        debug!(
+            "Attempting to update clone of {repo_url} at {}",
+            output_dir.display()
+        );
 
         let mut cmd = self.git();
         cmd.arg("--git-dir")
@@ -89,7 +92,11 @@ impl Git {
         clone_mode: CloneMode,
     ) -> Result<(), GitError> {
         let _span = debug_span!("git_clone", "{repo_url} {}", output_dir.display()).entered();
-        debug!("Attempting to create fresh clone of {} at {}", repo_url, output_dir.display());
+        debug!(
+            "Attempting to create fresh clone of {} at {}",
+            repo_url,
+            output_dir.display()
+        );
 
         let mut cmd = self.git();
         cmd.arg("clone")

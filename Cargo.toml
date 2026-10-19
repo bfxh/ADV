@@ -16,6 +16,11 @@ members = [
     "crates/adv-bin",
     "crates/adv-cli",
     "crates/adv-ast-rust",
+    "crates/uiscan-core",
+    "crates/uiscan-tui",
+    "crates/uiscan-web",
+    "crates/uiscan-gui",
+    "crates/uiscan-cli",
     "xtask",
 ]
 # 上游内化源码（third_party/**）刻意**不在**本 workspace 里：它就是"源码进仓但不算我们的面"。
@@ -44,6 +49,14 @@ all = { level = "warn", priority = -1 }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# uiscan（UI 文案采集器，2026-10-16 并入）：三面适配器的依赖互不相干，按面登记在这里。
+uiscan-core = { path = "crates/uiscan-core" }
+uiscan-tui = { path = "crates/uiscan-tui" }
+uiscan-web = { path = "crates/uiscan-web" }
+uiscan-gui = { path = "crates/uiscan-gui" }
+vt100 = "0.16"
+tungstenite = "0.30"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_Accessibility", "Win32_System_Com"] }
 semver = "1"
 md-5 = "0.11"
 toml = "0.9"

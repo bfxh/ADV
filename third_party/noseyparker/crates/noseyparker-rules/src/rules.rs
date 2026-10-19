@@ -59,7 +59,10 @@ impl Rules {
             } else if input.is_dir() {
                 rules.update(Rules::from_directory(input)?);
             } else {
-                bail!("Unhandled input type: {} is neither a file nor directory", input.display());
+                bail!(
+                    "Unhandled input type: {} is neither a file nor directory",
+                    input.display()
+                );
             }
         }
         debug!(
@@ -121,7 +124,11 @@ impl Rules {
             }
         }
         yaml_files.sort();
-        debug!("Found {} rules files to load within {}", yaml_files.len(), path.display());
+        debug!(
+            "Found {} rules files to load within {}",
+            yaml_files.len(),
+            path.display()
+        );
 
         Self::from_yaml_files(&yaml_files)
     }

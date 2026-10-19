@@ -43,6 +43,11 @@ pub const MEMBER_DIRS: &[&str] = &[
     "crates/adv-bin",
     "crates/adv-cli",
     "crates/adv-ast-rust",
+    "crates/uiscan-core",
+    "crates/uiscan-tui",
+    "crates/uiscan-web",
+    "crates/uiscan-gui",
+    "crates/uiscan-cli",
     "xtask",
 ];
 
@@ -190,6 +195,18 @@ pub fn collect_workspace_entries(root: &Path) -> Result<BTreeMap<String, u64>> {
     // 试验面（spec/maturity.json 登记）不计量：docs/DESIGN-DEBT-GATE.md §3。
     // 给合成夹具记规模棘轮，等于把维护形的税交给测试材料——只拖慢，不出正确性。
     let experimental = crate::maturity::experimental_patterns(root);
+    // 反方向的对账：目录里真有一个 crate、但没进 MEMBER_DIRS ⇒ 判红。
+    // 没有这一条时"新 crate 落地即受门管"只是注释里的漂亮话——实测 uiscan 五个 crate
+    // 并进来后，rust 侧计量新增 0 项（god 根本没扫它们），而 python 侧照出 16 个新文件。
+    if let Ok(rd) = std::fs::read_dir(root.join("crates")) {
+        for e in rd.flatten() {
+            let has_manifest = e.path().join("Cargo.toml").is_file();
+            let rel = format!("crates/{}", e.file_name().to_string_lossy());
+            if has_manifest && !MEMBER_DIRS.contains(&rel.as_str()) {
+                anyhow::bail!("crate 目录未登记进 MEMBER_DIRS：{rel}（不登记 = god 门看不见它）");
+            }
+        }
+    }
     for dir in MEMBER_DIRS {
         let base = root.join(dir);
         if !base.is_dir() {
