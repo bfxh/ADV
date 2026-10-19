@@ -85,6 +85,14 @@ pub fn run(args: impl Iterator<Item = String>) {
                 );
             }
         }
-        _ => finish(collect(&o), o.dump.clone()),
+        _ => {
+            let r = collect(&o);
+            if let Ok(h) = &r {
+                if uiscan_gui::chrome_only(h) {
+                    eprintln!("⚠ {}", uiscan_gui::CHROME_ONLY_HINT);
+                }
+            }
+            finish(r, o.dump.clone())
+        }
     }
 }

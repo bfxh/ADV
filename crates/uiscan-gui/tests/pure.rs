@@ -179,3 +179,52 @@ fn egui_window_exposes_only_os_chrome_in_uia() {
         "GUI 面的通道只有 UiaName"
     );
 }
+
+/// 冻结语料（fmnr，无 accesskit）⇒ 判"只有系统装饰"；带正文的合成树 ⇒ 判否。
+/// 实测对照：eframe 0.31 加 accesskit 后同一窗口出现 `Text[1]#测试文本 中文`。
+#[test]
+fn chrome_only_detects_an_app_that_never_exposed_its_ui() {
+    let raw = include_str!("fixtures/gui-fmnr.json");
+    let v: serde_json::Value = serde_json::from_str(raw).unwrap();
+    let items: Vec<uiscan_core::Item> = v["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| {
+            let ch = uiscan_core::Channel::from_wire(i["ch"].as_str().unwrap()).unwrap();
+            uiscan_core::Item::new(i["txt"].as_str().unwrap(), ch, i["loc"].as_str().unwrap())
+        })
+        .collect();
+    let h = uiscan_core::Harvest {
+        surface: "gui:uia".into(),
+        items,
+    };
+    assert!(
+        uiscan_gui::chrome_only(&h),
+        "只有标题栏 ⇒ 必须判 chrome_only"
+    );
+
+    let ok = uiscan_core::Harvest {
+        surface: "gui:uia".into(),
+        items: vec![
+            uiscan_core::Item::new(
+                "akprobe",
+                uiscan_core::Channel::UiaName,
+                "Window[0]#akprobe",
+            ),
+            uiscan_core::Item::new(
+                "测试文本 中文",
+                uiscan_core::Channel::UiaName,
+                "Window[0]#akprobe/Text[1]#测试文本 中文",
+            ),
+        ],
+    };
+    assert!(
+        !uiscan_gui::chrome_only(&ok),
+        "有正文节点就不许判 chrome_only"
+    );
+    assert!(
+        !uiscan_gui::chrome_only(&uiscan_core::Harvest::default()),
+        "空采集不算 chrome_only"
+    );
+}

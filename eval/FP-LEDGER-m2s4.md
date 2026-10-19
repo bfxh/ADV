@@ -4352,3 +4352,19 @@ god 两把尺重录：rust `1118 → 1124` 项、python `532 → 537` 文件（�
 - 新增契约：`scan_tui.rs` 加"空采集退 2"；`scan_web_file.rs` 钉"采到的是真文档、不是 about:blank"。
 - ⚠ 时钟提示：本轮会话中机器钟从 2026-10-16 跳到 2026-10-20 03:17（休眠/校时），文档里的日期是
   **当时机器钟显示值**；对时以 `date` 为准。
+
+## GUI 面"抓不到正文"的定因与处置（2026-10-20 实测 A/B）
+
+**定因**：不是遍历问题，是应用没暴露。同一份最小 eframe 0.31 程序只改 features：
+- `["default_fonts","glow","accesskit"]` ⇒ UIA **8 条**，含 `Text[1]#测试文本 中文`、`Button[2]#按钮文字`；
+- `["default_fonts","glow"]` ⇒ **6 条**，只有窗口名 + 标题栏（与 fmnr 完全同形）。
+fmnr 的 `eframe` 是 `default-features=false` 且 features 里没有 `accesskit` ⇒ 落在第二行。
+
+**处置**：
+- 应用侧（未代改）：在 eframe features 里加 `"accesskit"` 再重建即可。**没有去改 fmnr**：它的工作树
+  当前有别的会话未提交的改动（`Cargo.toml`/`fmnr-core`/`fmnr-ai` 均 M），按并发纪律不碰别人的树。
+- 工具侧（已做）：新增 `uiscan_gui::chrome_only(&Harvest)`——只采到"窗口自身 + TitleBar/MenuBar"时
+  判为"应用未暴露界面"；`gui` 与 `scan` 都往 stderr 打 `CHROME_ONLY_HINT`（点名 eframe/accesskit、
+  Dear ImGui 无实现、以及"0 条正文 ≠ 界面没有文字"）。
+- 测试：`crates/uiscan-gui/tests/pure.rs` 用冻结的 `gui-fmnr.json` 判真 + 带正文的合成树判否 + 空采集不归类。
+- A/B 证据留在 `E:/tmp/akprobe`（最小 eframe 程序与两次构建），可复现。

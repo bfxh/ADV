@@ -102,3 +102,22 @@ pub fn rect_from_ltrb(left: i32, top: i32, right: i32, bottom: i32) -> Rect {
         h: (bottom - top).max(0),
     }
 }
+
+/// 只采到系统装饰（窗口自身 + 标题栏/菜单栏）的检测。
+///
+/// 实测（2026-10-20，最小 eframe 0.31 程序）：`features` 里**有** `accesskit` 时 UIA 能看到
+/// `Text[1]#测试文本 中文` / `Button[2]#按钮文字`（8 条）；**去掉** accesskit 后只剩窗口名 +
+/// 标题栏按钮（6 条）。⇒ 采到"只有装饰"通常意味着应用没有把界面暴露给 UIA，而不是界面没有文字。
+pub fn chrome_only(h: &uiscan_core::Harvest) -> bool {
+    if h.items.is_empty() {
+        // 空采集是另一种失败（窗口没找到/遍历被拦），不要混进"只有装饰"这一类。
+        return false;
+    }
+    h.items.iter().all(|i| {
+        let loc = i.loc.as_str();
+        !loc.contains('/') || loc.contains("/TitleBar[") || loc.contains("/MenuBar[")
+    })
+}
+
+/// `chrome_only` 时应打印的处置建议（原文写死一次，CLI 各面共用）。
+pub const CHROME_ONLY_HINT: &str = "这个窗口只暴露了系统标题栏，界面正文不可见：应用没有把界面接到可及性树。egui/eframe：在 eframe 的 features 里加 \"accesskit\" 后重建；Dear ImGui 没有可及性实现；其它即时模式框架需要自接 AccessKit/UIA provider。这一面的 0 条正文不能读成『界面没有文字』。";

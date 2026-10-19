@@ -9,7 +9,9 @@
 
 pub mod pure;
 
-pub use pure::{control_type_name, item_from_uia, path_segment, rect_from_ltrb};
+pub use pure::{
+    CHROME_ONLY_HINT, chrome_only, control_type_name, item_from_uia, path_segment, rect_from_ltrb,
+};
 
 /// 顶层窗口的一条读数（`list_windows` 用）。
 #[derive(Clone, Debug, PartialEq, Eq)]

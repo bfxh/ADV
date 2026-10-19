@@ -114,3 +114,22 @@ uiscan scan --surface gui --title <子串> --depth 10 --system
 3. **空采集被报成绿**：0 条时原来会打印"缺字=0、rc=0"——这正是假绿。修法：采集到 0 条一律 **退 2**
    并把 title/href/elements/body_len 打进消息里，让人一眼看出是"没渲染/被拦/选错面"。
 4. 顺带补的：file:// 的 URL 比较要折叠 `/./`、`/../`（夹具路径带 `..` 时浏览器会归一化 href）。
+
+## GUI 面为什么抓不到正文（2026-10-20 实测 A/B）
+
+同一个最小 eframe 0.31 程序，只差 `eframe` 的 features：
+
+| features | UIA 读数 |
+|---|---|
+| `["default_fonts","glow","accesskit"]` | **8 条**：窗口名 + 标题栏 4 项 + `Text[1]#测试文本 中文` + `Button[2]#按钮文字` |
+| `["default_fonts","glow"]` | **6 条**：只有窗口名 + 标题栏（`akprobe` 实测） |
+
+`fmnr`（eframe 0.31，`default-features=false`，features 里没有 `accesskit`）正好落在第二行——
+所以它的正文"抓不到"不是遍历写错，而是**应用根本没把界面接到可及性树**。
+
+**修法（应用侧，一行）**：在 `eframe` 的 features 里加 `"accesskit"` 后重建。Dear ImGui 没有可及性实现，
+其它即时模式框架需要自接 AccessKit/UIA provider。本工具不替应用改依赖。
+
+**工具侧已做的**：采到"只有系统装饰"（窗口自身 + TitleBar/MenuBar）时，`gui` 与 `scan` 都会往 stderr
+打一条明确提示，说明"0 条正文 ≠ 界面没有文字"，并给出上面的处置方向；该判定有冻结语料测试
+（`gui-fmnr.json` 判真、带正文的合成树判否、空采集不归类）。

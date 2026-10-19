@@ -43,7 +43,12 @@ pub fn run(mut args: impl Iterator<Item = String>) {
         }
         "gui" => {
             let o = gui::parse(rest.into_iter());
-            gui::collect(&o)
+            gui::collect(&o).map(|h| {
+                if uiscan_gui::chrome_only(&h) {
+                    eprintln!("⚠ {}", uiscan_gui::CHROME_ONLY_HINT);
+                }
+                h
+            })
         }
         other => bail(&format!("不认得的 surface：{other}（tui|web|gui）")),
     }
