@@ -4300,3 +4300,24 @@ CLI 加 `uiscan tofu --json <采集> (--font ... | --system)`，退出码 0=全�
 架构：新增 `rust-uiscan-font-only-core`（第 7 条 uiscan 规则，总 17 条）；core/适配器/ADV 反依赖的
 import 清单同步加上 `uiscan-font`；arch_gate 17 规则/6243 边/0 违例，`test_s192_arch_rust.py` 12 条全绿。
 **边界**：覆盖 ≠ 渲染——应用只内嵌某套字体、不做系统回退时，必须传它**实际用的字体栈**，否则会假绿。
+
+## uiscan 按职责拆了一次（2026-10-16，不改行为）
+
+先量后拆：所有文件远低于阈值（最大 `uiscan-cli/src/main.rs` 342 行、最长函数 < 120 行），所以"拆"按**职责**做：
+
+- **CLI 一文件扛四个子命令 → 五个模块**：`main.rs`（dispatch + 用法，39 行）、`tui.rs`、`web.rs`、`gui.rs`、
+  `tofu.rs`、`report.rs`（report/finish/write_dump 共用输出层）。公开路径不变（仍是 `uiscan` 二进制）。
+- **通道名只留一张表**：原先 `uiscan-cli` 有 `channel_name()`、`uiscan-web` 的两个解析器各写一份字符串匹配
+  ——三处会漂移。现集中在 `uiscan-core::Channel::{as_str,from_wire}`，不认得的 wire 名字仍整条丢弃。
+- **没拆、并给了理由**：`uiscan-web/src/cdp.rs`（294 行：HTTP 读、ws 帧、生命周期）与 `uiscan-gui/src/uia.rs`
+  （231 行）都是**单一协议的内聚实现**，硬拆只会把协议细节摊到多个文件；行数是结果不是目的。
+
+行为不变的自证：**35 条测试全绿**（core 9 / tui 5 / web 11 / gui 6 / font 4）+ 四个子命令冒烟
+（`tui-feed` 21 个非 ASCII 码点、`tofu --font arial` 报缺字、`gui --list` 列出顶层窗口）。
+
+**过程里的一个坑（我自己的）**：用脚本按函数边界切模块时，`tofu` 那段被切空（新文件只剩头），
+编译当场报 `cannot find function run in module tofu`；按**顶层右括号**边界从上一提交恢复，已复跑验证。
+——"程序化大改后用编译兜底"是可行的，但不能只看脚本说"split done"。
+
+god 两把尺重录：rust `1118 → 1124` 项、python `532 → 537` 文件（新增 6 个模块文件 + core 变大），
+均为单值披露；权威门线 `--line pre-commit` **16 步 OK**。

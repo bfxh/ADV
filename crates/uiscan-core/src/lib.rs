@@ -30,6 +30,36 @@ impl Channel {
     pub fn is_generated(self) -> bool {
         matches!(self, Self::PseudoBefore | Self::PseudoAfter | Self::Marker)
     }
+
+    /// 落盘/日志里的稳定名字。**只此一处**：dump 写出与解析各写一份字符串匹配，
+    /// 一改就会漂移（这个仓库在别处已经吃过"两份文案"的亏）。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DomText => "DomText",
+            Self::PseudoBefore => "PseudoBefore",
+            Self::PseudoAfter => "PseudoAfter",
+            Self::Marker => "Marker",
+            Self::PlaceholderAttr => "PlaceholderAttr",
+            Self::TitleAttr => "TitleAttr",
+            Self::TermCell => "TermCell",
+            Self::UiaName => "UiaName",
+        }
+    }
+
+    /// 从落盘名字还原；不认得的返回 `None`（调用方负责跳过，别硬塞进某个通道）。
+    pub fn from_wire(s: &str) -> Option<Self> {
+        Some(match s {
+            "DomText" => Self::DomText,
+            "PseudoBefore" => Self::PseudoBefore,
+            "PseudoAfter" => Self::PseudoAfter,
+            "Marker" => Self::Marker,
+            "PlaceholderAttr" => Self::PlaceholderAttr,
+            "TitleAttr" => Self::TitleAttr,
+            "TermCell" => Self::TermCell,
+            "UiaName" => Self::UiaName,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

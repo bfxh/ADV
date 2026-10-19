@@ -127,15 +127,9 @@ pub fn harvest_payload_to_items(payload: &serde_json::Value) -> Vec<Item> {
         None => return items,
     };
     for row in rows {
-        let ch = match row["ch"].as_str() {
-            Some("PseudoBefore") => Channel::PseudoBefore,
-            Some("PseudoAfter") => Channel::PseudoAfter,
-            Some("Marker") => Channel::Marker,
-            Some("DomText") => Channel::DomText,
-            Some("PlaceholderAttr") => Channel::PlaceholderAttr,
-            Some("TitleAttr") => Channel::TitleAttr,
-            // 不认得的通道就整条丢，而不是硬塞进某个已有通道 —— 静默归类比丢更坏。
-            _ => continue,
+        // 通道名只认 uiscan-core 里的那张表；不认得的整条丢，不静默归类。
+        let Some(ch) = row["ch"].as_str().and_then(Channel::from_wire) else {
+            continue;
         };
         let raw = row["txt"].as_str().unwrap_or("");
         let text = if ch.is_generated() {
