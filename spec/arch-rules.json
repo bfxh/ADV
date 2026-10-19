@@ -202,6 +202,173 @@
         "adv-taint"
       ],
       "why": "xtask 今天只依赖 core/parse/rules/ast-rust。禁 adv-cli/adv-secrets/adv-sca/adv-index：门一旦依赖 CLI 或 noseyparker 那条链，vectorscan 的 C++ 就被拽进 xtask 的构建图（本机两次硬死就是这个形状）。"
+    },
+    {
+      "id": "rust-uiscan-core-is-base",
+      "from": [
+        "uiscan-core",
+        "uiscan-core.*"
+      ],
+      "import": [
+        "uiscan-tui",
+        "uiscan-web",
+        "uiscan-gui",
+        "uiscan-cli",
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-core",
+        "adv-index",
+        "adv-parse",
+        "adv-rules",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "uiscan-core 只放采集模型与判据纯函数（现在零内部依赖），才能在没有桌面/浏览器的机器上测。它回头依赖任何一面，都会把判据焊到具体平台。"
+    },
+    {
+      "id": "rust-uiscan-tui-only-core",
+      "from": [
+        "uiscan-tui",
+        "uiscan-tui.*"
+      ],
+      "import": [
+        "uiscan-web",
+        "uiscan-gui",
+        "uiscan-cli",
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-core",
+        "adv-index",
+        "adv-parse",
+        "adv-rules",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "TUI 面只许踩 uiscan-core。禁兄弟面（web/gui）与 cli：三个适配器的依赖互不相干（vt100 vs tungstenite vs windows），串起来就再也分不出'这个缺陷是哪一面看的'。禁 adv-*：两个产品隔离。"
+    },
+    {
+      "id": "rust-uiscan-web-only-core",
+      "from": [
+        "uiscan-web",
+        "uiscan-web.*"
+      ],
+      "import": [
+        "uiscan-tui",
+        "uiscan-gui",
+        "uiscan-cli",
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-core",
+        "adv-index",
+        "adv-parse",
+        "adv-rules",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "Web 面只许踩 uiscan-core。实测坑：它必须能单独在 ubuntu CI 上编（tungstenite 纯 Rust），一旦 import gui 就会把 windows crate 拽进可移植构建。"
+    },
+    {
+      "id": "rust-uiscan-gui-only-core",
+      "from": [
+        "uiscan-gui",
+        "uiscan-gui.*"
+      ],
+      "import": [
+        "uiscan-tui",
+        "uiscan-web",
+        "uiscan-cli",
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-core",
+        "adv-index",
+        "adv-parse",
+        "adv-rules",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "GUI 面只许踩 uiscan-core。它带 windows crate（仅 Windows 可编），任何兄弟面反向依赖它都会让非 Windows 构建直接挂。"
+    },
+    {
+      "id": "rust-uiscan-cli-not-into-adv",
+      "from": [
+        "uiscan-cli",
+        "uiscan-cli.*"
+      ],
+      "import": [
+        "adv-ast-rust",
+        "adv-bin",
+        "adv-cli",
+        "adv-core",
+        "adv-index",
+        "adv-parse",
+        "adv-rules",
+        "adv-sandbox",
+        "adv-sca",
+        "adv-secrets",
+        "adv-server",
+        "adv-taint",
+        "xtask"
+      ],
+      "why": "uiscan-cli 是聚合器，只许 import 四个 uiscan crate。禁 adv-*：一旦 CLI 依赖 ADV 的解析/规则层，这个工具就被迫跟着 ADV 的门与变异面一起演进（面变大、圈变慢）。"
+    },
+    {
+      "id": "rust-adv-no-uiscan-dep",
+      "from": [
+        "adv-ast-rust",
+        "adv-ast-rust.*",
+        "adv-bin",
+        "adv-bin.*",
+        "adv-cli",
+        "adv-cli.*",
+        "adv-core",
+        "adv-core.*",
+        "adv-index",
+        "adv-index.*",
+        "adv-parse",
+        "adv-parse.*",
+        "adv-rules",
+        "adv-rules.*",
+        "adv-sandbox",
+        "adv-sandbox.*",
+        "adv-sca",
+        "adv-sca.*",
+        "adv-secrets",
+        "adv-secrets.*",
+        "adv-server",
+        "adv-server.*",
+        "adv-taint",
+        "adv-taint.*",
+        "xtask",
+        "xtask.*"
+      ],
+      "import": [
+        "uiscan-core",
+        "uiscan-tui",
+        "uiscan-web",
+        "uiscan-gui",
+        "uiscan-cli"
+      ],
+      "why": "反向也禁：ADV 的任何 crate 与 xtask 不许 import uiscan-*。两仓若互相依赖，uiscan 的 src 会进 ADV 的变异面（每圈更慢、DD-0018 更难closure），而收益为零——实测两边依赖交集为空（vt100/tungstenite/windows 在 ADV 一个都没有）。"
     }
   ]
 }

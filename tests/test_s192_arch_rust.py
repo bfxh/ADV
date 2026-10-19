@@ -208,3 +208,73 @@ def test_every_workspace_crate_is_covered_by_a_rule():
     covered = {p[:-2] if p.endswith(".*") else p for r in rules for p in r.get("from", [])}
     missing = [c for c in crates if c not in covered]
     assert not missing, f"这些 crate 没有被任何架构规则覆盖（分层图上无人看的洞）：{missing}"
+
+
+# ---- uiscan（UI 文案采集器）并入前的分层规则金丝雀（2026-10-16） ----------------
+# 规则先于 crate 落地：`from` 只按**扫描到的** crate 匹配，所以规则先写不会误红；
+# 但必须先证"它能红"，否则搬完 crate 只是多了一张装饰表。
+
+UISCAN_IDS = {
+    "rust-uiscan-core-is-base",
+    "rust-uiscan-tui-only-core",
+    "rust-uiscan-web-only-core",
+    "rust-uiscan-gui-only-core",
+    "rust-uiscan-cli-not-into-adv",
+    "rust-adv-no-uiscan-dep",
+}
+
+
+def _uiscan_ws(tmp_path: pathlib.Path) -> dict[str, pathlib.Path]:
+    """伪造一个含五个 uiscan crate + adv-core 的工作区，返回各 crate 的 src 目录。"""
+    srcs = {}
+    for c in ("uiscan-core", "uiscan-tui", "uiscan-web", "uiscan-gui", "uiscan-cli", "adv-core"):
+        d = tmp_path / "crates" / c
+        (d / "src").mkdir(parents=True)
+        (d / "Cargo.toml").write_text(
+            f'[package]\nname = "{c}"\nversion = "0.1.0"\n', encoding="utf-8")
+        (d / "src" / "lib.rs").write_text("pub struct X;\n", encoding="utf-8")
+        srcs[c] = d / "src"
+    (tmp_path / "Cargo.toml").write_text('[workspace]\nmembers = ["crates/*"]\n', encoding="utf-8")
+    return srcs
+
+
+def _uiscan_rules(tmp_path: pathlib.Path) -> pathlib.Path:
+    """取**真规则文件**里的 uiscan 六条（不复制一份影子规则）。"""
+    real = json.loads((ROOT / "spec" / "arch-rules.json").read_text(encoding="utf-8"))["rules"]
+    picked = [r for r in real if r["id"] in UISCAN_IDS]
+    assert len(picked) == len(UISCAN_IDS), f"真规则里缺 uiscan 规则：{[r['id'] for r in real]}"
+    return _rules(tmp_path, picked)
+
+
+def test_uiscan_layering_is_quiet_when_dependencies_point_downward(tmp_path):
+    """金丝雀静：core←三适配器←cli、adv-core 不碰 uiscan ⇒ 0 违例。"""
+    srcs = _uiscan_ws(tmp_path)
+    (srcs["uiscan-tui"] / "lib.rs").write_text("use uiscan_core::X;\n", encoding="utf-8")
+    (srcs["uiscan-cli"] / "lib.rs").write_text(
+        "use uiscan_core::X;\nuse uiscan_tui::X as T;\nuse uiscan_web::X as W;\nuse uiscan_gui::X as G;\n",
+        encoding="utf-8")
+    rp = _uiscan_rules(tmp_path)
+    got = _run("--root", str(tmp_path), "--rules", str(rp))
+    assert got.returncode == 0 and "violations=0" in got.stdout, got.stdout
+
+
+def test_uiscan_rules_go_red_on_all_four_forbidden_edges(tmp_path):
+    """每条禁向都要能红，并且定位到 use 行。"""
+    cases = [
+        ("uiscan-tui", "use uiscan_web::HARVEST_JS;\n", ":1", "rust-uiscan-tui-only-core"),
+        ("uiscan-core", "use uiscan_cli::main as m;\n", ":1", "rust-uiscan-core-is-base"),
+        ("uiscan-gui", "use uiscan_tui::harvest;\n", ":1", "rust-uiscan-gui-only-core"),
+        ("uiscan-cli", "use adv_rules::check;\n", ":1", "rust-uiscan-cli-not-into-adv"),
+        ("adv-core", "use uiscan_core::Item;\n", ":1", "rust-adv-no-uiscan-dep"),
+    ]
+    srcs = _uiscan_ws(tmp_path)
+    rp = _uiscan_rules(tmp_path)
+    for crate, line, loc, rid in cases:
+        f = srcs[crate] / "lib.rs"
+        original = f.read_text(encoding="utf-8")
+        f.write_text(line + original, encoding="utf-8")
+        got = _run("--root", str(tmp_path), "--rules", str(rp))
+        f.write_text(original, encoding="utf-8")
+        assert got.returncode == 1, f"{crate} 应判红：{got.stdout}"
+        assert f"{crate}{loc}" in got.stdout, f"{crate} 定位不对：{got.stdout}"  # lib.rs 折叠成 crate 名
+        assert rid in got.stdout, f"{crate} 点错规则：{got.stdout}"

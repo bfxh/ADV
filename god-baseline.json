@@ -1885,7 +1885,7 @@
   "max_type_members": 0
  },
  "tests/test_s192_arch_rust.py": {
-  "file_lines": 211,
+  "file_lines": 281,
   "max_fn_lines": 22,
   "max_type_members": 0
  },
