@@ -1,16 +1,26 @@
 //! `gui` 子命令：UIA 枚举/采集；`--list` 只列顶层窗口。
+//! 参数解析与采集拆开，是为了让 `scan` 复用同一份采集。
+
 use std::path::PathBuf;
 
 use crate::bail;
 use crate::report::finish;
 
-pub fn run(mut args: impl Iterator<Item = String>) {
-    enum What {
-        List,
-        Title(String),
-        Pid(u32),
-        Focused,
-    }
+pub enum What {
+    List,
+    Title(String),
+    Pid(u32),
+    Focused,
+}
+
+pub struct Opts {
+    pub what: What,
+    pub depth: usize,
+    pub nodes: usize,
+    pub dump: Option<PathBuf>,
+}
+
+pub fn parse(mut args: impl Iterator<Item = String>) -> Opts {
     let mut what: Option<What> = None;
     let mut depth = 12usize;
     let mut nodes = 20_000usize;
@@ -45,7 +55,26 @@ pub fn run(mut args: impl Iterator<Item = String>) {
             other => bail(&format!("不认得的参数：{other}")),
         }
     }
-    match what.unwrap_or_else(|| bail("gui 需要 --list / --title / --pid / --focused 之一")) {
+    Opts {
+        what: what.unwrap_or_else(|| bail("gui 需要 --list / --title / --pid / --focused 之一")),
+        depth,
+        nodes,
+        dump,
+    }
+}
+
+pub fn collect(o: &Opts) -> Result<uiscan_core::Harvest, String> {
+    match &o.what {
+        What::List => Err("--list 只列窗口、不产出采集；用 --title/--pid/--focused".to_string()),
+        What::Title(t) => uiscan_gui::harvest_window(t, o.depth, o.nodes),
+        What::Pid(p) => uiscan_gui::harvest_pid(*p, o.depth, o.nodes),
+        What::Focused => uiscan_gui::harvest_focused(o.depth, o.nodes),
+    }
+}
+
+pub fn run(args: impl Iterator<Item = String>) {
+    let o = parse(args);
+    match &o.what {
         What::List => {
             let wins =
                 uiscan_gui::list_windows().unwrap_or_else(|e| bail(&format!("枚举窗口失败：{e}")));
@@ -56,8 +85,6 @@ pub fn run(mut args: impl Iterator<Item = String>) {
                 );
             }
         }
-        What::Title(t) => finish(uiscan_gui::harvest_window(&t, depth, nodes), dump),
-        What::Pid(p) => finish(uiscan_gui::harvest_pid(p, depth, nodes), dump),
-        What::Focused => finish(uiscan_gui::harvest_focused(depth, nodes), dump),
+        _ => finish(collect(&o), o.dump.clone()),
     }
 }

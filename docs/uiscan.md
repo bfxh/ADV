@@ -81,3 +81,19 @@ uiscan tofu --json tui.json --system                                # 全系统�
 
 **边界（必须传对字体栈）**：这是"字体能力"检查，不是像素验证。应用若只内嵌了某套字体、根本不做系统回退
 （egui 默认字体即如此），就必须把**它实际用的字体栈**传进来；传系统并集会得到"没问题"而屏幕上仍是方框。
+
+## 一条命令：`uiscan scan`（2026-10-16）
+
+```
+uiscan scan --surface tui --file cap.bin --rows 6 --cols 40 --system
+uiscan scan --surface web <url> --window 1280x900 --font <字体>
+uiscan scan --surface gui --title <子串> --depth 10 --system
+```
+`--surface` 之后的参数**原样交给对应面**（与 `tui-feed`/`web`/`gui` 走同一份采集代码），
+另加三个共享开关：`--font`（可重复）、`--system`、`--json`（归一化 dump）。
+退出码与 `tofu` 一致：0=全有覆盖、1=发现缺字、2=用法/环境错。
+
+真跑验证（同一台机）：
+- `scan --surface web …i18n-pseudo.html --system` ⇒ 22 个码点 / 178 面 / **缺字=0**；
+- `scan --surface gui --title 任务栏 --system` ⇒ 80 个码点（含 U+200E）/ 178 面 / **缺字=0**；
+- `scan --surface tui --file …` 三条端到端契约：无字体退 2、只给 arial 判出 U+4FDD 退 1、`--system` 退 0。

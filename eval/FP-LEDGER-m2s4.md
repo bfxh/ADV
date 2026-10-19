@@ -4321,3 +4321,14 @@ import 清单同步加上 `uiscan-font`；arch_gate 17 规则/6243 边/0 违例�
 
 god 两把尺重录：rust `1118 → 1124` 项、python `532 → 537` 文件（新增 6 个模块文件 + core 变大），
 均为单值披露；权威门线 `--line pre-commit` **16 步 OK**。
+
+## `scan`：采集与豆腐块判据串成一条命令（2026-10-16）
+
+- 结构：tui/web/gui 三个面各自拆成 `parse`(参数) + `collect`(采集)，`run` 与 `scan` **共用同一份采集**；
+  `tofu::load_dump` 能读归一化 dump，也能读 web 原始载荷（`visible` 缺省 true、`ch` 不认得就整条丢）。
+- 用法：`uiscan scan --surface tui|web|gui <该面参数> (--font ... | --system) [--json dump]`，
+  `--surface` 之后的参数原样交给面对应的解析器（不认得的仍由那边点名报错）。
+- 退出码与 `tofu` 一致：0=全有覆盖、1=发现缺字、2=用法或环境错。
+- 真跑：web 夹具 22 码点/178 面/缺字 0；gui「任务栏」80 码点（含 U+200E）/178 面/缺字 0；
+  TUI 三条端到端契约（无字体退 2、arial 判出 U+4FDD 退 1、`--system` 退 0）写成
+  `crates/uiscan-cli/tests/scan_tui.rs`（无字体时显式跳过并打印原因，不静默通过）。

@@ -685,13 +685,13 @@
   "max_type_members": 0
  },
  "crates/uiscan-cli/src/gui.rs": {
-  "file_lines": 64,
-  "max_fn_lines": 57,
-  "max_type_members": 0
+  "file_lines": 91,
+  "max_fn_lines": 42,
+  "max_type_members": 4
  },
  "crates/uiscan-cli/src/main.rs": {
-  "file_lines": 39,
-  "max_fn_lines": 13,
+  "file_lines": 42,
+  "max_fn_lines": 14,
   "max_type_members": 0
  },
  "crates/uiscan-cli/src/report.rs": {
@@ -699,19 +699,29 @@
   "max_fn_lines": 18,
   "max_type_members": 0
  },
- "crates/uiscan-cli/src/tofu.rs": {
-  "file_lines": 72,
-  "max_fn_lines": 65,
+ "crates/uiscan-cli/src/scan.rs": {
+  "file_lines": 62,
+  "max_fn_lines": 48,
   "max_type_members": 0
+ },
+ "crates/uiscan-cli/src/tofu.rs": {
+  "file_lines": 124,
+  "max_fn_lines": 35,
+  "max_type_members": 3
  },
  "crates/uiscan-cli/src/tui.rs": {
-  "file_lines": 47,
-  "max_fn_lines": 39,
-  "max_type_members": 0
+  "file_lines": 67,
+  "max_fn_lines": 27,
+  "max_type_members": 4
  },
  "crates/uiscan-cli/src/web.rs": {
-  "file_lines": 92,
-  "max_fn_lines": 84,
+  "file_lines": 120,
+  "max_fn_lines": 41,
+  "max_type_members": 6
+ },
+ "crates/uiscan-cli/tests/scan_tui.rs": {
+  "file_lines": 90,
+  "max_fn_lines": 22,
   "max_type_members": 0
  },
  "crates/uiscan-core/src/checks.rs": {

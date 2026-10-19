@@ -7,6 +7,7 @@ use std::process::exit;
 
 mod gui;
 mod report;
+mod scan;
 mod tofu;
 mod tui;
 mod web;
@@ -16,7 +17,8 @@ const USAGE: &str = "用法：
   uiscan web <url|file:///路径> [--window 1280x900] [--wait-secs 25] [--profile <目录>] [--port N] [--json <输出文件>]
   uiscan gui --list
   uiscan gui (--title <子串> | --pid N | --focused) [--depth 12] [--nodes 20000] [--json <输出文件>]
-  uiscan tofu --json <采集输出文件> (--font <字体文件>... | --system)";
+  uiscan tofu --json <采集输出文件> (--font <字体文件>... | --system)
+  uiscan scan --surface tui|web|gui <该面参数...> (--font <字体文件>... | --system) [--json <输出文件>]";
 
 pub(crate) fn bail(msg: &str) -> ! {
     eprintln!("{msg}\n{USAGE}");
@@ -33,6 +35,7 @@ fn main() {
         "web" => web::run(args),
         "gui" => gui::run(args),
         "tofu" => tofu::run(args),
+        "scan" => scan::run(args),
         other => bail(&format!("未接的面：{other}（GUI 的 UIA 适配器还没写）")),
     }
 }
