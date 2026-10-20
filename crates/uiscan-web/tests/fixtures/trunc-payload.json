@@ -1,0 +1,634 @@
+{
+  "body_len": 99,
+  "elements": 15,
+  "href": "file:///D:/KF/ADV/crates/uiscan-web/tests/fixtures/truncation.html",
+  "items": [
+    {
+      "ch": "PseudoBefore",
+      "loc": "html",
+      "rect": {
+        "h": 168,
+        "w": 1256,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "html",
+      "rect": {
+        "h": 168,
+        "w": 1256,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "html",
+      "rect": {
+        "h": 168,
+        "w": 1256,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "head",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "head",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "head",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "meta",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "meta",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "meta",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "title",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "title",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "title",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "chh": 0,
+      "cw": 0,
+      "ell": "clip",
+      "loc": "title",
+      "ovx": "visible",
+      "ovy": "visible",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "sh": 0,
+      "sw": 0,
+      "txt": "截断判据夹具"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "style",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "style",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "style",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "chh": 0,
+      "cw": 0,
+      "ell": "clip",
+      "loc": "style",
+      "ovx": "visible",
+      "ovy": "visible",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "sh": 0,
+      "sw": 0,
+      "txt": "body { margin: 0; font: 16px/1.5 sans-serif; }\n  p { width: 160px; margin: 8px; }\n  /* 1 放得下：不该报 */\n  .fits { }\n  /* 2 单行裁切：overflow:hidden + nowrap，宽度不够 */\n  .clip { overflow: hidden; white-space: nowrap; }\n  /* 3 省略号：同样被裁，但带 text-overflow:ellipsis（设计如此，但也是溢出信号） */\n  .ell { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n  /* 4 纵向裁切：多行 + 固定高度 + overflow:hidden */\n  .vclip { height: 24px; overflow: hidden; }\n  /* 5 多行省略（-webkit-line-clamp） */\n  .clamp { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "body",
+      "rect": {
+        "h": 152,
+        "w": 1256,
+        "x": 0,
+        "y": 8
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "body",
+      "rect": {
+        "h": 152,
+        "w": 1256,
+        "x": 0,
+        "y": 8
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "body",
+      "rect": {
+        "h": 152,
+        "w": 1256,
+        "x": 0,
+        "y": 8
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.fits",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 8
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.fits",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 8
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.fits",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 8
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "chh": 24,
+      "cw": 160,
+      "ell": "clip",
+      "loc": "p.fits",
+      "ovx": "visible",
+      "ovy": "visible",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 8
+      },
+      "sh": 24,
+      "sw": 160,
+      "txt": "短文案"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.clip",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 40
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.clip",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 40
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.clip",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 40
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "chh": 24,
+      "cw": 160,
+      "ell": "clip",
+      "loc": "p.clip",
+      "ovx": "hidden",
+      "ovy": "hidden",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 40
+      },
+      "sh": 24,
+      "sw": 336,
+      "txt": "这是一段很长很长很长的中文文案会被单行裁掉"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.ell",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 72
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.ell",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 72
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.ell",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 72
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "chh": 24,
+      "cw": 160,
+      "ell": "ellipsis",
+      "loc": "p.ell",
+      "ovx": "hidden",
+      "ovy": "hidden",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 72
+      },
+      "sh": 24,
+      "sw": 336,
+      "txt": "这是一段很长很长很长的中文文案会变成省略号"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.vclip",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 104
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.vclip",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 104
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.vclip",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 104
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "chh": 24,
+      "cw": 160,
+      "ell": "clip",
+      "loc": "p.vclip",
+      "ovx": "hidden",
+      "ovy": "hidden",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 104
+      },
+      "sh": 72,
+      "sw": 160,
+      "txt": "第一行文字第二行文字第三行文字"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 88,
+        "y": 104
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 88,
+        "y": 104
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 88,
+        "y": 104
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 88,
+        "y": 128
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 88,
+        "y": 128
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 88,
+        "y": 128
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "p.clamp",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 136
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "p.clamp",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 136
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "p.clamp",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 136
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "DomText",
+      "chh": 24,
+      "cw": 160,
+      "ell": "clip",
+      "loc": "p.clamp",
+      "ovx": "hidden",
+      "ovy": "hidden",
+      "rect": {
+        "h": 24,
+        "w": 160,
+        "x": 8,
+        "y": 136
+      },
+      "sh": 72,
+      "sw": 160,
+      "txt": "第一行文字很长很长第二行文字很长很长第三行文字很长很长"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 16,
+        "x": 152,
+        "y": 136
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 16,
+        "x": 152,
+        "y": 136
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 16,
+        "x": 152,
+        "y": 136
+      },
+      "txt": "normal"
+    },
+    {
+      "ch": "PseudoBefore",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 152,
+        "y": 160
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "PseudoAfter",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 152,
+        "y": 160
+      },
+      "txt": "none"
+    },
+    {
+      "ch": "Marker",
+      "loc": "br",
+      "rect": {
+        "h": 24,
+        "w": 0,
+        "x": 152,
+        "y": 160
+      },
+      "txt": "normal"
+    }
+  ],
+  "title": "截断判据夹具",
+  "viewport": [
+    1256,
+    808,
+    1256
+  ]
+}

@@ -133,3 +133,30 @@ uiscan scan --surface gui --title <子串> --depth 10 --system
 **工具侧已做的**：采到"只有系统装饰"（窗口自身 + TitleBar/MenuBar）时，`gui` 与 `scan` 都会往 stderr
 打一条明确提示，说明"0 条正文 ≠ 界面没有文字"，并给出上面的处置方向；该判定有冻结语料测试
 （`gui-fmnr.json` 判真、带正文的合成树判否、空采集不归类）。
+
+## 截断判据（`uiscan clip`，2026-10-20）
+
+判据 = 浏览器自己给的**布局几何**，不猜 CSS 语义。`HARVEST_JS` 现在给每条 `DomText` 附带
+`sw/cw/sh/chh`（scroll/client 宽高）与 `ovx/ovy/ell`（overflow、text-overflow）。
+
+实测（夹具 `truncation.html`，Edge 155 headless）：
+
+| 形状 | sw/cw | sh/chh | overflow | text-overflow | 判 |
+|---|---|---|---|---|---|
+| 放得下 | 160/160 | 24/24 | visible | clip | — |
+| 横向硬裁 | **336**/160 | 24/24 | hidden | clip | `Horizontal` |
+| 横向省略号 | **336**/160 | 24/24 | hidden | **ellipsis** | `Ellipsis` |
+| 纵向裁切 | 160/160 | **72**/24 | hidden | clip | `Vertical` |
+| line-clamp | 160/160 | **72**/24 | hidden | clip | `Vertical` |
+
+```
+uiscan web <url> --json payload.json
+uiscan clip --json payload.json        # 0=无裁切 / 1=有裁切 / 2=用法或载荷不合格
+```
+
+- 只有**可见且非空**的 DomText 进判据（`title`/`style` 这类 h=0 被排除）；`overflow:visible` 不算裁切
+  （文字会画到外面）；差 1px 内按取整噪声忽略。
+- **fail-closed**：载荷里没有 `sw/cw` 几何字段（旧版 `web --json`）时 `clip` **退 2** 让人重采——
+  缺字段时"0 条"是"没在看"，不是"干净"。
+- 真实站点跑了一把：`qingjian.app` ⇒ 截断 0、rc=0（未见误报）。
+- 边界：绝对定位/居中被祖先裁掉的、以及 Canvas 内绘制的文字，这条判据看不到。

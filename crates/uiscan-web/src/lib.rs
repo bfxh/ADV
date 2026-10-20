@@ -10,6 +10,7 @@ use serde::Deserialize;
 use uiscan_core::{Channel, Item, Rect, css_content_to_text};
 
 pub mod cdp;
+pub mod clip;
 
 /// 页面内采集脚本。它用到的每个 API（`getComputedStyle(el,'::before'|'::after'|'::marker')
 /// .content`、`getBoundingClientRect`、遍历 `childNodes` 取直属文本节点、`getAttribute`）
@@ -31,7 +32,12 @@ pub const HARVEST_JS: &str = r#"() => {
     push(l, 'Marker', getComputedStyle(el, '::marker').content, rect);
     let own = '';
     for (const n of el.childNodes) if (n.nodeType === 3) own += n.nodeValue;
-    push(l, 'DomText', own.trim(), rect);
+    if (own.trim()) {
+      const cs = getComputedStyle(el);
+      out.push({loc: l, ch: 'DomText', txt: own.trim(), rect,
+        sw: el.scrollWidth, cw: el.clientWidth, sh: el.scrollHeight, chh: el.clientHeight,
+        ovx: cs.overflowX, ovy: cs.overflowY, ell: cs.textOverflow});
+    }
     push(l, 'PlaceholderAttr', el.getAttribute && el.getAttribute('placeholder') || '', rect);
     push(l, 'TitleAttr', el.getAttribute('title') || '', rect);
   }

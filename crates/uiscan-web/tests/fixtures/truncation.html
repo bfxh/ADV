@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>截断判据夹具</title>
+<style>
+  body { margin: 0; font: 16px/1.5 sans-serif; }
+  p { width: 160px; margin: 8px; }
+  /* 1 放得下：不该报 */
+  .fits { }
+  /* 2 单行裁切：overflow:hidden + nowrap，宽度不够 */
+  .clip { overflow: hidden; white-space: nowrap; }
+  /* 3 省略号：同样被裁，但带 text-overflow:ellipsis（设计如此，但也是溢出信号） */
+  .ell { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* 4 纵向裁切：多行 + 固定高度 + overflow:hidden */
+  .vclip { height: 24px; overflow: hidden; }
+  /* 5 多行省略（-webkit-line-clamp） */
+  .clamp { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</head>
+<body>
+  <p class="fits" data-kind="fits">短文案</p>
+  <p class="clip" data-kind="clip">这是一段很长很长很长的中文文案会被单行裁掉</p>
+  <p class="ell" data-kind="ell">这是一段很长很长很长的中文文案会变成省略号</p>
+  <p class="vclip" data-kind="vclip">第一行文字<br>第二行文字<br>第三行文字</p>
+  <p class="clamp" data-kind="clamp">第一行文字很长很长<br>第二行文字很长很长<br>第三行文字很长很长</p>
+</body>
+</html>

@@ -4368,3 +4368,15 @@ fmnr 的 `eframe` 是 `default-features=false` 且 features 里没有 `accesskit
   Dear ImGui 无实现、以及"0 条正文 ≠ 界面没有文字"）。
 - 测试：`crates/uiscan-gui/tests/pure.rs` 用冻结的 `gui-fmnr.json` 判真 + 带正文的合成树判否 + 空采集不归类。
 - A/B 证据留在 `E:/tmp/akprobe`（最小 eframe 程序与两次构建），可复现。
+
+## 截断判据落地（2026-10-20，`uiscan clip`）
+
+- `HARVEST_JS` 的 DomText 条目新增 `sw/cw/sh/chh/ovx/ovy/ell`；判据（`uiscan_web::clip`）：
+  横向 `sw>cw+1 && overflow-x∈{hidden,clip}`（`text-overflow:ellipsis` 记 `Ellipsis` 一类），
+  纵向同理看 `sh/chh`；只对可见非空 DomText；`overflow:visible` 不报；1px 内算噪声。
+- 实测（`truncation.html`，Edge 155）：五种形状 ⇒ Horizontal/Ellipsis/Vertical×2 共 **4** 条，
+  放得下的 0 条；真实站点 `qingjian.app` ⇒ **0** 条、rc=0（未见误报）。
+- **fail-closed**：旧载荷没有几何字段时 `clip` **退 2**（`has_geometry` 守门），否则会把"没在看"当干净
+  ——与真跑时"空采集假绿"同一族教训。
+- 测试：`crates/uiscan-web/tests/clip_trunc.rs`（冻结载荷逐条对应五种形状 + overflow:visible 反例 +
+  1px 噪声反例）+ `crates/uiscan-cli/tests/clip_dump.rs`（4 条退 1 / 干净退 0 / 缺几何退 2）。
