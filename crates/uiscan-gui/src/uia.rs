@@ -10,6 +10,7 @@ use std::ffi::c_void;
 use uiscan_core::Harvest;
 
 use crate::GuiScan;
+use crate::LayoutFinding;
 
 use crate::WindowInfo;
 use crate::pure;
@@ -86,7 +87,15 @@ fn read(el: &IUIAutomationElement) -> Reading {
 ///
 /// 实测：经典 Win32 `EDIT` **没有** TextPattern；Chromium/Electron 的 Text/Edit 有，
 /// 且给的是**可见行**的矩形（普通文本 union ⊆ 元素矩形）。
-fn text_rects(el: &IUIAutomationElement) -> Option<(usize, Option<[f64; 4]>)> {
+struct TextFacts {
+    lines: usize,
+    union: Option<[f64; 4]>,
+    font: Option<String>,
+    size: Option<f32>,
+    text: String,
+}
+
+fn text_rects(el: &IUIAutomationElement) -> Option<TextFacts> {
     unsafe {
         let pat: IUIAutomationTextPattern = el
             .GetCurrentPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId)
@@ -110,7 +119,45 @@ fn text_rects(el: &IUIAutomationElement) -> Option<(usize, Option<[f64; 4]>)> {
             u[3] = u[3].max(line[1] + line[3]);
         }
         let _ = SafeArrayUnaccessData(arr);
-        Some((lines, (lines > 0).then_some(u)))
+        let font = range
+            .GetAttributeValue(windows::Win32::UI::Accessibility::UIA_FontNameAttributeId)
+            .ok()
+            .and_then(|v| var_bstr(&v));
+        let size = range
+            .GetAttributeValue(windows::Win32::UI::Accessibility::UIA_FontSizeAttributeId)
+            .ok()
+            .and_then(|v| var_f64(&v))
+            .map(|f| f as f32);
+        let text = range
+            .GetText(-1)
+            .ok()
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        Some(TextFacts {
+            lines,
+            union: (lines > 0).then_some(u),
+            font,
+            size,
+            text,
+        })
+    }
+}
+
+fn var_f64(v: &windows::Win32::System::Variant::VARIANT) -> Option<f64> {
+    let a = unsafe { &v.Anonymous.Anonymous };
+    if a.vt == windows::Win32::System::Variant::VT_R8 {
+        Some(unsafe { a.Anonymous.dblVal })
+    } else {
+        None
+    }
+}
+
+fn var_bstr(v: &windows::Win32::System::Variant::VARIANT) -> Option<String> {
+    let a = unsafe { &v.Anonymous.Anonymous };
+    if a.vt == windows::Win32::System::Variant::VT_BSTR {
+        Some(unsafe { a.Anonymous.bstrVal.to_string() })
+    } else {
+        None
     }
 }
 
@@ -162,6 +209,7 @@ fn walk(
     max_nodes: usize,
     out: &mut Harvest,
     findings: &mut Vec<TextFinding>,
+    layout: &mut Vec<LayoutFinding>,
 ) -> bool {
     if out.items.len() >= max_nodes {
         return false;
@@ -170,23 +218,59 @@ fn walk(
     if let Some(it) = pure::item_from_uia(&me.name, path, me.rect, me.offscreen) {
         out.items.push(it);
     }
-    // TextPattern 对账：只在"在屏 + 有名字"的节点上做；没图案的（如经典 EDIT）自然跳过。
-    if !me.offscreen && !me.name.trim().is_empty() {
-        if let Some((_lines, union)) = text_rects(el) {
-            let elem = [
-                me.rect.x as f64,
-                me.rect.y as f64,
-                (me.rect.x + me.rect.w) as f64,
-                (me.rect.y + me.rect.h) as f64,
-            ];
-            if let Some(kind) = pure::judge_text(elem, union, 2.0) {
-                findings.push(TextFinding {
-                    loc: path.to_string(),
-                    text: me.name.clone(),
-                    kind,
-                    elem,
-                    union,
-                });
+    // TextPattern 对账：**在屏**就做（不要求 Name——实测 WPF TextBox 的 Name 为空，
+    // 但它有 TextPattern 与字体属性；被 Name 门槛挡住会把整类控件漏掉）。没图案的自然跳过。
+    if !me.offscreen {
+        if let Some(facts) = text_rects(el) {
+            let label = if me.name.trim().is_empty() {
+                facts.text.clone()
+            } else {
+                me.name.clone()
+            };
+            if !label.trim().is_empty() {
+                let elem = [
+                    me.rect.x as f64,
+                    me.rect.y as f64,
+                    (me.rect.x + me.rect.w) as f64,
+                    (me.rect.y + me.rect.h) as f64,
+                ];
+                if let Some(kind) = pure::judge_text(elem, facts.union, 2.0) {
+                    findings.push(TextFinding {
+                        loc: path.to_string(),
+                        text: label.clone(),
+                        kind,
+                        elem,
+                        union: facts.union,
+                    });
+                }
+                // 布局宽度对账：只在**单行**、且提供方给了字体/字号时做（多行有换行歧义）。
+                if facts.lines == 1 {
+                    if let (Some(union), Some(font), Some(size)) =
+                        (facts.union, facts.font.clone(), facts.size)
+                    {
+                        let visible = (union[2] - union[0]) as f32;
+                        // **单位口径不统一**（实测）：WPF 的 FontSize 是磅（FontSize=12 DIP 报 9.0），
+                        // 而任务栏那个提供方报 14.0，只有按 DIP 量才与可见宽度吻合（按磅会误报 37 vs 28）。
+                        // 所以两种口径都量，**两者都判超**才记——宁可少报，不制造假红。
+                        let as_pt =
+                            crate::textfit::measure_width(&font, size * 4.0 / 3.0, &facts.text);
+                        let as_dip = crate::textfit::measure_width(&font, size, &facts.text);
+                        if let (Ok(pt), Ok(dip)) = (as_pt, as_dip) {
+                            if crate::textfit::layout_clipped(pt, visible)
+                                && crate::textfit::layout_clipped(dip, visible)
+                            {
+                                layout.push(LayoutFinding {
+                                    loc: path.to_string(),
+                                    text: facts.text.clone(),
+                                    font,
+                                    size,
+                                    expected: pt.max(dip),
+                                    visible,
+                                });
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -206,6 +290,7 @@ fn walk(
             max_nodes,
             out,
             findings,
+            layout,
         ) {
             return false;
         }
@@ -219,12 +304,13 @@ fn harvest_from(
     surface: String,
     max_depth: usize,
     max_nodes: usize,
-) -> (Harvest, Vec<TextFinding>) {
+) -> (Harvest, Vec<TextFinding>, Vec<LayoutFinding>) {
     let mut out = Harvest {
         surface,
         items: Vec::new(),
     };
     let mut findings = Vec::new();
+    let mut layout = Vec::new();
     let r = read(el);
     let root_path = pure::path_segment(r.control_type, 0, &r.name);
     walk(
@@ -236,8 +322,9 @@ fn harvest_from(
         max_nodes,
         &mut out,
         &mut findings,
+        &mut layout,
     );
-    (out, findings)
+    (out, findings, layout)
 }
 
 fn open_harvest(
@@ -257,14 +344,18 @@ fn open_harvest(
             .collect();
         format!("没找到目标窗口；当前顶层窗口（前 12 个）：{tops:?}")
     })?;
-    let (harvest, text) = harvest_from(
+    let (harvest, text, layout) = harvest_from(
         &auto,
         &el,
         format!("{surface} target={name:?}"),
         max_depth,
         max_nodes,
     );
-    Ok(GuiScan { harvest, text })
+    Ok(GuiScan {
+        harvest,
+        text,
+        layout,
+    })
 }
 
 pub fn harvest_window(

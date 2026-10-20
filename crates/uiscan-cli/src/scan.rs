@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::exit;
 
 use crate::bail;
-use crate::report::{report, report_text, write_dump};
+use crate::report::{report, report_layout, report_text, write_dump};
 use crate::{gui, tofu, tui, web};
 
 pub fn run(mut args: impl Iterator<Item = String>) {
@@ -34,6 +34,7 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     let surface = surface.unwrap_or_else(|| bail("scan 需要 --surface tui|web|gui"));
     let mut payload: Option<serde_json::Value> = None;
     let mut gui_text: Vec<uiscan_gui::TextFinding> = Vec::new();
+    let mut gui_layout: Vec<uiscan_gui::LayoutFinding> = Vec::new();
     let mut gui_surface = false;
     let h = match surface.as_str() {
         "tui" => {
@@ -55,6 +56,7 @@ pub fn run(mut args: impl Iterator<Item = String>) {
                     eprintln!("⚠ {}", uiscan_gui::CHROME_ONLY_HINT);
                 }
                 gui_text = s.text;
+                gui_layout = s.layout;
                 s.harvest
             })
         }
@@ -92,12 +94,13 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     if gui_surface {
         // 零发现也要打印：不打印会让人以为"没做这项对账"。
         report_text(&gui_text);
+        report_layout(&gui_layout);
     }
     let overflow = gui_text
         .iter()
         .filter(|f| f.kind == uiscan_gui::TextKind::Overflow)
         .count();
-    if !missing.is_empty() || !clips.is_empty() || overflow > 0 {
+    if !missing.is_empty() || !clips.is_empty() || overflow > 0 || !gui_layout.is_empty() {
         exit(1);
     }
 }

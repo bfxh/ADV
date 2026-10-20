@@ -258,3 +258,15 @@ fn text_rect_judgment_is_two_sided() {
         Some(uiscan_gui::TextKind::Invisible)
     );
 }
+
+/// 布局宽度对账的阈值（只在 Windows 编译，因为依赖 DirectWrite 模块的常量）。
+#[cfg(windows)]
+#[test]
+fn layout_clipped_uses_a_measured_tolerance() {
+    // 实测：WPF TextBox 被裁（需宽 348 / 可见 154）⇒ 必须判裁；放得下（140/140）⇒ 不判。
+    assert!(uiscan_gui::textfit::layout_clipped(348.0, 154.0));
+    assert!(!uiscan_gui::textfit::layout_clipped(140.0, 140.0));
+    // 容差 8 DIP：差 7 不报，差 9 报。
+    assert!(!uiscan_gui::textfit::layout_clipped(150.0, 143.0));
+    assert!(uiscan_gui::textfit::layout_clipped(152.0, 143.0));
+}

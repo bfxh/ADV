@@ -8,16 +8,30 @@
 //! - 深度与节点数都有硬闸（UIA 树能把进程拖死）。
 
 pub mod pure;
+#[cfg(windows)]
+pub mod textfit;
 
 pub use pure::{
     CHROME_ONLY_HINT, TextFinding, TextKind, chrome_only, control_type_name, item_from_uia,
     judge_text, path_segment, rect_from_ltrb,
 };
 
-/// 窗口采集结果 + TextPattern 对账发现。
+/// 布局对账发现：按字体应有多宽 vs 实际可见多宽。
+#[derive(Clone, Debug, PartialEq)]
+pub struct LayoutFinding {
+    pub loc: String,
+    pub text: String,
+    pub font: String,
+    pub size: f32,
+    pub expected: f32,
+    pub visible: f32,
+}
+
+/// 窗口采集结果 + TextPattern 对账发现 + 布局宽度对账。
 pub struct GuiScan {
     pub harvest: uiscan_core::Harvest,
     pub text: Vec<TextFinding>,
+    pub layout: Vec<LayoutFinding>,
 }
 
 /// 顶层窗口的一条读数（`list_windows` 用）。

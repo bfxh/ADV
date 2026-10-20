@@ -48,6 +48,24 @@ mod imp {
         }
     }
 
+    unsafe fn var_f64(v: &windows::Win32::System::Variant::VARIANT) -> Option<f64> {
+        let a = unsafe { &v.Anonymous.Anonymous };
+        if a.vt == windows::Win32::System::Variant::VT_R8 {
+            Some(unsafe { a.Anonymous.dblVal })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn var_bstr(v: &windows::Win32::System::Variant::VARIANT) -> Option<String> {
+        let a = unsafe { &v.Anonymous.Anonymous };
+        if a.vt == windows::Win32::System::Variant::VT_BSTR {
+            Some(unsafe { a.Anonymous.bstrVal.to_string() })
+        } else {
+            None
+        }
+    }
+
     unsafe fn rects_of(el: &IUIAutomationElement) -> Option<(usize, [f64; 4])> {
         unsafe {
             let pat: IUIAutomationTextPattern = el
@@ -62,6 +80,31 @@ mod imp {
             let mut data: *mut std::ffi::c_void = std::ptr::null_mut();
             SafeArrayAccessData(arr, &mut data).ok()?;
             let vals = std::slice::from_raw_parts(data as *const f64, n);
+            // 顺带打印字体属性与全文，看"按字体算宽"这条路有没有料
+            let font = range
+                .GetAttributeValue(windows::Win32::UI::Accessibility::UIA_FontNameAttributeId)
+                .ok()
+                .and_then(|v| unsafe { var_bstr(&v) });
+            let size = range
+                .GetAttributeValue(windows::Win32::UI::Accessibility::UIA_FontSizeAttributeId)
+                .ok()
+                .and_then(|v| unsafe { var_f64(&v) });
+            let text = range
+                .GetText(4096)
+                .ok()
+                .map(|b| b.to_string())
+                .unwrap_or_default();
+            println!(
+                "  [attr] font={font:?} size={size:?} text_len={}",
+                text.chars().count()
+            );
+            if let (Some(font), Some(size)) = (&font, size) {
+                let dip = size as f32 * 4.0 / 3.0;
+                match uiscan_gui::textfit::measure_width(font, dip, &text) {
+                    Ok(w) => println!("  [measure] dip={dip:.1} expected_width={w:.1}"),
+                    Err(e) => println!("  [measure] 失败：{e}"),
+                }
+            }
             let mut out = [f64::MAX, f64::MAX, f64::MIN, f64::MIN];
             for line in vals.chunks_exact(4) {
                 out[0] = out[0].min(line[0]);

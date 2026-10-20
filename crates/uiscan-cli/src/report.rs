@@ -61,3 +61,17 @@ pub fn report_text(findings: &[uiscan_gui::TextFinding]) {
         }
     }
 }
+
+/// GUI 布局宽度对账（按元素声明的字体算全文宽度 vs 可见宽度）。
+pub fn report_layout(findings: &[uiscan_gui::LayoutFinding]) {
+    println!(
+        "GUI 布局宽度对账（按字体算宽 vs 可见宽度）：{}",
+        findings.len()
+    );
+    for f in findings {
+        println!(
+            "  LayoutOverflow {} {:?} font={:?}/{:.1} 需宽={:.0} 可见宽={:.0}",
+            f.loc, f.text, f.font, f.size, f.expected, f.visible
+        );
+    }
+}

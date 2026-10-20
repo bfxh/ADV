@@ -206,3 +206,24 @@ GUI 需要 `TextPattern.GetBoundingRectangles` 才有得比——留作下一格
 
 复现工具：`cargo run -p uiscan-gui --example textrects -- <窗口标题>`（WPF 样本在 `E:/tmp/wpfclip`，
 两个 TextBox 的答案已知）。
+
+### WPF 布局宽度对账（2026-10-20，实测可用）
+
+思路：`TextPattern` 给**全文 + 字体名 + 字号**（实测 WPF TextBox：`Microsoft YaHei UI / 9.0`），
+用 DirectWrite 按该字体算"这段全文需要多宽"，再和 **TextPattern 可见矩形宽度**比。
+只在**单行**时判（多行有换行歧义）：
+
+- 判定：`layout_clipped(expected, visible) = expected - visible > 8`（DIP，容差覆盖内边距/次像素）。
+- **单位口径不统一**（实测）：WPF 的 FontSize 是**磅**（FontSize=12 DIP 报 9.0）；任务栏提供方报的
+  `14.0` 只有按 DIP 量才吻合（按磅会误报 `搜索` 37 vs 28）。⇒ **两种口径都量、两者都判超才记**。
+
+真跑（同一台机）：
+| 目标 | 需宽 / 可见宽 | 结果 |
+|---|---|---|
+| WPF `TextBox` 宽 160 + 长文案（被裁） | **348 / 154** | `LayoutOverflow` ✓ |
+| WPF `TextBox` 短文案（放得下） | 140 / 140 | 不报 ✓ |
+| 任务栏 `搜索`（Segoe UI/14.0） | 37 / 28（单口径） | 双口径守门后**不报** ✓ |
+| Qoder（Chromium） | — | 0 条 ✓ |
+
+边界：需要提供方支持 TextPattern **且**给出字体属性；经典 Win32 `EDIT` 与 WPF `TextBlock` 没有
+TextPattern ⇒ 这条对它们无效。多行文本（换行）不判。

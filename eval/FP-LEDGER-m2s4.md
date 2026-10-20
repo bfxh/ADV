@@ -4417,3 +4417,12 @@ fmnr 的 `eframe` 是 `default-features=false` 且 features 里没有 `accesskit
 处置：这条对账在工具里**降级为线索**（标签改成"TextPattern 可见片段口径"，`Overflow` 仍按缺陷计
 但实测从未触发；`Invisible` 打印不计退出码）。文档写明"要判 GUI 常规裁切，需平台特定布局信号或像素层"。
 **不把 TextPattern 对账当成 GUI 截断门**——这是这次实测得到的结论，不是实现缺陷。
+
+## WPF 布局宽度对账（2026-10-20，正例终于成立）
+
+- 取 TextPattern 的**全文 + FontName/FontSize**（windows 需 `Win32_System_Variant` feature 才有
+  `GetAttributeValue`），用 DirectWrite 量自然宽度，与**可见矩形宽度**比；仅单行、容差 8 DIP。
+- 真跑：WPF 被裁 TextBox **需宽 348 / 可见 154 ⇒ 报**；放得下的 140/140 ⇒ 不报；
+  任务栏 `搜索` 单口径会误报（37/28）⇒ **双口径守门**（磅与 DIP 两种解释都判超才算）后 0 条；Qoder 0 条。
+- 边界：经典 EDIT / WPF TextBlock 无 TextPattern ⇒ 无效；多行不判。
+- 这是"GUI 截断"第一条**有真实正例**的判据（TextPattern 矩形对账那条已证伪并降级为线索）。

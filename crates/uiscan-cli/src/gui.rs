@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use crate::bail;
-use crate::report::{report, report_text, write_dump};
+use crate::report::{report, report_layout, report_text, write_dump};
 
 pub enum What {
     List,
@@ -95,6 +95,7 @@ pub fn run(args: impl Iterator<Item = String>) {
             }
             report(&r.harvest);
             report_text(&r.text);
+            report_layout(&r.layout);
         }
     }
 }
