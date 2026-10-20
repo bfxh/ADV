@@ -694,9 +694,19 @@
   "max_fn_lines": 42,
   "max_type_members": 4
  },
- "crates/uiscan-cli/src/main.rs": {
-  "file_lines": 45,
+ "crates/uiscan-cli/src/locale.rs": {
+  "file_lines": 41,
   "max_fn_lines": 15,
+  "max_type_members": 0
+ },
+ "crates/uiscan-cli/src/locale_cmd.rs": {
+  "file_lines": 72,
+  "max_fn_lines": 59,
+  "max_type_members": 0
+ },
+ "crates/uiscan-cli/src/main.rs": {
+  "file_lines": 49,
+  "max_fn_lines": 16,
   "max_type_members": 0
  },
  "crates/uiscan-cli/src/report.rs": {
@@ -727,6 +737,11 @@
  "crates/uiscan-cli/tests/clip_dump.rs": {
   "file_lines": 66,
   "max_fn_lines": 18,
+  "max_type_members": 0
+ },
+ "crates/uiscan-cli/tests/locale_dump.rs": {
+  "file_lines": 51,
+  "max_fn_lines": 16,
   "max_type_members": 0
  },
  "crates/uiscan-cli/tests/scan_tui.rs": {

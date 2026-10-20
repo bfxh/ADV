@@ -227,3 +227,18 @@ GUI 需要 `TextPattern.GetBoundingRectangles` 才有得比——留作下一格
 
 边界：需要提供方支持 TextPattern **且**给出字体属性；经典 Win32 `EDIT` 与 WPF `TextBlock` 没有
 TextPattern ⇒ 这条对它们无效。多行文本（换行）不判。
+
+## 语言包对账（`uiscan locale`，2026-10-20）
+
+```
+uiscan tui-feed --file cap.bin --json dump.json      # 或 web/gui 的 --json
+uiscan locale --json dump.json --locale zh.json [--locale en.json ...]
+```
+- 判据：采集到的**可见且像文案**的串，逐个精确匹配语言包的**字符串值**（trim 后）。
+  找不到 ⇒ 疑似硬编码/漏翻，**退 1**；全覆盖退 0；用法/环境错退 2。
+- **只收值、不收键**：键名出现在界面上同样是硬编码。
+- 实测（TUI 捕获 + `locale-zh.json` 只收 `保存成功`/`错误：网络超时`）：
+  缺 **3** 条 —— `English`、`混排 A 本`、`ＡＢＣ`；符号行 `→ ← ✓ ✗` 不进候选；
+  换成覆盖全部文案的语言包 ⇒ `找不到 0 条`、rc=0。
+- 已知误报面（按"疑似"看，别当铁证）：带插值的动态文案（`Hello, {name}`）与运行时拼接的串
+  必然匹配不上；多语言互查（A 语言有、B 语言无）不在这一版里。

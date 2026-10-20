@@ -1,0 +1,47 @@
+{
+  "items": [
+    {
+      "ch": "TermCell",
+      "loc": "r0c0",
+      "rect": null,
+      "txt": "保存成功",
+      "visible": true
+    },
+    {
+      "ch": "TermCell",
+      "loc": "r1c0",
+      "rect": null,
+      "txt": "错误：网络超时",
+      "visible": true
+    },
+    {
+      "ch": "TermCell",
+      "loc": "r2c0",
+      "rect": null,
+      "txt": "English",
+      "visible": true
+    },
+    {
+      "ch": "TermCell",
+      "loc": "r2c9",
+      "rect": null,
+      "txt": "混排 A 本",
+      "visible": true
+    },
+    {
+      "ch": "TermCell",
+      "loc": "r3c0",
+      "rect": null,
+      "txt": "ＡＢＣ",
+      "visible": true
+    },
+    {
+      "ch": "TermCell",
+      "loc": "r4c0",
+      "rect": null,
+      "txt": "→ ← ✓ ✗",
+      "visible": true
+    }
+  ],
+  "surface": "tui:6x40 alt=true"
+}

@@ -4426,3 +4426,13 @@ fmnr 的 `eframe` 是 `default-features=false` 且 features 里没有 `accesskit
   任务栏 `搜索` 单口径会误报（37/28）⇒ **双口径守门**（磅与 DIP 两种解释都判超才算）后 0 条；Qoder 0 条。
 - 边界：经典 EDIT / WPF TextBlock 无 TextPattern ⇒ 无效；多行不判。
 - 这是"GUI 截断"第一条**有真实正例**的判据（TextPattern 矩形对账那条已证伪并降级为线索）。
+
+## 语言包对账落地（2026-10-20，`uiscan locale`）
+
+- 纯判据在 `crates/uiscan-cli/src/locale.rs`（递归收 JSON 字符串值；候选精确匹配；排序去重），
+  子命令 `locale_cmd.rs`：可见 + `looks_translatable` 的条目才进对账；缺失即退 1。
+- 实测：TUI 真实捕获 + 只含两条的语言包 ⇒ 缺 `English`/`混排 A 本`/`ＡＢＣ` 共 3 条；
+  符号行不进候选；全覆盖语言包 ⇒ 0 条、rc=0。测试 `tests/locale_dump.rs`（2 条）。
+- 边界写明：动态/插值文案会误报为缺失；跨语言覆盖差不在本版。
+- 过程小坑：先写纯判据、后用 heredoc 写子命令时把前者覆盖了，编译当场报
+  `cannot find function locale_values in module super::locale` ⇒ 拆成 `locale.rs` + `locale_cmd.rs`。

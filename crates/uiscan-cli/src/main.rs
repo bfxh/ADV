@@ -7,6 +7,8 @@ use std::process::exit;
 
 mod clip;
 mod gui;
+mod locale;
+mod locale_cmd;
 mod report;
 mod scan;
 mod tofu;
@@ -20,7 +22,8 @@ const USAGE: &str = "用法：
   uiscan gui (--title <子串> | --pid N | --focused) [--depth 12] [--nodes 20000] [--json <输出文件>]
   uiscan tofu --json <采集输出文件> (--font <字体文件>... | --system)
   uiscan scan --surface tui|web|gui <该面参数...> (--font <字体文件>... | --system) [--json <输出文件>]
-  uiscan clip --json <web --json 的原始载荷>]";
+  uiscan clip --json <web --json 的原始载荷>
+  uiscan locale --json <采集 dump> --locale <语言包 json> [--locale ...]";
 
 pub(crate) fn bail(msg: &str) -> ! {
     eprintln!("{msg}\n{USAGE}");
@@ -39,6 +42,7 @@ fn main() {
         "tofu" => tofu::run(args),
         "scan" => scan::run(args),
         "clip" => clip::run(args),
+        "locale" => locale_cmd::run(args),
         other => bail(&format!("未接的面：{other}（GUI 的 UIA 适配器还没写）")),
     }
 }
