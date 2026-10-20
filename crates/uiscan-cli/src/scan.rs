@@ -32,6 +32,7 @@ pub fn run(mut args: impl Iterator<Item = String>) {
         }
     }
     let surface = surface.unwrap_or_else(|| bail("scan 需要 --surface tui|web|gui"));
+    let mut payload: Option<serde_json::Value> = None;
     let h = match surface.as_str() {
         "tui" => {
             let o = tui::parse(rest.into_iter());
@@ -39,7 +40,10 @@ pub fn run(mut args: impl Iterator<Item = String>) {
         }
         "web" => {
             let o = web::parse(rest.into_iter());
-            web::collect(&o).map(|(h, _payload)| h)
+            web::collect(&o).map(|(h, p)| {
+                payload = Some(p);
+                h
+            })
         }
         "gui" => {
             let o = gui::parse(rest.into_iter());
@@ -67,7 +71,21 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     }
     let (faces, missing) = tofu::check(&h, &fonts, system).unwrap_or_else(|e| bail(&e));
     tofu::report(&h, faces, &missing);
-    if !missing.is_empty() {
+
+    // web 面顺手把截断也判了：两份判据共享同一次采集，不重复开浏览器。
+    let mut clips = Vec::new();
+    if let Some(p) = &payload {
+        clips = uiscan_web::clip::findings(p);
+        println!("截断={}", clips.len());
+        for c in &clips {
+            println!(
+                "  {:?} {} {:?} sw/cw={}/{} sh/ch={}/{}",
+                c.kind, c.loc, c.text, c.sw, c.cw, c.sh, c.chh
+            );
+        }
+    }
+
+    if !missing.is_empty() || !clips.is_empty() {
         exit(1);
     }
 }

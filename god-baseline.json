@@ -705,8 +705,8 @@
   "max_type_members": 0
  },
  "crates/uiscan-cli/src/scan.rs": {
-  "file_lines": 74,
-  "max_fn_lines": 60,
+  "file_lines": 92,
+  "max_fn_lines": 78,
   "max_type_members": 0
  },
  "crates/uiscan-cli/src/tofu.rs": {
@@ -735,7 +735,7 @@
   "max_type_members": 0
  },
  "crates/uiscan-cli/tests/scan_web_file.rs": {
-  "file_lines": 58,
+  "file_lines": 93,
   "max_fn_lines": 39,
   "max_type_members": 0
  },

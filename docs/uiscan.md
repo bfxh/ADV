@@ -160,3 +160,15 @@ uiscan clip --json payload.json        # 0=无裁切 / 1=有裁切 / 2=用法或
   缺字段时"0 条"是"没在看"，不是"干净"。
 - 真实站点跑了一把：`qingjian.app` ⇒ 截断 0、rc=0（未见误报）。
 - 边界：绝对定位/居中被祖先裁掉的、以及 Canvas 内绘制的文字，这条判据看不到。
+
+### `scan` 已把截断并进来（2026-10-20）
+
+`scan --surface web` 现在**一次采集出两份判据**：先报道具（缺字），再报布局（截断），
+共享同一次浏览器会话、同一个载荷；任一非空即 **退 1**。
+
+真跑对照：
+- `qingjian.app` ⇒ `缺字=0`、`截断=0`、rc=0；
+- 本地 `truncation.html` ⇒ `缺字=0`、`截断=4`、rc=1（`p.clip/p.ell/p.vclip/p.clamp` 逐条点名）。
+
+TUI/GUI 面目前不跑截断：TUI 的"被裁"没有独立几何可对账（格宽就是最终宽度），
+GUI 需要 `TextPattern.GetBoundingRectangles` 才有得比——留作下一格。

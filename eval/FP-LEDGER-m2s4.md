@@ -4380,3 +4380,11 @@ fmnr 的 `eframe` 是 `default-features=false` 且 features 里没有 `accesskit
   ——与真跑时"空采集假绿"同一族教训。
 - 测试：`crates/uiscan-web/tests/clip_trunc.rs`（冻结载荷逐条对应五种形状 + overflow:visible 反例 +
   1px 噪声反例）+ `crates/uiscan-cli/tests/clip_dump.rs`（4 条退 1 / 干净退 0 / 缺几何退 2）。
+
+## `scan` 串上截断（2026-10-20）
+
+- `scan --surface web` 复用同一次采集与同一个原始载荷，先报缺字、再报截断；任一非空退 1。
+- 真跑：`qingjian.app` ⇒ 缺字 0 / 截断 0 / rc=0；`truncation.html` ⇒ 缺字 0 / 截断 4 / rc=1
+  （逐条点名 p.clip / p.ell / p.vclip / p.clamp）。
+- 测试：`scan_web_file.rs` 新增"一条命令两份判据"契约（Edge 不在时显式跳过）。
+- 边界：TUI 的裁切没有独立几何（格宽即最终宽）；GUI 要等 `TextPattern.GetBoundingRectangles`。
