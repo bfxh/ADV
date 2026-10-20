@@ -1,6 +1,6 @@
 //! 输出层：候选条目、通道分布、码点、dump 写出。四个子命令共用同一种打印与落盘。
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::bail;
 
@@ -24,15 +24,6 @@ pub fn write_dump(path: &Path, h: &uiscan_core::Harvest) {
     println!("items 已写 {}", path.display());
 }
 
-/// 带 dump 的收尾：先写（可选）再打印。
-pub fn finish(h: Result<uiscan_core::Harvest, String>, dump: Option<PathBuf>) {
-    let h = h.unwrap_or_else(|e| bail(&format!("采集失败：{e}")));
-    if let Some(path) = dump {
-        write_dump(&path, &h);
-    }
-    report(&h);
-}
-
 /// 两个面共用同一份输出：候选条目 + 通道分布 + 码点。
 pub fn report(h: &uiscan_core::Harvest) {
     println!("surface={}", h.surface);
@@ -46,4 +37,25 @@ pub fn report(h: &uiscan_core::Harvest) {
     }
     let cps = h.rendered_codepoints();
     println!("非 ASCII 码点 {} 个：{:?}", cps.len(), cps);
+}
+
+/// GUI 面 TextPattern 对账的结果。`Overflow` 是缺陷；`Invisible` 只作线索（虚拟化/遮挡都会给 lines=0）。
+pub fn report_text(findings: &[uiscan_gui::TextFinding]) {
+    let overflow = findings
+        .iter()
+        .filter(|f| f.kind == uiscan_gui::TextKind::Overflow)
+        .count();
+    let invisible = findings.len() - overflow;
+    println!("GUI 文本矩形对账：溢出={overflow} 无可见矩形={invisible}");
+    for f in findings {
+        match f.kind {
+            uiscan_gui::TextKind::Overflow => println!(
+                "  Overflow {} {:?} 元素={:?} 文本={:?}",
+                f.loc, f.text, f.elem, f.union
+            ),
+            uiscan_gui::TextKind::Invisible => {
+                println!("  Invisible(线索) {} {:?}", f.loc, f.text)
+            }
+        }
+    }
 }

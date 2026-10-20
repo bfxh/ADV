@@ -10,8 +10,15 @@
 pub mod pure;
 
 pub use pure::{
-    CHROME_ONLY_HINT, chrome_only, control_type_name, item_from_uia, path_segment, rect_from_ltrb,
+    CHROME_ONLY_HINT, TextFinding, TextKind, chrome_only, control_type_name, item_from_uia,
+    judge_text, path_segment, rect_from_ltrb,
 };
+
+/// 窗口采集结果 + TextPattern 对账发现。
+pub struct GuiScan {
+    pub harvest: uiscan_core::Harvest,
+    pub text: Vec<TextFinding>,
+}
 
 /// 顶层窗口的一条读数（`list_windows` 用）。
 #[derive(Clone, Debug, PartialEq, Eq)]

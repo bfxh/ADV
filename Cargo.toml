@@ -58,7 +58,15 @@ uiscan-gui = { path = "crates/uiscan-gui" }
 uiscan-font = { path = "crates/uiscan-font" }
 vt100 = "0.16"
 tungstenite = "0.30"
-windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_Accessibility", "Win32_System_Com"] }
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_UI_Accessibility",
+    "Win32_System_Com",
+    "Win32_System_Ole",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+] }
 semver = "1"
 md-5 = "0.11"
 toml = "0.9"

@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use crate::bail;
-use crate::report::finish;
+use crate::report::{report, report_text, write_dump};
 
 pub enum What {
     List,
@@ -63,7 +63,7 @@ pub fn parse(mut args: impl Iterator<Item = String>) -> Opts {
     }
 }
 
-pub fn collect(o: &Opts) -> Result<uiscan_core::Harvest, String> {
+pub fn collect(o: &Opts) -> Result<uiscan_gui::GuiScan, String> {
     match &o.what {
         What::List => Err("--list 只列窗口、不产出采集；用 --title/--pid/--focused".to_string()),
         What::Title(t) => uiscan_gui::harvest_window(t, o.depth, o.nodes),
@@ -86,13 +86,15 @@ pub fn run(args: impl Iterator<Item = String>) {
             }
         }
         _ => {
-            let r = collect(&o);
-            if let Ok(h) = &r {
-                if uiscan_gui::chrome_only(h) {
-                    eprintln!("⚠ {}", uiscan_gui::CHROME_ONLY_HINT);
-                }
+            let r = collect(&o).unwrap_or_else(|e| bail(&format!("采集失败：{e}")));
+            if uiscan_gui::chrome_only(&r.harvest) {
+                eprintln!("⚠ {}", uiscan_gui::CHROME_ONLY_HINT);
             }
-            finish(r, o.dump.clone())
+            if let Some(path) = &o.dump {
+                write_dump(path, &r.harvest);
+            }
+            report(&r.harvest);
+            report_text(&r.text);
         }
     }
 }

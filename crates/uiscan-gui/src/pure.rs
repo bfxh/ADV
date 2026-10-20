@@ -121,3 +121,43 @@ pub fn chrome_only(h: &uiscan_core::Harvest) -> bool {
 
 /// `chrome_only` 时应打印的处置建议（原文写死一次，CLI 各面共用）。
 pub const CHROME_ONLY_HINT: &str = "这个窗口只暴露了系统标题栏，界面正文不可见：应用没有把界面接到可及性树。egui/eframe：在 eframe 的 features 里加 \"accesskit\" 后重建；Dear ImGui 没有可及性实现；其它即时模式框架需要自接 AccessKit/UIA provider。这一面的 0 条正文不能读成『界面没有文字』。";
+
+/// TextPattern 对账的判定结果。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextKind {
+    /// 文本矩形超出元素矩形（提供方给的是完整文本 extent，而元素把它裁了）
+    Overflow,
+    /// 元素在屏、有名字，但 TextPattern 一条可见矩形都没有（一个字都没画出来）
+    Invisible,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextFinding {
+    pub loc: String,
+    pub text: String,
+    pub kind: TextKind,
+    pub elem: [f64; 4],
+    pub union: Option<[f64; 4]>,
+}
+
+/// 纯判定：元素矩形 `[l,t,r,b]` × 文本并集 `[l,t,r,b]`（None = 没有任何可见行）。
+///
+/// 实测（2026-10-20）：
+/// - Chromium/Electron 的 Text/Edit：普通文本 union ⊆ 元素矩形（差 ≤1px）；
+///   被 CSS 裁掉的文本给的是**可见片段**，所以 Overflow 在 Web 类应用上基本不会触发
+///   （Web 的裁切请用 `uiscan clip`，那里有 scrollWidth 这类直接信号）。
+/// - 经典 Win32 `EDIT`：**不提供 TextPattern**（两个 EDIT 控件都取不到图案）⇒ 这一面对它无效。
+/// - 提供了图案但 `lines=0`：一个字都没有可见矩形（被完全裁掉/隐藏/滚出可视区）。
+///   `Invisible` 因此只是"可疑"，上层要结合 offscreen 判断。
+pub fn judge_text(elem: [f64; 4], union: Option<[f64; 4]>, tol: f64) -> Option<TextKind> {
+    match union {
+        None => Some(TextKind::Invisible),
+        Some(u) => {
+            if u[2] > elem[2] + tol || u[3] > elem[3] + tol {
+                Some(TextKind::Overflow)
+            } else {
+                None
+            }
+        }
+    }
+}

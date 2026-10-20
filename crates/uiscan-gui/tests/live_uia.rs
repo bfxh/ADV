@@ -18,11 +18,16 @@ fn live_uia_lists_windows_and_harvests_the_focused_one() {
 
     // 焦点窗口可能没有（无焦点时 UIA 返回错误），这条只要求"有的话能采出东西"
     match uiscan_gui::harvest_focused(8, 5000) {
-        Ok(h) => {
-            println!("焦点窗口采到 {} 条（surface={}）", h.items.len(), h.surface);
-            for it in h.candidates().iter().take(5) {
+        Ok(s) => {
+            println!(
+                "焦点窗口采到 {} 条（surface={}）",
+                s.harvest.items.len(),
+                s.harvest.surface
+            );
+            for it in s.harvest.candidates().iter().take(5) {
                 println!("  {} {:?}", it.loc, it.text);
             }
+            println!("TextPattern 对账发现 {} 条", s.text.len());
         }
         Err(e) => println!("焦点窗口没采到（可接受）：{e}"),
     }

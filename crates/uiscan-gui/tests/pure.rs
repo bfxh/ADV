@@ -228,3 +228,33 @@ fn chrome_only_detects_an_app_that_never_exposed_its_ui() {
         "空采集不算 chrome_only"
     );
 }
+
+/// TextPattern 对账的纯判定。实测基线（Qoder/Chromium）：普通文本 union ⊆ 元素矩形（差 ≤1px）。
+#[test]
+fn text_rect_judgment_is_two_sided() {
+    let elem = [100.0, 100.0, 300.0, 130.0];
+    // 文本完全在元素内 ⇒ 不报
+    assert_eq!(
+        uiscan_gui::judge_text(elem, Some([110.0, 105.0, 290.0, 125.0]), 2.0),
+        None
+    );
+    // 差 1px 内算取整噪声
+    assert_eq!(
+        uiscan_gui::judge_text(elem, Some([110.0, 105.0, 301.0, 131.0]), 2.0),
+        None
+    );
+    // 文本超出右/下边界 ⇒ 溢出
+    assert_eq!(
+        uiscan_gui::judge_text(elem, Some([110.0, 105.0, 380.0, 125.0]), 2.0),
+        Some(uiscan_gui::TextKind::Overflow)
+    );
+    assert_eq!(
+        uiscan_gui::judge_text(elem, Some([110.0, 105.0, 290.0, 160.0]), 2.0),
+        Some(uiscan_gui::TextKind::Overflow)
+    );
+    // 一条可见矩形都没有 ⇒ 线索类
+    assert_eq!(
+        uiscan_gui::judge_text(elem, None, 2.0),
+        Some(uiscan_gui::TextKind::Invisible)
+    );
+}

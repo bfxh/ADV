@@ -4388,3 +4388,17 @@ fmnr 的 `eframe` 是 `default-features=false` 且 features 里没有 `accesskit
   （逐条点名 p.clip / p.ell / p.vclip / p.clamp）。
 - 测试：`scan_web_file.rs` 新增"一条命令两份判据"契约（Edge 不在时显式跳过）。
 - 边界：TUI 的裁切没有独立几何（格宽即最终宽）；GUI 要等 `TextPattern.GetBoundingRectangles`。
+
+## GUI 截断：TextPattern 矩形对账（2026-10-20）
+
+实现：`uiscan-gui` 的 walk 对"在屏 + 有名字"的元素取 `TextPattern.GetBoundingRectangles` 并集，
+与元素矩形比：超出 >2px 记 `Overflow`（`scan`/`gui` 计入退 1）；`lines=0` 记 `Invisible`（线索）。
+新增 `GuiScan {harvest, text}`；`gui` 与 `scan` 都打印对账行。
+
+**实测三条边界（决定这条判据能信到哪）**：
+1. 经典 Win32 `EDIT` **不提供 TextPattern**（夹具 `examples/clip_fixture.rs`：两个 EDIT 都取不到图案，
+   Name 也为空）⇒ 这一面对这类控件无效。
+2. Chromium/Electron 的 Text/Edit 提供图案，但给的是**可见行**矩形：普通文本 union ⊆ 元素矩形（≤1px 差），
+   被 CSS 裁掉的文本返回可见片段 ⇒ Web 裁切只能靠 `uiscan clip`。Qoder 窗口真跑：溢出 0 / 无可见矩形 0。
+3. **Overflow 只有合成矩形的单元测试，没有真实提供方的正例**——召回率未测。`examples/textrects.rs`
+   是通用测量探针，换真应用即可复测。

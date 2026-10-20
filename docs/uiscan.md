@@ -172,3 +172,20 @@ uiscan clip --json payload.json        # 0=无裁切 / 1=有裁切 / 2=用法或
 
 TUI/GUI 面目前不跑截断：TUI 的"被裁"没有独立几何可对账（格宽就是最终宽度），
 GUI 需要 `TextPattern.GetBoundingRectangles` 才有得比——留作下一格。
+
+## GUI 截断：TextPattern 矩形对账（2026-10-20）
+
+对**在屏且有名字**的元素取 `TextPattern.GetBoundingRectangles`（每行 `[l,t,w,h]` 的并集），
+与元素 `BoundingRectangle` 对比：
+
+- `Overflow`：文本矩形右/下边界超出元素矩形 **>2px**；`scan`/`gui` 把它当真缺陷（退 1）。
+- `Invisible`（线索，不计入退出码）：元素有名字、在屏，但 TextPattern **一条可见矩形都没有**。
+
+**实测边界（必须先看这三条）**：
+1. **经典 Win32 `EDIT` 没有 TextPattern**：夹具窗口里两个 EDIT 控件都取不到图案（名字也为空）
+   ⇒ 这一面对它无效。`examples/clip_fixture.rs` 就是那个夹具。
+2. **Chromium/Electron 给的是"可见行"矩形**：普通文本 union ⊆ 元素矩形（实测差 ≤1px）；
+   被 CSS 裁掉的文本返回可见片段 ⇒ **Web 的裁切请用 `uiscan clip`**，不要指望这里报。
+   在 Qoder 窗口上真跑：溢出 0、无可见矩形 0（无误报）。
+3. **Overflow 目前只有单元测试**（合成矩形），**尚未在真实提供方上观测到**——
+   这条判据的正向召回率还没有实测数。`examples/textrects.rs` 是测量工具，可对任意窗口复测。
