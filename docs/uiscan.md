@@ -189,3 +189,20 @@ GUI 需要 `TextPattern.GetBoundingRectangles` 才有得比——留作下一格
    在 Qoder 窗口上真跑：溢出 0、无可见矩形 0（无误报）。
 3. **Overflow 目前只有单元测试**（合成矩形），**尚未在真实提供方上观测到**——
    这条判据的正向召回率还没有实测数。`examples/textrects.rs` 是测量工具，可对任意窗口复测。
+
+### 负面结论：TextPattern 测不出常规 GUI 裁切（2026-10-20 四类提供方实测）
+
+| 提供方 | TextPattern | 被裁文本的矩形 |
+|---|---|---|
+| 经典 Win32 `EDIT` | **无** | — |
+| WPF `TextBlock`（.NET 8） | **无** | — |
+| WPF `TextBox` 宽度 160 + 长文案 | 有 | union `(441,287)` 在元素 `(444,299)` **内** |
+| WPF `TextBox` 高 14 / 字号 20（纵向裁） | 有 | union 高 **4px**（只剩可见条） |
+| Chromium Text/Edit | 有 | 可见片段（union ⊆ 元素） |
+
+⇒ `GetBoundingRectangles` 给的是**可见行**的矩形，裁剪后它跟着缩，**"文本矩形超出元素"不会触发**。
+所以这条对账只能当**线索**用（`lines=0` = 一个字都不可见），不能当"GUI 截断判据"。
+真正要判 GUI 裁切，得走平台特定信号（如 WPF 的布局宽度/TextBlock.ActualWidth 对比）或像素层。
+
+复现工具：`cargo run -p uiscan-gui --example textrects -- <窗口标题>`（WPF 样本在 `E:/tmp/wpfclip`，
+两个 TextBox 的答案已知）。

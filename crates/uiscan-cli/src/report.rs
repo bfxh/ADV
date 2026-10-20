@@ -46,7 +46,9 @@ pub fn report_text(findings: &[uiscan_gui::TextFinding]) {
         .filter(|f| f.kind == uiscan_gui::TextKind::Overflow)
         .count();
     let invisible = findings.len() - overflow;
-    println!("GUI 文本矩形对账：溢出={overflow} 无可见矩形={invisible}");
+    println!(
+        "GUI 文本矩形对账（TextPattern 可见片段口径）：溢出={overflow} 无可见矩形={invisible}"
+    );
     for f in findings {
         match f.kind {
             uiscan_gui::TextKind::Overflow => println!(

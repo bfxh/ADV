@@ -4402,3 +4402,18 @@ fmnr 的 `eframe` 是 `default-features=false` 且 features 里没有 `accesskit
    被 CSS 裁掉的文本返回可见片段 ⇒ Web 裁切只能靠 `uiscan clip`。Qoder 窗口真跑：溢出 0 / 无可见矩形 0。
 3. **Overflow 只有合成矩形的单元测试，没有真实提供方的正例**——召回率未测。`examples/textrects.rs`
    是通用测量探针，换真应用即可复测。
+
+## 负面结论：TextPattern 测不出常规 GUI 裁切（2026-10-20，四类提供方实测）
+
+按用户要求找了 WPF 样本跑探针（`dotnet new wpf`，`E:/tmp/wpfclip`，三个 TextBlock + 两个 TextBox），
+连同此前三类提供方，结果一致：
+- 经典 Win32 `EDIT`：**没有** TextPattern；
+- WPF `TextBlock`（.NET 8）：**没有** TextPattern；
+- WPF `TextBox`（宽 160 + 长文案）：有图案，但 union `(441,287)` **在**元素 `(444,299)` 内；
+- WPF `TextBox`（高 14 / 字号 20，纵向裁）：有图案，union 高只剩 **4px**；
+- Chromium Text/Edit：有图案，union ⊆ 元素。
+⇒ `GetBoundingRectangles` 返回**可见行**矩形，裁剪后随之收缩，**"超出元素矩形"永不被触发**。
+
+处置：这条对账在工具里**降级为线索**（标签改成"TextPattern 可见片段口径"，`Overflow` 仍按缺陷计
+但实测从未触发；`Invisible` 打印不计退出码）。文档写明"要判 GUI 常规裁切，需平台特定布局信号或像素层"。
+**不把 TextPattern 对账当成 GUI 截断门**——这是这次实测得到的结论，不是实现缺陷。

@@ -700,8 +700,8 @@
   "max_type_members": 0
  },
  "crates/uiscan-cli/src/report.rs": {
-  "file_lines": 62,
-  "max_fn_lines": 19,
+  "file_lines": 64,
+  "max_fn_lines": 21,
   "max_type_members": 0
  },
  "crates/uiscan-cli/src/scan.rs": {
